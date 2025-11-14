@@ -124,15 +124,31 @@ export function OTDetailsSheet({ request, open, onOpenChange, onEdit }: OTDetail
           )}
 
           {/* Remarks */}
-          {(request.supervisor_remarks || request.hr_remarks || request.management_remarks) && (
+          {(request.supervisor_remarks || request.supervisor_confirmation_remarks || request.hr_remarks || request.management_remarks) && (
             <>
               <Separator />
               <div className="space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">Remarks</p>
                 {request.supervisor_remarks && (
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Supervisor</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Supervisor Verification</p>
                     <p className="text-sm">{request.supervisor_remarks}</p>
+                    {request.supervisor_verified_at && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Verified: {format(new Date(request.supervisor_verified_at), 'dd MMM yyyy, HH:mm')}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {request.supervisor_confirmation_remarks && (
+                  <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1">Supervisor Confirmation</p>
+                    <p className="text-sm">{request.supervisor_confirmation_remarks}</p>
+                    {request.supervisor_confirmation_at && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Confirmed: {format(new Date(request.supervisor_confirmation_at), 'dd MMM yyyy, HH:mm')}
+                      </p>
+                    )}
                   </div>
                 )}
                 {request.hr_remarks && (

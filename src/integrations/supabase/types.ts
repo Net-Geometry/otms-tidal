@@ -94,6 +94,30 @@ export type Database = {
         }
         Relationships: []
       }
+      company_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          selected_state: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          selected_state: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          selected_state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       company_profile: {
         Row: {
           address: string
@@ -124,77 +148,6 @@ export type Database = {
           phone?: string
           registration_no?: string
           updated_at?: string | null
-        }
-        Relationships: []
-      }
-      company_config: {
-        Row: {
-          id: string
-          company_id: string
-          selected_state: string
-          updated_at: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          company_id: string
-          selected_state: string
-          updated_at?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          company_id?: string
-          selected_state?: string
-          updated_at?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "company_config_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      malaysian_holidays: {
-        Row: {
-          id: string
-          date: string
-          name: string
-          state: string
-          type: string
-          source: string
-          year: number
-          scraped_at: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          date: string
-          name: string
-          state: string
-          type: string
-          source: string
-          year: number
-          scraped_at?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          date?: string
-          name?: string
-          state?: string
-          type?: string
-          source?: string
-          year?: number
-          scraped_at?: string
-          created_at?: string
-          updated_at?: string
         }
         Relationships: []
       }
@@ -290,6 +243,42 @@ export type Database = {
         }
         Relationships: []
       }
+      holiday_overrides: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          created_by: string
+          date: string
+          description: string | null
+          id: string
+          name: string
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          created_by: string
+          date: string
+          description?: string | null
+          id?: string
+          name: string
+          type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          created_by?: string
+          date?: string
+          description?: string | null
+          id?: string
+          name?: string
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       inventory_access_tokens: {
         Row: {
           created_at: string | null
@@ -320,6 +309,45 @@ export type Database = {
           token?: string
           used_at?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      malaysian_holidays: {
+        Row: {
+          created_at: string | null
+          date: string
+          id: string
+          name: string
+          scraped_at: string | null
+          source: string
+          state: string
+          type: string
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          id?: string
+          name: string
+          scraped_at?: string | null
+          source: string
+          state: string
+          type: string
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          id?: string
+          name?: string
+          scraped_at?: string | null
+          source?: string
+          state?: string
+          type?: string
+          updated_at?: string | null
+          year?: number
         }
         Relationships: []
       }
@@ -529,10 +557,13 @@ export type Database = {
           resubmission_count: number | null
           start_time: string
           status: Database["public"]["Enums"]["ot_status"] | null
+          supervisor_confirmation_at: string | null
+          supervisor_confirmation_remarks: string | null
           supervisor_id: string | null
           supervisor_remarks: string | null
           supervisor_verified_at: string | null
           threshold_violations: Json | null
+          ticket_number: string
           total_hours: number
           updated_at: string | null
         }
@@ -561,10 +592,13 @@ export type Database = {
           resubmission_count?: number | null
           start_time: string
           status?: Database["public"]["Enums"]["ot_status"] | null
+          supervisor_confirmation_at?: string | null
+          supervisor_confirmation_remarks?: string | null
           supervisor_id?: string | null
           supervisor_remarks?: string | null
           supervisor_verified_at?: string | null
           threshold_violations?: Json | null
+          ticket_number: string
           total_hours: number
           updated_at?: string | null
         }
@@ -593,10 +627,13 @@ export type Database = {
           resubmission_count?: number | null
           start_time?: string
           status?: Database["public"]["Enums"]["ot_status"] | null
+          supervisor_confirmation_at?: string | null
+          supervisor_confirmation_remarks?: string | null
           supervisor_id?: string | null
           supervisor_remarks?: string | null
           supervisor_verified_at?: string | null
           threshold_violations?: Json | null
+          ticket_number?: string
           total_hours?: number
           updated_at?: string | null
         }
@@ -620,6 +657,13 @@ export type Database = {
             columns: ["parent_request_id"]
             isOneToOne: false
             referencedRelation: "ot_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_parent_request_id_fkey"
+            columns: ["parent_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_confirmations"
             referencedColumns: ["id"]
           },
           {
@@ -668,10 +712,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ot_resubmission_history_original_request_id_fkey"
+            columns: ["original_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_confirmations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ot_resubmission_history_resubmitted_request_id_fkey"
             columns: ["resubmitted_request_id"]
             isOneToOne: false
             referencedRelation: "ot_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_resubmission_history_resubmitted_request_id_fkey"
+            columns: ["resubmitted_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_confirmations"
             referencedColumns: ["id"]
           },
         ]
@@ -775,6 +833,7 @@ export type Database = {
           income_tax_no: string | null
           is_ot_eligible: boolean
           joining_date: string | null
+          notification_preferences: Json | null
           phone_no: string | null
           position: string | null
           position_id: string | null
@@ -802,6 +861,7 @@ export type Database = {
           income_tax_no?: string | null
           is_ot_eligible?: boolean
           joining_date?: string | null
+          notification_preferences?: Json | null
           phone_no?: string | null
           position?: string | null
           position_id?: string | null
@@ -829,6 +889,7 @@ export type Database = {
           income_tax_no?: string | null
           is_ot_eligible?: boolean
           joining_date?: string | null
+          notification_preferences?: Json | null
           phone_no?: string | null
           position?: string | null
           position_id?: string | null
@@ -989,9 +1050,67 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      pending_confirmations: {
+        Row: {
+          created_at: string | null
+          department_id: string | null
+          department_name: string | null
+          employee_code: string | null
+          employee_id: string | null
+          employee_name: string | null
+          id: string | null
+          ot_date: string | null
+          reason: string | null
+          supervisor_email: string | null
+          supervisor_id: string | null
+          supervisor_name: string | null
+          supervisor_remarks: string | null
+          supervisor_verified_at: string | null
+          ticket_number: string | null
+          total_hours: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      calculate_daily_ot_distribution: {
+        Args: {
+          p_day_type: Database["public"]["Enums"]["day_type"]
+          p_employee_id: string
+          p_ot_date: string
+        }
+        Returns: {
+          daily_ot_amount: number
+          request_id: string
+          session_hours: number
+          session_hrp: number
+          session_orp: number
+          session_ot_amount: number
+          total_daily_hours: number
+        }[]
+      }
       calculate_ot_amount: {
         Args: {
           basic_salary: number
@@ -1020,6 +1139,10 @@ export type Database = {
           _requested_hours: number
         }
         Returns: Json
+      }
+      count_pending_confirmations: {
+        Args: { supervisor_user_id: string }
+        Returns: number
       }
       determine_day_type: {
         Args: { ot_date: string }
@@ -1064,6 +1187,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_legacy_ot_request: { Args: { request_id: string }; Returns: boolean }
       lookup_email_by_employee_id: {
         Args: { p_employee_id: string }
         Returns: string
@@ -1090,6 +1214,8 @@ export type Database = {
         | "bod_approved"
         | "pending_hr_recertification"
         | "management_approved"
+        | "pending_supervisor_confirmation"
+        | "supervisor_confirmed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1230,6 +1356,8 @@ export const Constants = {
         "bod_approved",
         "pending_hr_recertification",
         "management_approved",
+        "pending_supervisor_confirmation",
+        "supervisor_confirmed",
       ],
     },
   },

@@ -1,5 +1,5 @@
 export type AppRole = 'employee' | 'supervisor' | 'hr' | 'management' | 'admin';
-export type OTStatus = 'pending_verification' | 'supervisor_verified' | 'hr_certified' | 'management_approved' | 'rejected' | 'pending_hr_recertification';
+export type OTStatus = 'pending_verification' | 'supervisor_verified' | 'hr_certified' | 'management_approved' | 'rejected' | 'pending_hr_recertification' | 'pending_supervisor_confirmation' | 'supervisor_confirmed';
 export type DayType = 'weekday' | 'saturday' | 'sunday' | 'public_holiday';
 
 export interface OTRequest {
@@ -19,6 +19,8 @@ export interface OTRequest {
   supervisor_id: string | null;
   supervisor_verified_at: string | null;
   supervisor_remarks: string | null;
+  supervisor_confirmation_at: string | null;
+  supervisor_confirmation_remarks: string | null;
   hr_id: string | null;
   hr_approved_at: string | null;
   hr_remarks: string | null;
@@ -98,3 +100,40 @@ export interface Profile {
   created_at: string;
   updated_at: string;
 }
+
+/**
+ * Input type for confirming OT requests
+ * Used in the supervisor confirmation workflow after verification
+ */
+export interface ConfirmRequestInput {
+  /** Array of OT request IDs to confirm (supports batch confirmation) */
+  requestIds: string[];
+  /** Optional remarks from supervisor during confirmation (max 500 chars recommended) */
+  remarks?: string;
+}
+
+/**
+ * Response type for confirmation mutation
+ */
+export interface ConfirmRequestResponse {
+  success: boolean;
+  message: string;
+  confirmedIds?: string[];
+  error?: string;
+}
+
+/**
+ * Valid status transitions for supervisor confirmation workflow
+ */
+export type ConfirmationStatusTransition = {
+  from: OTStatus;
+  to: OTStatus;
+  role: 'supervisor' | 'hr' | 'management';
+};
+
+/**
+ * Helper type for validation of status transitions
+ */
+export const VALID_CONFIRMATION_TRANSITIONS: ConfirmationStatusTransition[] = [
+  { from: 'pending_supervisor_confirmation', to: 'supervisor_confirmed', role: 'supervisor' },
+];

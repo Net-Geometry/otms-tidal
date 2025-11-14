@@ -20,8 +20,10 @@ export default function VerifyOT() {
     isLoading, 
     approveRequest: approveRequestMutation, 
     rejectRequest: rejectRequestMutation,
+    confirmRequest: confirmRequestMutation,
     isApproving,
-    isRejecting
+    isRejecting,
+    isConfirming
   } = useOTApproval({ role: 'supervisor', status: statusFilter });
 
   // Wrapper functions to match the expected API
@@ -31,6 +33,10 @@ export default function VerifyOT() {
 
   const rejectRequest = async (requestIds: string[], remarks: string) => {
     await rejectRequestMutation({ requestIds, remarks });
+  };
+
+  const confirmRequest = async (requestIds: string[], remarks?: string) => {
+    await confirmRequestMutation({ requestIds, remarks });
   };
 
   const filteredRequests = requests?.filter(request => {
@@ -101,8 +107,9 @@ export default function VerifyOT() {
             </div>
 
             <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="pending_verification">Pending</TabsTrigger>
+                <TabsTrigger value="pending_supervisor_confirmation">Confirm</TabsTrigger>
                 <TabsTrigger value="completed">Verified</TabsTrigger>
                 <TabsTrigger value="rejected">Rejected</TabsTrigger>
                 <TabsTrigger value="all">All</TabsTrigger>
@@ -115,8 +122,10 @@ export default function VerifyOT() {
                   role="supervisor"
                   approveRequest={approveRequest}
                   rejectRequest={rejectRequest}
+                  confirmRequest={confirmRequest}
                   isApproving={isApproving}
                   isRejecting={isRejecting}
+                  isConfirming={isConfirming}
                   initialSelectedRequestId={selectedRequestId}
                 />
               </TabsContent>

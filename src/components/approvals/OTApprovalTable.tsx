@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -8,6 +8,7 @@ import { GroupedOTRequest } from '@/types/otms';
 import { formatTime12Hour, formatHours } from '@/lib/otCalculations';
 import { OTApprovalDetailsSheet } from './OTApprovalDetailsSheet';
 import { RejectOTModal } from './RejectOTModal';
+import { SupervisorConfirmationSheet } from '@/components/supervisor/SupervisorConfirmationSheet';
 import { Badge } from '@/components/ui/badge';
 
 type ApprovalRole = 'supervisor' | 'hr' | 'management';
@@ -18,8 +19,10 @@ interface OTApprovalTableProps {
   role: ApprovalRole;
   approveRequest?: (requestIds: string[], remarks?: string) => Promise<void>;
   rejectRequest?: (requestIds: string[], remarks: string) => Promise<void>;
+  confirmRequest?: (requestIds: string[], remarks?: string) => Promise<void>;
   isApproving?: boolean;
   isRejecting?: boolean;
+  isConfirming?: boolean;
   showActions?: boolean;
   initialSelectedRequestId?: string | null;
 }
@@ -30,13 +33,16 @@ export function OTApprovalTable({
   role,
   approveRequest,
   rejectRequest,
+  confirmRequest,
   isApproving,
   isRejecting,
+  isConfirming,
   showActions = true,
   initialSelectedRequestId = null
 }: OTApprovalTableProps) {
   const [selectedRequest, setSelectedRequest] = useState<GroupedOTRequest | null>(null);
   const [rejectingRequest, setRejectingRequest] = useState<{ request: GroupedOTRequest; sessionIds: string[] } | null>(null);
+  const [confirmingRequest, setConfirmingRequest] = useState<GroupedOTRequest | null>(null);
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
 
   // Auto-open request from parent component
@@ -75,11 +81,30 @@ export function OTApprovalTable({
     }
   };
 
+  const handleConfirm = (request: GroupedOTRequest) => {
+    setConfirmingRequest(request);
+  };
+
+  const handleConfirmSubmit = async (requestIds: string[], remarks?: string) => {
+    if (!confirmRequest) return;
+    try {
+      await confirmRequest(requestIds, remarks);
+      setConfirmingRequest(null);
+    } catch (error) {
+      // Error is handled by the hook
+      throw error;
+    }
+  };
+
   const canApproveOrReject = (request: GroupedOTRequest) => {
     if (role === 'supervisor') return request.status === 'pending_verification';
-    if (role === 'hr') return request.status === 'supervisor_verified';
+    if (role === 'hr') return request.status === 'supervisor_verified' || request.status === 'supervisor_confirmed';
     if (role === 'management') return request.status === 'hr_certified';
     return false;
+  };
+
+  const canConfirm = (request: GroupedOTRequest) => {
+    return role === 'supervisor' && request.status === 'pending_supervisor_confirmation';
   };
 
   if (isLoading) {
@@ -113,10 +138,15 @@ export function OTApprovalTable({
           <TableBody>
             {requests.map((request) => {
               const profile = (request as any).profiles;
+              const isPendingConfirmation = request.status === 'pending_supervisor_confirmation';
               return (
                 <TableRow 
                   key={request.id} 
-                  className="hover:bg-muted/50 transition-colors cursor-pointer"
+                  className={`transition-colors cursor-pointer ${
+                    isPendingConfirmation 
+                      ? 'bg-amber-50 dark:bg-amber-950/10 border-l-4 border-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/20' 
+                      : 'hover:bg-muted/50'
+                  }`}
                   onClick={() => setSelectedRequest(request)}
                 >
                   <TableCell>
@@ -167,6 +197,18 @@ export function OTApprovalTable({
                   {showActions && (
                     <TableCell>
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        {canConfirm(request) && confirmRequest && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleConfirm(request)}
+                            disabled={isConfirming}
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            <CheckCheck className="h-4 w-4 mr-1" />
+                            {isConfirming ? 'Confirming...' : 'Confirm'}
+                          </Button>
+                        )}
                         {canApproveOrReject(request) && approveRequest && rejectRequest && (
                           <>
                             <Button
@@ -221,6 +263,14 @@ export function OTApprovalTable({
         onOpenChange={(open) => !open && setRejectingRequest(null)}
         onConfirm={handleRejectConfirm}
         isLoading={isRejecting}
+      />
+
+      <SupervisorConfirmationSheet
+        request={confirmingRequest}
+        open={!!confirmingRequest}
+        onOpenChange={(open) => !open && setConfirmingRequest(null)}
+        onConfirm={handleConfirmSubmit}
+        isConfirming={isConfirming || false}
       />
     </>
   );

@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { OTRequest, OTStatus, AppRole, GroupedOTRequest } from '@/types/otms';
+import { OTRequest, OTStatus, AppRole, GroupedOTRequest, ConfirmRequestInput } from '@/types/otms';
 import { toast } from 'sonner';
+import { validateConfirmationTransition, validateRemarks, isLegacyRequest } from '@/services/ot-workflow';
 
 /**
  * Send employee notification via Edge Function
@@ -115,7 +116,8 @@ const getStatusFilter = (role: ApprovalRole, statusFilter?: string): OTStatus[] 
     case 'supervisor':
       return ['pending_verification'];
     case 'hr':
-      return ['pending_verification', 'supervisor_verified'];
+      // HR sees supervisor-confirmed requests and legacy supervisor-verified requests
+      return ['supervisor_confirmed', 'supervisor_verified'];
     case 'management':
       return ['hr_certified'];
     default:
@@ -127,7 +129,8 @@ const getStatusFilter = (role: ApprovalRole, statusFilter?: string): OTStatus[] 
 const getApprovedStatus = (role: ApprovalRole): OTStatus => {
   switch (role) {
     case 'supervisor':
-      return 'supervisor_verified';
+      // Updated: After supervisor verification, request goes to pending confirmation
+      return 'pending_supervisor_confirmation';
     case 'hr':
       return 'hr_certified';
     case 'management':
@@ -278,11 +281,46 @@ export function useOTApproval(options: UseOTApprovalOptions) {
           // Don't throw - notification failure should not prevent approval
         });
       });
+
+      return { requestIds };
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey });
       const actionLabel = role === 'supervisor' ? 'verified' : role === 'hr' ? 'approved' : 'reviewed';
       toast.success(`OT request ${actionLabel} successfully`);
+
+      // For supervisor role: trigger confirmation request notification
+      if (role === 'supervisor' && data?.requestIds) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) {
+            console.warn('No user session for sending confirmation notification');
+            return;
+          }
+
+          // Send notification for each verified request
+          for (const requestId of data.requestIds) {
+            try {
+              const response = await supabase.functions.invoke('send-supervisor-confirmation-notification', {
+                body: {
+                  requestId,
+                  employeeId: user.id
+                }
+              });
+
+              if (response.error) {
+                console.error('Failed to send confirmation notification:', response.error);
+              } else {
+                console.log('Confirmation notification sent successfully:', response.data);
+              }
+            } catch (notifError) {
+              console.error('Error sending confirmation notification (non-blocking):', notifError);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to trigger confirmation notifications (non-blocking):', error);
+        }
+      }
     },
     onError: (error) => {
       toast.error(`Failed to approve request: ${error.message}`);
@@ -340,13 +378,109 @@ export function useOTApproval(options: UseOTApprovalOptions) {
     },
   });
 
+  // Confirm mutation - new supervisor confirmation step after verification
+  const confirmMutation = useMutation({
+    mutationFn: async ({ requestIds, remarks }: ConfirmRequestInput) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Validate remarks length if provided
+      const remarksValidation = validateRemarks(remarks);
+      if (!remarksValidation.valid) {
+        throw new Error(remarksValidation.error);
+      }
+
+      // Fetch the requests to validate
+      const { data: requests, error: fetchError } = await supabase
+        .from('ot_requests')
+        .select('*')
+        .in('id', requestIds);
+
+      if (fetchError) throw fetchError;
+      if (!requests || requests.length === 0) {
+        throw new Error('No requests found');
+      }
+
+      // Validate each request
+      const validationErrors: string[] = [];
+      requests.forEach((request: any) => {
+        // Skip legacy requests
+        if (isLegacyRequest(request)) {
+          validationErrors.push(`Request ${request.id} is a legacy request and cannot be confirmed`);
+          return;
+        }
+
+        const validation = validateConfirmationTransition(request, user.id);
+        if (!validation.valid) {
+          validationErrors.push(`Request ${request.id}: ${validation.error}`);
+        }
+      });
+
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors.join('; '));
+      }
+
+      // Perform batch confirmation
+      const updateData = {
+        status: 'supervisor_confirmed' as OTStatus,
+        supervisor_confirmation_at: new Date().toISOString(),
+        supervisor_confirmation_remarks: remarks || null,
+      };
+
+      const { error } = await supabase
+        .from('ot_requests')
+        .update(updateData)
+        .in('id', requestIds);
+
+      if (error) throw error;
+
+      return { requestIds, success: true };
+    },
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['ot-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['supervisor-dashboard-metrics'] });
+      
+      const count = data.requestIds.length;
+      toast.success(`${count} OT request${count > 1 ? 's' : ''} confirmed successfully`);
+
+      // Send confirmation success notification to employees
+      try {
+        for (const requestId of data.requestIds) {
+          try {
+            const response = await supabase.functions.invoke('send-employee-confirmation-notification', {
+              body: {
+                requestId
+              }
+            });
+
+            if (response.error) {
+              console.error('Failed to send employee confirmation notification:', response.error);
+            } else {
+              console.log('Employee confirmation notification sent successfully:', response.data);
+            }
+          } catch (notifError) {
+            console.error('Error sending employee confirmation notification (non-blocking):', notifError);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to trigger employee notifications (non-blocking):', error);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Failed to confirm request: ${error.message}`);
+    },
+  });
+
   return {
     requests: groupOTRequestsByEmployee(data || []),
     isLoading,
     error,
     approveRequest: approveMutation.mutateAsync,
     rejectRequest: rejectMutation.mutateAsync,
+    confirmRequest: confirmMutation.mutateAsync,
     isApproving: approveMutation.isPending,
     isRejecting: rejectMutation.isPending,
+    isConfirming: confirmMutation.isPending,
   };
 }
