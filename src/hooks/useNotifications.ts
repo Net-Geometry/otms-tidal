@@ -9,7 +9,14 @@ export interface Notification {
   message: string;
   link: string | null;
   is_read: boolean;
-  notification_type: 'ot_approved' | 'ot_rejected' | 'ot_pending_review';
+  notification_type: 'ot_approved' 
+    | 'ot_rejected' 
+    | 'ot_pending_review'
+    | 'ot_requests_new'
+    | 'ot_requests_approved'
+    | 'ot_requests_rejected'
+    | 'ot_pending_confirmation'      // NEW: Supervisor needs to confirm OT
+    | 'ot_supervisor_confirmed';     // NEW: Supervisor confirmed OT
   created_at: string;
 }
 

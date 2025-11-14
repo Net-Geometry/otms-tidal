@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Clock, ClipboardList, CheckSquare } from 'lucide-react';
+import { Users, Clock, ClipboardList, CheckSquare, ClipboardCheck } from 'lucide-react';
 import { SupervisorDashboardCard } from '@/components/supervisor/SupervisorDashboardCard';
 import { SupervisorOTTrendChart } from '@/components/supervisor/SupervisorOTTrendChart';
 import { OTVerificationBreakdownChart } from '@/components/supervisor/OTVerificationBreakdownChart';
@@ -15,6 +15,7 @@ export default function SupervisorDashboard() {
   const [stats, setStats] = useState({
     teamOTHours: 0,
     pendingVerifications: 0,
+    pendingConfirmations: 0,
     verifiedRequests: 0,
     teamMembersCount: 0,
   });
@@ -62,11 +63,13 @@ export default function SupervisorDashboard() {
 
     const teamOTHours = otRequests?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
     const pendingVerifications = otRequests?.filter(req => req.status === 'pending_verification').length || 0;
+    const pendingConfirmations = otRequests?.filter(req => req.status === 'pending_supervisor_confirmation').length || 0;
     const verifiedRequests = otRequests?.filter(req => req.status === 'supervisor_verified' || req.status === 'hr_certified' || req.status === 'bod_approved').length || 0;
 
     setStats({
       teamOTHours,
       pendingVerifications,
+      pendingConfirmations,
       verifiedRequests,
       teamMembersCount: teamCount || 0,
     });
@@ -85,9 +88,10 @@ export default function SupervisorDashboard() {
         </div>
 
         {/* KPI Cards Grid */}
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
           {loading ? (
             <>
+              <Skeleton className="h-32" />
               <Skeleton className="h-32" />
               <Skeleton className="h-32" />
               <Skeleton className="h-32" />
@@ -108,6 +112,13 @@ export default function SupervisorDashboard() {
                 subtitle="Awaiting your review"
                 icon={ClipboardList}
                 variant="purple"
+              />
+              <SupervisorDashboardCard
+                title="Pending Confirmations"
+                value={stats.pendingConfirmations}
+                subtitle="Awaiting your confirmation"
+                icon={ClipboardCheck}
+                variant="yellow"
               />
               <SupervisorDashboardCard
                 title="Verified Requests"
