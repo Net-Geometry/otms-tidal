@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import { useEligibilityRules } from '@/hooks/hr/useEligibilityRules';
 import { useDeleteEligibilityRule } from '@/hooks/hr/useDeleteEligibilityRule';
 import { EligibilityRuleCard } from './EligibilityRuleCard';
+import { EligibilityRuleDialog } from './EligibilityRuleDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
@@ -20,12 +21,29 @@ export function EligibilityRulesTab() {
   const { data: rules, isLoading } = useEligibilityRules();
   const deleteRule = useDeleteEligibilityRule();
   const [ruleToDelete, setRuleToDelete] = useState<any>(null);
+  const [ruleToEdit, setRuleToEdit] = useState<any>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleDelete = () => {
     if (ruleToDelete) {
       deleteRule.mutate(ruleToDelete.id);
       setRuleToDelete(null);
     }
+  };
+
+  const handleEdit = (rule: any) => {
+    setRuleToEdit(rule);
+    setIsDialogOpen(true);
+  };
+
+  const handleAdd = () => {
+    setRuleToEdit(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setIsDialogOpen(false);
+    setRuleToEdit(null);
   };
 
   return (
@@ -37,7 +55,7 @@ export function EligibilityRulesTab() {
             Define who is eligible for overtime based on salary, department, and role
           </p>
         </div>
-        <Button className="bg-[#5F26B4] hover:bg-[#5F26B4]/90">
+        <Button className="bg-[#5F26B4] hover:bg-[#5F26B4]/90" onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
           Add Rule
         </Button>
@@ -54,7 +72,7 @@ export function EligibilityRulesTab() {
             <EligibilityRuleCard
               key={rule.id}
               rule={rule}
-              onEdit={() => {}}
+              onEdit={handleEdit}
               onDelete={setRuleToDelete}
             />
           ))
@@ -64,6 +82,12 @@ export function EligibilityRulesTab() {
           </div>
         )}
       </div>
+
+      <EligibilityRuleDialog
+        open={isDialogOpen}
+        onOpenChange={handleDialogClose}
+        rule={ruleToEdit}
+      />
 
       <AlertDialog open={!!ruleToDelete} onOpenChange={() => setRuleToDelete(null)}>
         <AlertDialogContent>

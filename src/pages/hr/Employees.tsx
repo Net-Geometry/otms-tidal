@@ -10,6 +10,8 @@ import { InviteEmployeeDialog } from '@/components/hr/employees/InviteEmployeeDi
 import { EmployeeStats } from '@/components/hr/employees/EmployeeStats';
 import { useEmployees } from '@/hooks/hr/useEmployees';
 import { useQueryClient } from '@tanstack/react-query';
+import { exportToCSV } from '@/lib/exportUtils';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Employees() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -17,9 +19,62 @@ export default function Employees() {
   const [statusFilter, setStatusFilter] = useState('all');
   const { data: employees, isLoading } = useEmployees();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['hr-employees'] });
+  const handleRefresh = async () => {
+    try {
+      await queryClient.invalidateQueries({ queryKey: ['hr-employees'] });
+      toast({
+        title: 'Success',
+        description: 'Employee list refreshed successfully',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to refresh employee list',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExport = () => {
+    if (!employees || employees.length === 0) {
+      toast({
+        title: 'No Data',
+        description: 'No employees to export',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const headers = [
+      { key: 'employee_id', label: 'Employee ID' },
+      { key: 'full_name', label: 'Full Name' },
+      { key: 'email', label: 'Email' },
+      { key: 'phone_no', label: 'Phone' },
+      { key: 'department', label: 'Department' },
+      { key: 'company', label: 'Company' },
+      { key: 'role', label: 'Role' },
+      { key: 'status', label: 'Status' },
+    ];
+
+    const exportData = employees.map(emp => ({
+      employee_id: emp.employee_id || '',
+      full_name: emp.full_name || '',
+      email: emp.email || '',
+      phone_no: emp.phone_no || '',
+      department: emp.department?.name || '',
+      company: emp.company?.name || '',
+      role: emp.user_roles?.[0]?.role || '',
+      status: emp.status || '',
+    }));
+
+    exportToCSV(exportData, `employees-${new Date().toISOString().split('T')[0]}`, headers);
+    
+    toast({
+      title: 'Success',
+      description: 'Employee list exported successfully',
+    });
   };
 
   return (
@@ -35,7 +90,7 @@ export default function Employees() {
               <RotateCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>

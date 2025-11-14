@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { XCircle, AlertTriangle } from 'lucide-react';
 import {
@@ -38,6 +38,14 @@ export function RejectOTModal({
   const [remarks, setRemarks] = useState('');
   const [error, setError] = useState('');
 
+  // Reset state when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setRemarks('');
+      setError('');
+    }
+  }, [open]);
+
   const handleSubmit = () => {
     if (!remarks.trim()) {
       setError('Reason for rejection is required');
@@ -49,13 +57,9 @@ export function RejectOTModal({
     }
     
     onConfirm(remarks);
-    setRemarks('');
-    setError('');
   };
 
   const handleCancel = () => {
-    setRemarks('');
-    setError('');
     onOpenChange(false);
   };
 
@@ -66,6 +70,9 @@ export function RejectOTModal({
     ? request.sessions.filter(s => selectedSessionIds.includes(s.id))
     : request.sessions;
   const isPartialRejection = selectedSessions.length < request.sessions.length;
+
+  // Calculate if button should be enabled
+  const isButtonDisabled = isLoading || remarks.trim().length < 10;
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -171,7 +178,7 @@ export function RejectOTModal({
           <Button
             variant="destructive"
             onClick={handleSubmit}
-            disabled={isLoading || !remarks.trim() || remarks.trim().length < 10}
+            disabled={isButtonDisabled}
           >
             <XCircle className="h-4 w-4 mr-2" />
             {isLoading ? 'Rejecting...' : 'Submit Rejection'}
