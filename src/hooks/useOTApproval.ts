@@ -292,19 +292,29 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       // For supervisor role: trigger confirmation request notification
       if (role === 'supervisor' && data?.requestIds) {
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
-            console.warn('No user session for sending confirmation notification');
+          // Fetch the OT requests to get employee IDs
+          const { data: requests, error: fetchError } = await supabase
+            .from('ot_requests')
+            .select('id, employee_id')
+            .in('id', data.requestIds);
+
+          if (fetchError) {
+            console.error('Failed to fetch OT requests for notifications:', fetchError);
+            return;
+          }
+
+          if (!requests || requests.length === 0) {
+            console.warn('No OT requests found for confirmation notifications');
             return;
           }
 
           // Send notification for each verified request
-          for (const requestId of data.requestIds) {
+          for (const request of requests) {
             try {
               const response = await supabase.functions.invoke('send-supervisor-confirmation-notification', {
                 body: {
-                  requestId,
-                  employeeId: user.id
+                  requestId: request.id,
+                  employeeId: request.employee_id
                 }
               });
 
