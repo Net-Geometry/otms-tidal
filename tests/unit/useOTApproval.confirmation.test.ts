@@ -98,7 +98,7 @@ describe('useOTApproval - Confirmation Mutation', () => {
       _mockChain: mockChain, // Store reference for resetting in tests
     };
 
-    (createClient as any).mockReturnValue(mockSupabase);
+    vi.mocked(createClient).mockReturnValue(mockSupabase);
   });
 
   afterEach(() => {
