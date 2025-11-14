@@ -49,9 +49,26 @@ const mockLegacyRequest = {
   supervisor_confirmation_remarks: null,
 };
 
+
+interface MockSupabaseClient {
+  from: (table: string) => MockSupabaseQueryChain;
+  auth: {
+    getUser: () => Promise<{ data: { user: { id: string } }, error: null }>;
+  };
+  _mockChain: MockSupabaseQueryChain;
+}
+
+interface MockSupabaseQueryChain {
+  select: () => MockSupabaseQueryChain;
+  update: () => MockSupabaseQueryChain;
+  eq: () => MockSupabaseQueryChain;
+  in: () => MockSupabaseQueryChain;
+  single: () => Promise<{ data: any; error: any }>;
+}
+
 describe('useOTApproval - Confirmation Mutation', () => {
   let queryClient: QueryClient;
-  let mockSupabase: any;
+  let mockSupabase: MockSupabaseClient;
 
   beforeEach(() => {
     queryClient = new QueryClient({
