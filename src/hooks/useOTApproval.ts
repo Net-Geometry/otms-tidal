@@ -413,7 +413,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
 
       // Validate each request
       const validationErrors: string[] = [];
-      requests.forEach((request: any) => {
+      requests.forEach((request: OTRequest) => {
         // Skip legacy requests
         if (isLegacyRequest(request)) {
           validationErrors.push(`Request ${request.id} is a legacy request and cannot be confirmed`);
