@@ -8,7 +8,8 @@ import { GroupedOTRequest } from '@/types/otms';
 import { formatTime12Hour, formatHours } from '@/lib/otCalculations';
 import { OTApprovalDetailsSheet } from './OTApprovalDetailsSheet';
 import { RejectOTModal } from './RejectOTModal';
-import { SupervisorConfirmationSheet } from '@/components/supervisor/SupervisorConfirmationSheet';
+import { RespectiveSupervisorConfirmationSheet } from '@/components/supervisor/RespectiveSupervisorConfirmationSheet';
+import { RequestRespectiveSupervisorConfirmationSheet } from '@/components/supervisor/RequestRespectiveSupervisorConfirmationSheet';
 import { Badge } from '@/components/ui/badge';
 
 type ApprovalRole = 'supervisor' | 'hr' | 'management';
@@ -20,29 +21,47 @@ interface OTApprovalTableProps {
   approveRequest?: (requestIds: string[], remarks?: string) => Promise<void>;
   rejectRequest?: (requestIds: string[], remarks: string) => Promise<void>;
   confirmRequest?: (requestIds: string[], remarks?: string) => Promise<void>;
+  requestRespectiveSupervisorConfirmation?: (requestIds: string[]) => Promise<void>;
+  confirmRespectiveSupervisor?: (requestIds: string[], remarks?: string) => Promise<void>;
+  denyRespectiveSupervisor?: (requestIds: string[], denialRemarks: string) => Promise<void>;
+  reviseDeniedRequest?: (requestIds: string[], remarks?: string) => Promise<void>;
   isApproving?: boolean;
   isRejecting?: boolean;
   isConfirming?: boolean;
+  isRequestingRespectiveSupervisorConfirmation?: boolean;
+  isConfirmingRespectiveSupervisor?: boolean;
+  isDenyingRespectiveSupervisor?: boolean;
+  isRevisingDeniedRequest?: boolean;
   showActions?: boolean;
   initialSelectedRequestId?: string | null;
 }
 
-export function OTApprovalTable({ 
-  requests, 
-  isLoading, 
+export function OTApprovalTable({
+  requests,
+  isLoading,
   role,
   approveRequest,
   rejectRequest,
   confirmRequest,
+  requestRespectiveSupervisorConfirmation,
+  confirmRespectiveSupervisor,
+  denyRespectiveSupervisor,
+  reviseDeniedRequest,
   isApproving,
   isRejecting,
   isConfirming,
+  isRequestingRespectiveSupervisorConfirmation,
+  isConfirmingRespectiveSupervisor,
+  isDenyingRespectiveSupervisor,
+  isRevisingDeniedRequest,
   showActions = true,
   initialSelectedRequestId = null
 }: OTApprovalTableProps) {
   const [selectedRequest, setSelectedRequest] = useState<GroupedOTRequest | null>(null);
   const [rejectingRequest, setRejectingRequest] = useState<{ request: GroupedOTRequest; sessionIds: string[] } | null>(null);
   const [confirmingRequest, setConfirmingRequest] = useState<GroupedOTRequest | null>(null);
+  const [requestingRespectiveSupervisorConfirmation, setRequestingRespectiveSupervisorConfirmation] = useState<GroupedOTRequest | null>(null);
+  const [selectedRequestForRespectiveSupervisorConfirmation, setSelectedRequestForRespectiveSupervisorConfirmation] = useState<GroupedOTRequest | null>(null);
   const [approvingRequestId, setApprovingRequestId] = useState<string | null>(null);
 
   // Auto-open request from parent component
@@ -82,7 +101,7 @@ export function OTApprovalTable({
   };
 
   const handleConfirm = (request: GroupedOTRequest) => {
-    setConfirmingRequest(request);
+    setSelectedRequest(request);
   };
 
   const handleConfirmSubmit = async (requestIds: string[], remarks?: string) => {
@@ -104,7 +123,45 @@ export function OTApprovalTable({
   };
 
   const canConfirm = (request: GroupedOTRequest) => {
-    return role === 'supervisor' && request.status === 'pending_supervisor_confirmation';
+    return role === 'supervisor' &&
+           request.status === 'pending_supervisor_confirmation' &&
+           (!request.respective_supervisor_id || request.respective_supervisor_confirmed_at);
+  };
+
+  const canConfirmRespectiveSupervisor = (request: GroupedOTRequest) => {
+    return role === 'supervisor' && request.status === 'pending_respective_supervisor_confirmation';
+  };
+
+  const shouldRequestRespectiveSupervisorConfirmation = (request: GroupedOTRequest) => {
+    return role === 'supervisor' &&
+           request.status === 'pending_supervisor_confirmation' &&
+           request.respective_supervisor_id !== null &&
+           request.respective_supervisor_id !== undefined &&
+           !request.respective_supervisor_confirmed_at;
+  };
+
+  const canReviewDeniedRequest = (request: GroupedOTRequest) => {
+    return role === 'supervisor' && request.status === 'pending_supervisor_review';
+  };
+
+  const handleRespectiveSupervisorConfirmationSubmit = async (requestIds: string[], remarks?: string) => {
+    if (!confirmRespectiveSupervisor) return;
+    try {
+      await confirmRespectiveSupervisor(requestIds, remarks);
+      setSelectedRequestForRespectiveSupervisorConfirmation(null);
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  const handleRespectiveSupervisorDenySubmit = async (requestIds: string[], denialRemarks: string) => {
+    if (!denyRespectiveSupervisor) return;
+    try {
+      await denyRespectiveSupervisor(requestIds, denialRemarks);
+      setSelectedRequestForRespectiveSupervisorConfirmation(null);
+    } catch (error) {
+      throw error;
+    }
   };
 
   if (isLoading) {
@@ -139,12 +196,15 @@ export function OTApprovalTable({
             {requests.map((request) => {
               const profile = (request as any).profiles;
               const isPendingConfirmation = request.status === 'pending_supervisor_confirmation';
+              const isPendingRespectiveSupervisorConfirmation = request.status === 'pending_respective_supervisor_confirmation';
               return (
-                <TableRow 
-                  key={request.id} 
+                <TableRow
+                  key={request.id}
                   className={`transition-colors cursor-pointer ${
-                    isPendingConfirmation 
-                      ? 'bg-amber-50 dark:bg-amber-950/10 border-l-4 border-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/20' 
+                    isPendingRespectiveSupervisorConfirmation
+                      ? 'bg-indigo-50 dark:bg-indigo-950/10 border-l-4 border-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/20'
+                      : isPendingConfirmation
+                      ? 'bg-amber-50 dark:bg-amber-950/10 border-l-4 border-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/20'
                       : 'hover:bg-muted/50'
                   }`}
                   onClick={() => setSelectedRequest(request)}
@@ -197,6 +257,55 @@ export function OTApprovalTable({
                   {showActions && (
                     <TableCell>
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        {canReviewDeniedRequest(request) && reviseDeniedRequest && rejectRequest && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => setSelectedRequest(request)}
+                              disabled={isRevisingDeniedRequest}
+                              className="bg-amber-600 hover:bg-amber-700 text-white"
+                            >
+                              <CheckCheck className="h-4 w-4 mr-1" />
+                              {isRevisingDeniedRequest ? 'Revising...' : 'Revise & Resubmit'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleReject(request, request.request_ids)}
+                              disabled={isRejecting}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Reject
+                            </Button>
+                          </>
+                        )}
+                        {canConfirmRespectiveSupervisor(request) && confirmRespectiveSupervisor && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => {
+                              setSelectedRequestForRespectiveSupervisorConfirmation(request);
+                            }}
+                            disabled={isConfirmingRespectiveSupervisor}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                          >
+                            <CheckCheck className="h-4 w-4 mr-1" />
+                            {isConfirmingRespectiveSupervisor ? 'Confirming...' : 'Confirm'}
+                          </Button>
+                        )}
+                        {shouldRequestRespectiveSupervisorConfirmation(request) && requestRespectiveSupervisorConfirmation && (
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => setRequestingRespectiveSupervisorConfirmation(request)}
+                            disabled={isRequestingRespectiveSupervisorConfirmation}
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                          >
+                            <CheckCheck className="h-4 w-4 mr-1" />
+                            {isRequestingRespectiveSupervisorConfirmation ? 'Requesting...' : 'Request Confirmation'}
+                          </Button>
+                        )}
                         {canConfirm(request) && confirmRequest && (
                           <Button
                             size="sm"
@@ -219,8 +328,8 @@ export function OTApprovalTable({
                               className="bg-green-600 hover:bg-green-700 text-white"
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
-                  {approvingRequestId === request.id 
-                    ? (role === 'hr' ? 'Certifying...' : role === 'supervisor' ? 'Verifying...' : 'Approving...') 
+                  {approvingRequestId === request.id
+                    ? (role === 'hr' ? 'Certifying...' : role === 'supervisor' ? 'Verifying...' : 'Approving...')
                     : (role === 'hr' ? 'Certify' : role === 'supervisor' ? 'Verify' : 'Approve')
                   }
                             </Button>
@@ -252,8 +361,16 @@ export function OTApprovalTable({
         role={role}
         onApprove={approveRequest ? handleApprove : undefined}
         onReject={rejectRequest ? handleReject : undefined}
+        onConfirm={confirmRequest ? handleConfirmSubmit : undefined}
         isApproving={isApproving || !!approvingRequestId}
         isRejecting={isRejecting}
+        isConfirming={isConfirming}
+        onConfirmRespectiveSupervisor={confirmRespectiveSupervisor}
+        onDenyRespectiveSupervisor={denyRespectiveSupervisor}
+        onReviseDeniedRequest={reviseDeniedRequest}
+        isConfirmingRespectiveSupervisor={isConfirmingRespectiveSupervisor}
+        isDenyingRespectiveSupervisor={isDenyingRespectiveSupervisor}
+        isRevisingDeniedRequest={isRevisingDeniedRequest}
       />
 
       <RejectOTModal
@@ -265,12 +382,25 @@ export function OTApprovalTable({
         isLoading={isRejecting}
       />
 
-      <SupervisorConfirmationSheet
-        request={confirmingRequest}
-        open={!!confirmingRequest}
-        onOpenChange={(open) => !open && setConfirmingRequest(null)}
-        onConfirm={handleConfirmSubmit}
-        isConfirming={isConfirming || false}
+      <RespectiveSupervisorConfirmationSheet
+        request={selectedRequestForRespectiveSupervisorConfirmation}
+        open={!!selectedRequestForRespectiveSupervisorConfirmation}
+        onOpenChange={(open) => !open && setSelectedRequestForRespectiveSupervisorConfirmation(null)}
+        onConfirm={handleRespectiveSupervisorConfirmationSubmit}
+        onDeny={handleRespectiveSupervisorDenySubmit}
+        isConfirming={isConfirmingRespectiveSupervisor || false}
+        isDenying={isDenyingRespectiveSupervisor || false}
+      />
+
+      <RequestRespectiveSupervisorConfirmationSheet
+        request={requestingRespectiveSupervisorConfirmation}
+        open={!!requestingRespectiveSupervisorConfirmation}
+        onOpenChange={(open) => !open && setRequestingRespectiveSupervisorConfirmation(null)}
+        onRequest={(requestIds) => {
+          if (!requestRespectiveSupervisorConfirmation) return Promise.resolve();
+          return requestRespectiveSupervisorConfirmation(requestIds);
+        }}
+        isRequesting={isRequestingRespectiveSupervisorConfirmation || false}
       />
     </>
   );

@@ -144,13 +144,13 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                 }
               </TableCell>
               <TableCell>
-                <Badge 
+                <Badge
                   className={
-                    employee.status === 'active' 
-                      ? 'bg-green-100 text-green-700 hover:bg-green-100' 
+                    employee.status === 'active'
+                      ? 'bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900 dark:text-green-200'
                       : employee.status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
+                      ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200'
+                      : 'bg-muted text-muted-foreground hover:bg-muted'
                   }
                 >
                   {employee.status}
