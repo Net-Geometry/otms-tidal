@@ -15,15 +15,23 @@ export default function VerifyOT() {
   const [statusFilter, setStatusFilter] = useState('pending_verification');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   
-  const { 
-    requests, 
-    isLoading, 
-    approveRequest: approveRequestMutation, 
+  const {
+    requests,
+    isLoading,
+    approveRequest: approveRequestMutation,
     rejectRequest: rejectRequestMutation,
     confirmRequest: confirmRequestMutation,
+    requestRespectiveSupervisorConfirmation: requestRespectiveSupervisorConfirmationMutation,
+    confirmRespectiveSupervisor: confirmRespectiveSupervisorMutation,
+    denyRespectiveSupervisor: denyRespectiveSupervisorMutation,
+    reviseDeniedRequest: reviseDeniedRequestMutation,
     isApproving,
     isRejecting,
-    isConfirming
+    isConfirming,
+    isRequestingRespectiveSupervisorConfirmation,
+    isConfirmingRespectiveSupervisor,
+    isDenyingRespectiveSupervisor,
+    isRevisingDeniedRequest
   } = useOTApproval({ role: 'supervisor', status: statusFilter });
 
   // Wrapper functions to match the expected API
@@ -37,6 +45,22 @@ export default function VerifyOT() {
 
   const confirmRequest = async (requestIds: string[], remarks?: string) => {
     await confirmRequestMutation({ requestIds, remarks });
+  };
+
+  const requestRespectiveSupervisorConfirmation = async (requestIds: string[]) => {
+    await requestRespectiveSupervisorConfirmationMutation({ requestIds });
+  };
+
+  const confirmRespectiveSupervisor = async (requestIds: string[], remarks?: string) => {
+    await confirmRespectiveSupervisorMutation({ requestIds, remarks });
+  };
+
+  const denyRespectiveSupervisor = async (requestIds: string[], denialRemarks: string) => {
+    await denyRespectiveSupervisorMutation({ requestIds, denialRemarks });
+  };
+
+  const reviseDeniedRequest = async (requestIds: string[], remarks?: string) => {
+    await reviseDeniedRequestMutation({ requestIds, remarks });
   };
 
   const filteredRequests = requests?.filter(request => {
@@ -107,25 +131,35 @@ export default function VerifyOT() {
             </div>
 
             <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-7">
                 <TabsTrigger value="pending_verification">Pending</TabsTrigger>
                 <TabsTrigger value="pending_supervisor_confirmation">Confirm</TabsTrigger>
+                <TabsTrigger value="pending_respective_supervisor_confirmation">Verify</TabsTrigger>
+                <TabsTrigger value="pending_supervisor_review">Review</TabsTrigger>
                 <TabsTrigger value="completed">Verified</TabsTrigger>
                 <TabsTrigger value="rejected">Rejected</TabsTrigger>
                 <TabsTrigger value="all">All</TabsTrigger>
               </TabsList>
 
               <TabsContent value={statusFilter} className="mt-4">
-                <OTApprovalTable 
-                  requests={filteredRequests} 
+                <OTApprovalTable
+                  requests={filteredRequests}
                   isLoading={isLoading}
                   role="supervisor"
                   approveRequest={approveRequest}
                   rejectRequest={rejectRequest}
                   confirmRequest={confirmRequest}
+                  requestRespectiveSupervisorConfirmation={requestRespectiveSupervisorConfirmation}
+                  confirmRespectiveSupervisor={confirmRespectiveSupervisor}
+                  denyRespectiveSupervisor={denyRespectiveSupervisor}
+                  reviseDeniedRequest={reviseDeniedRequest}
                   isApproving={isApproving}
                   isRejecting={isRejecting}
                   isConfirming={isConfirming}
+                  isRequestingRespectiveSupervisorConfirmation={isRequestingRespectiveSupervisorConfirmation}
+                  isConfirmingRespectiveSupervisor={isConfirmingRespectiveSupervisor}
+                  isDenyingRespectiveSupervisor={isDenyingRespectiveSupervisor}
+                  isRevisingDeniedRequest={isRevisingDeniedRequest}
                   initialSelectedRequestId={selectedRequestId}
                 />
               </TabsContent>

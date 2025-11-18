@@ -42,6 +42,14 @@ export function validateConfirmationTransition(
     };
   }
 
+  // Check if request has a respective supervisor assigned that hasn't confirmed yet
+  if (request.respective_supervisor_id && !request.respective_supervisor_confirmed_at) {
+    return {
+      valid: false,
+      error: 'This request has a respective supervisor assigned. You must request their confirmation first before confirming yourself.',
+    };
+  }
+
   // Check if request has already been confirmed
   if (request.supervisor_confirmation_at) {
     return {

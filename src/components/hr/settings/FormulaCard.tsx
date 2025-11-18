@@ -67,8 +67,8 @@ export function FormulaCard({ formula, onEdit, onDelete, onDuplicate }: FormulaC
       </div>
 
       {/* Formula Expression Box */}
-      <div className="bg-[#F3F4F6] p-4 rounded-lg flex items-center gap-3">
-        <Calculator className="h-5 w-5 text-[#5F26B4] flex-shrink-0" />
+      <div className="bg-muted p-4 rounded-lg flex items-center gap-3">
+        <Calculator className="h-5 w-5 text-primary flex-shrink-0" />
         <code className="text-sm font-mono text-foreground">
           {buildFormulaExpression()}
         </code>

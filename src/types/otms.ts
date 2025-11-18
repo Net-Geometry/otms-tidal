@@ -1,5 +1,5 @@
 export type AppRole = 'employee' | 'supervisor' | 'hr' | 'management' | 'admin';
-export type OTStatus = 'pending_verification' | 'supervisor_verified' | 'hr_certified' | 'management_approved' | 'rejected' | 'pending_hr_recertification' | 'pending_supervisor_confirmation' | 'supervisor_confirmed';
+export type OTStatus = 'pending_verification' | 'supervisor_verified' | 'hr_certified' | 'management_approved' | 'rejected' | 'pending_hr_recertification' | 'pending_supervisor_confirmation' | 'supervisor_confirmed' | 'pending_respective_supervisor_confirmation' | 'respective_supervisor_confirmed' | 'pending_supervisor_review';
 export type DayType = 'weekday' | 'saturday' | 'sunday' | 'public_holiday';
 
 export interface OTRequest {
@@ -21,6 +21,11 @@ export interface OTRequest {
   supervisor_remarks: string | null;
   supervisor_confirmation_at: string | null;
   supervisor_confirmation_remarks: string | null;
+  respective_supervisor_id: string | null;
+  respective_supervisor_confirmed_at: string | null;
+  respective_supervisor_remarks: string | null;
+  respective_supervisor_denied_at: string | null;
+  respective_supervisor_denial_remarks: string | null;
   hr_id: string | null;
   hr_approved_at: string | null;
   hr_remarks: string | null;
@@ -36,8 +41,14 @@ export interface OTRequest {
   created_at: string;
   updated_at: string;
   profiles?: {
+    id: string;
     employee_id: string;
     full_name: string;
+    department_id?: string;
+    basic_salary?: number;
+    departments?: {
+      name: string;
+    };
   };
 }
 
@@ -113,6 +124,37 @@ export interface ConfirmRequestInput {
 }
 
 /**
+ * Input type for respective supervisor confirming OT requests
+ * Used in the respective supervisor confirmation workflow
+ */
+export interface ConfirmRespectiveSupervisorInput {
+  /** Array of OT request IDs to confirm (supports batch confirmation) */
+  requestIds: string[];
+  /** Optional remarks from respective supervisor (max 500 chars recommended) */
+  remarks?: string;
+}
+
+/**
+ * Input type for respective supervisor denying OT requests
+ * Used when respective supervisor denies the OT confirmation request
+ */
+export interface DenyRespectiveSupervisorInput {
+  /** Array of OT request IDs to deny (supports batch denial) */
+  requestIds: string[];
+  /** Required remarks explaining why the OT is being denied */
+  denialRemarks: string;
+}
+
+/**
+ * Input type for supervisor requesting respective supervisor confirmation
+ * Used when supervisor wants to verify OT with the instructing supervisor
+ */
+export interface RequestRespectiveSupervisorConfirmationInput {
+  /** Array of OT request IDs to request confirmation for */
+  requestIds: string[];
+}
+
+/**
  * Response type for confirmation mutation
  */
 export interface ConfirmRequestResponse {
@@ -135,5 +177,11 @@ export type ConfirmationStatusTransition = {
  * Helper type for validation of status transitions
  */
 export const VALID_CONFIRMATION_TRANSITIONS: ConfirmationStatusTransition[] = [
-  { from: 'pending_supervisor_confirmation', to: 'supervisor_confirmed', role: 'supervisor' },
+  { from: 'pending_supervisor_confirmation', to: 'pending_respective_supervisor_confirmation', role: 'supervisor' },
+  { from: 'pending_respective_supervisor_confirmation', to: 'respective_supervisor_confirmed', role: 'supervisor' },
+  { from: 'pending_respective_supervisor_confirmation', to: 'pending_supervisor_review', role: 'supervisor' },
+  { from: 'pending_supervisor_review', to: 'rejected', role: 'supervisor' },
+  { from: 'pending_supervisor_review', to: 'pending_supervisor_confirmation', role: 'supervisor' },
+  { from: 'respective_supervisor_confirmed', to: 'pending_supervisor_confirmation', role: 'supervisor' },
+  { from: 'respective_supervisor_confirmed', to: 'hr_certified', role: 'hr' },
 ];

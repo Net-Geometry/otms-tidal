@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Calendar, Clock, FileText, AlertCircle, CheckCircle2, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Clock, FileText, AlertCircle, CheckCircle2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/StatusBadge';
 import { GroupedOTRequest } from '@/types/otms';
 import { formatCurrency, formatHours, formatTime12Hour } from '@/lib/otCalculations';
@@ -20,21 +22,39 @@ interface OTApprovalDetailsSheetProps {
   role: ApprovalRole;
   onApprove?: (request: GroupedOTRequest, sessionIds: string[]) => void;
   onReject?: (request: GroupedOTRequest, sessionIds: string[]) => void;
+  onConfirm?: (requestIds: string[], remarks?: string) => Promise<void>;
   isApproving?: boolean;
   isRejecting?: boolean;
+  isConfirming?: boolean;
+  onConfirmRespectiveSupervisor?: (requestIds: string[], remarks?: string) => Promise<void>;
+  onDenyRespectiveSupervisor?: (requestIds: string[], denialRemarks: string) => Promise<void>;
+  onReviseDeniedRequest?: (requestIds: string[], remarks?: string) => Promise<void>;
+  isConfirmingRespectiveSupervisor?: boolean;
+  isDenyingRespectiveSupervisor?: boolean;
+  isRevisingDeniedRequest?: boolean;
 }
 
-export function OTApprovalDetailsSheet({ 
-  request, 
-  open, 
-  onOpenChange, 
+export function OTApprovalDetailsSheet({
+  request,
+  open,
+  onOpenChange,
   role,
   onApprove,
   onReject,
+  onConfirm,
   isApproving,
-  isRejecting
+  isRejecting,
+  isConfirming,
+  onConfirmRespectiveSupervisor,
+  onDenyRespectiveSupervisor,
+  onReviseDeniedRequest,
+  isConfirmingRespectiveSupervisor,
+  isDenyingRespectiveSupervisor,
+  isRevisingDeniedRequest
 }: OTApprovalDetailsSheetProps) {
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+  const [denialRemarks, setDenialRemarks] = useState('');
+  const [showDenyDialog, setShowDenyDialog] = useState(false);
 
   // Initialize with all session IDs when sheet opens
   useEffect(() => {
@@ -56,6 +76,11 @@ export function OTApprovalDetailsSheet({
     if (role === 'management') return req.status === 'hr_certified';
     return false;
   };
+
+  const canConfirmAsRespectiveSupervisor = (req: GroupedOTRequest) => {
+    return req.status === 'pending_respective_supervisor_confirmation';
+  };
+
 
   const toggleSession = (sessionId: string) => {
     setSelectedSessionIds(prev => 
@@ -203,6 +228,25 @@ export function OTApprovalDetailsSheet({
             </div>
           </div>
 
+          {/* Respective Supervisor Confirmation Indicator */}
+          {request.respective_supervisor_id && request.respective_supervisor_confirmed_at && (
+            <Alert className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800 dark:text-green-300">
+                <div className="font-semibold mb-1">✓ Respective Supervisor Confirmed</div>
+                <div className="text-sm">
+                  {format(new Date(request.respective_supervisor_confirmed_at), 'dd MMM yyyy HH:mm')}
+                </div>
+                {request.respective_supervisor_remarks && (
+                  <div className="text-sm mt-2 pt-2 border-t border-green-200 dark:border-green-800">
+                    <span className="font-medium">Remarks: </span>
+                    <span>{request.respective_supervisor_remarks}</span>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Calculation Details - Only visible to HR and Management */}
           {(role === 'hr' || role === 'management') && (
             <div className="space-y-2 bg-muted/50 p-4 rounded-lg">
@@ -244,7 +288,7 @@ export function OTApprovalDetailsSheet({
           {/* Audit Trail */}
           <div className="space-y-3">
             <h3 className="font-semibold text-lg">Audit Trail</h3>
-            
+
             {request.supervisor_remarks && (
               <div className="bg-muted/50 p-3 rounded-md space-y-1">
                 <div className="flex items-center gap-2">
@@ -260,11 +304,56 @@ export function OTApprovalDetailsSheet({
               </div>
             )}
 
-            {request.hr_remarks && (
+            {request.respective_supervisor_remarks && (
+              <div className="bg-muted/50 p-3 rounded-md space-y-1">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-indigo-600" />
+                  <span className="font-medium text-sm">Respective Supervisor Confirmation</span>
+                  {request.respective_supervisor_confirmed_at && (
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(request.respective_supervisor_confirmed_at), 'dd MMM yyyy HH:mm')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm pl-6">{request.respective_supervisor_remarks}</p>
+              </div>
+            )}
+
+            {request.respective_supervisor_denial_remarks && (
+              <div className="bg-muted/50 p-3 rounded-md space-y-1 border border-destructive/50">
+                <div className="flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-destructive" />
+                  <span className="font-medium text-sm">Respective Supervisor Denial</span>
+                  {request.respective_supervisor_denied_at && (
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(request.respective_supervisor_denied_at), 'dd MMM yyyy HH:mm')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm pl-6">{request.respective_supervisor_denial_remarks}</p>
+              </div>
+            )}
+
+            {request.supervisor_confirmation_remarks && (
               <div className="bg-muted/50 p-3 rounded-md space-y-1">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium text-sm">HR Approval</span>
+                  <span className="font-medium text-sm">Supervisor Confirmation</span>
+                  {request.supervisor_confirmation_at && (
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(request.supervisor_confirmation_at), 'dd MMM yyyy HH:mm')}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm pl-6">{request.supervisor_confirmation_remarks}</p>
+              </div>
+            )}
+
+            {request.hr_remarks && (
+              <div className="bg-muted/50 p-3 rounded-md space-y-1">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-cyan-600" />
+                  <span className="font-medium text-sm">HR Certification</span>
                   {request.hr_approved_at && (
                     <span className="text-xs text-muted-foreground">
                       {format(new Date(request.hr_approved_at), 'dd MMM yyyy HH:mm')}
@@ -289,9 +378,17 @@ export function OTApprovalDetailsSheet({
                 <p className="text-sm pl-6">{request.management_remarks}</p>
               </div>
             )}
+
+            {!request.supervisor_remarks && !request.respective_supervisor_remarks &&
+             !request.respective_supervisor_denial_remarks && !request.supervisor_confirmation_remarks &&
+             !request.hr_remarks && !request.management_remarks && (
+              <div className="text-sm text-muted-foreground italic">
+                No audit trail entries yet
+              </div>
+            )}
           </div>
 
-          {/* Action Buttons Footer */}
+          {/* Action Buttons Footer - For Approve/Reject */}
           {onApprove && onReject && canApproveOrReject(request) && (
             <>
               <Separator />
@@ -306,7 +403,7 @@ export function OTApprovalDetailsSheet({
                     </AlertDescription>
                   </Alert>
                 )}
-                
+
                 {/* Main action buttons */}
                 <div className="flex gap-3">
                   <Button
@@ -315,8 +412,8 @@ export function OTApprovalDetailsSheet({
                     disabled={isApproving || isRejecting || selectedSessionIds.length === 0}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
-                    {isApproving 
-                      ? (role === 'hr' ? 'Certifying...' : role === 'supervisor' ? 'Verifying...' : 'Approving...') 
+                    {isApproving
+                      ? (role === 'hr' ? 'Certifying...' : role === 'supervisor' ? 'Verifying...' : 'Approving...')
                       : (role === 'hr' ? 'Certify' : role === 'supervisor' ? 'Verify' : 'Approve')
                     }
                     {selectedSessionIds.length < request.sessions.length && ` (${selectedSessionIds.length})`}
@@ -330,6 +427,179 @@ export function OTApprovalDetailsSheet({
                     <XCircle className="h-4 w-4 mr-2" />
                     Reject
                     {selectedSessionIds.length < request.sessions.length && ` (${selectedSessionIds.length})`}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Action Buttons Footer - For Respective Supervisor Confirm/Deny */}
+          {onConfirmRespectiveSupervisor && onDenyRespectiveSupervisor && canConfirmAsRespectiveSupervisor(request) && (
+            <>
+              <Separator />
+              <div className="flex flex-col gap-3 pt-4">
+                {!showDenyDialog ? (
+                  <div className="flex gap-3">
+                    <Button
+                      className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                      onClick={async () => {
+                        try {
+                          await onConfirmRespectiveSupervisor(request.request_ids);
+                          onOpenChange(false);
+                        } catch (error) {
+                          console.error('Confirmation failed:', error);
+                        }
+                      }}
+                      disabled={isConfirmingRespectiveSupervisor || isDenyingRespectiveSupervisor}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      {isConfirmingRespectiveSupervisor ? 'Confirming...' : 'Confirm OT'}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      className="flex-1"
+                      onClick={() => setShowDenyDialog(true)}
+                      disabled={isConfirmingRespectiveSupervisor || isDenyingRespectiveSupervisor}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Deny OT
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-4 border border-destructive rounded-lg p-4 bg-destructive/5">
+                      <div className="font-semibold text-destructive">Deny Overtime Request</div>
+                      <div className="space-y-2">
+                        <Label htmlFor="denial-remarks-details">
+                          Denial Remarks <span className="text-destructive">*</span>
+                        </Label>
+                        <Textarea
+                          id="denial-remarks-details"
+                          placeholder="Please explain why you are denying this OT request (minimum 10 characters, max 500 characters)..."
+                          value={denialRemarks}
+                          onChange={(e) => setDenialRemarks(e.target.value)}
+                          rows={4}
+                          disabled={isDenyingRespectiveSupervisor}
+                          className={denialRemarks.length > 0 && denialRemarks.trim().length < 10 ? 'border-destructive' : ''}
+                        />
+                        {denialRemarks.length > 0 && denialRemarks.trim().length < 10 && (
+                          <p className="text-xs text-destructive">
+                            Denial remarks must be at least 10 characters
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          setDenialRemarks('');
+                          setShowDenyDialog(false);
+                        }}
+                        disabled={isDenyingRespectiveSupervisor}
+                      >
+                        Back
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="flex-1"
+                        onClick={async () => {
+                          if (denialRemarks.trim().length < 10) return;
+                          try {
+                            await onDenyRespectiveSupervisor(request.request_ids, denialRemarks.trim());
+                            setDenialRemarks('');
+                            setShowDenyDialog(false);
+                            onOpenChange(false);
+                          } catch (error) {
+                            console.error('Denial failed:', error);
+                          }
+                        }}
+                        disabled={isDenyingRespectiveSupervisor || denialRemarks.trim().length < 10}
+                      >
+                        {isDenyingRespectiveSupervisor && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Confirm Denial
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Action Buttons Footer - For Direct Supervisor Final Confirmation (after respective supervisor confirms) */}
+          {onConfirm && role === 'supervisor' &&
+           request.status === 'pending_supervisor_confirmation' &&
+           request.respective_supervisor_id &&
+           request.respective_supervisor_confirmed_at && (
+            <>
+              <Separator />
+              <div className="flex flex-col gap-3 pt-4">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    The respective supervisor has confirmed this OT request. Click the "Confirm" button to proceed with your final approval.
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={async () => {
+                    try {
+                      await onConfirm(request.request_ids);
+                      onOpenChange(false);
+                    } catch (error) {
+                      console.error('Confirmation failed:', error);
+                    }
+                  }}
+                  disabled={isConfirming}
+                >
+                  {isConfirming && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isConfirming ? 'Confirming...' : 'Confirm'}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Action Buttons Footer - For Direct Supervisor Review After Denial */}
+          {onReviseDeniedRequest && onReject && role === 'supervisor' &&
+           request.status === 'pending_supervisor_review' && (
+            <>
+              <Separator />
+              <div className="flex flex-col gap-3 pt-4">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    The respective supervisor has denied this OT request. You can either revise and resubmit to the respective supervisor, or reject the request entirely.
+                  </AlertDescription>
+                </Alert>
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1 bg-amber-600 hover:bg-amber-700 text-white"
+                    onClick={async () => {
+                      try {
+                        await onReviseDeniedRequest(request.request_ids);
+                        onOpenChange(false);
+                      } catch (error) {
+                        console.error('Revise failed:', error);
+                      }
+                    }}
+                    disabled={isRevisingDeniedRequest}
+                  >
+                    {isRevisingDeniedRequest && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isRevisingDeniedRequest ? 'Resubmitting...' : 'Revise & Resubmit'}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => {
+                      if (onReject) {
+                        onReject(request, request.request_ids);
+                      }
+                    }}
+                    disabled={isRejecting}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Reject
                   </Button>
                 </div>
               </div>

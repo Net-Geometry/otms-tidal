@@ -9,11 +9,12 @@ interface OTSubmitData {
   total_hours: number;
   day_type: 'weekday' | 'saturday' | 'sunday' | 'public_holiday';
   reason: string;
+  respective_supervisor_id?: string | null;
   attachment_urls: string[];
 }
 
 /**
- * Send supervisor notification via Edge Function
+ * Send supervisor notification via Edge Function (initial supervisor alert)
  * Wrapped in try-catch to ensure notification failures don't break OT submission
  */
 async function sendSupervisorNotification(requestId: string, employeeId: string): Promise<void> {
@@ -89,6 +90,9 @@ export function useOTSubmit() {
         }
       }
 
+      // All submissions begin in pending_verification so direct supervisor can review first
+      const initialStatus = 'pending_verification';
+
       const { data: otRequest, error } = await supabase
         .from('ot_requests')
         .insert({
@@ -100,14 +104,16 @@ export function useOTSubmit() {
           total_hours: data.total_hours,
           day_type: data.day_type,
           reason: data.reason,
+          respective_supervisor_id: data.respective_supervisor_id || null,
           attachment_urls: data.attachment_urls,
+          status: initialStatus,
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Send supervisor notification asynchronously (don't block OT submission)
+      // Always notify direct supervisor first; respective supervisor is notified later when explicitly requested
       sendSupervisorNotification(otRequest.id, user.id).catch((notifError) => {
         console.error('Failed to send supervisor notification:', notifError);
         // Don't throw - notification failure should not prevent OT submission

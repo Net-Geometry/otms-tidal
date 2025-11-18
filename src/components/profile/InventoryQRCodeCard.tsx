@@ -51,7 +51,7 @@ export function InventoryQRCodeCard({ profile }: InventoryQRCodeCardProps) {
           <div className="flex flex-col items-center gap-4">
             {qrData && !isExpired ? (
               <>
-                <div className="bg-white p-4 rounded-lg border-2 border-primary">
+                <div className="bg-card p-4 rounded-lg border-2 border-primary">
                   <QRCodeSVG
                     value={qrData}
                     size={256}

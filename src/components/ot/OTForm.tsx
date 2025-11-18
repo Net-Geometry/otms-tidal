@@ -16,6 +16,7 @@ import { FileUpload } from './FileUpload';
 import { calculateTotalHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useSupervisors } from '@/hooks/useSupervisors';
 
 // Create schema factory that accepts requireAttachment parameter
 const createOTFormSchema = (requireAttachment: boolean) => z.object({
@@ -37,7 +38,8 @@ const createOTFormSchema = (requireAttachment: boolean) => z.object({
   reason_other: z.string()
     .max(100, 'Reason cannot exceed 100 characters')
     .optional(),
-  attachment_urls: requireAttachment 
+  respective_supervisor_id: z.string().uuid().optional().or(z.literal('none')),
+  attachment_urls: requireAttachment
     ? z.array(z.string().url('Invalid file URL'))
         .min(1, 'At least one attachment is required')
         .max(5, 'Maximum 5 attachments allowed')
@@ -70,10 +72,14 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   const [totalHours, setTotalHours] = useState<number>(0);
   const [dayType, setDayType] = useState<string>('weekday');
 
+  // Use the custom hook to fetch supervisors, excluding the employee's direct supervisor
+  const { data: supervisors = [] } = useSupervisors({ employeeId });
+
   const form = useForm<OTFormValues>({
     resolver: zodResolver(createOTFormSchema(requireAttachment)),
     defaultValues: defaultValues || {
       reason_other: '',
+      respective_supervisor_id: 'none',
       attachment_urls: [],
     },
   });
@@ -118,10 +124,10 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   };
 
   const handleSubmit = (values: OTFormValues) => {
-    const finalReason = values.reason_dropdown === 'Other' 
+    const finalReason = values.reason_dropdown === 'Other'
       ? values.reason_other || ''
       : values.reason_dropdown;
-    
+
     onSubmit({
       ot_date: format(values.ot_date, 'yyyy-MM-dd'),
       start_time: values.start_time,
@@ -129,6 +135,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
       total_hours: totalHours,
       day_type: dayType,
       reason: finalReason,
+      respective_supervisor_id: values.respective_supervisor_id === 'none' ? null : values.respective_supervisor_id,
       attachment_urls: values.attachment_urls,
     });
   };
@@ -137,28 +144,28 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
         {/* Employee Information Card */}
-        <Card className="bg-gray-50 p-4 rounded-lg border">
+        <Card className="bg-card p-4 rounded-lg border">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Employee ID
               </label>
-              <Input 
-                type="text" 
+              <Input
+                type="text"
                 value={employeeId}
                 readOnly
-                className="bg-white"
+                className="bg-muted"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Full Name
               </label>
-              <Input 
-                type="text" 
+              <Input
+                type="text"
                 value={fullName}
                 readOnly
-                className="bg-white"
+                className="bg-muted"
               />
             </div>
           </div>
@@ -182,7 +189,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                         )}
                       >
                         {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        <CalendarIcon className="ml-auto h-4 w-4 text-foreground/60 dark:text-foreground/50" />
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
@@ -211,7 +218,11 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormItem>
                 <FormLabel>Start Time *</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <Input
+                    type="time"
+                    {...field}
+                    className="text-foreground dark:text-foreground [color-scheme:light] dark:[color-scheme:dark]"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -225,7 +236,11 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormItem>
                 <FormLabel>End Time *</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <Input
+                    type="time"
+                    {...field}
+                    className="text-foreground dark:text-foreground [color-scheme:light] dark:[color-scheme:dark]"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -294,6 +309,35 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           />
         )}
 
+        <FormField
+          control={form.control}
+          name="respective_supervisor_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Instructed by Supervisor (Optional)</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || ''}>
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select if another supervisor instructed this OT" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">None - Direct supervisor only</SelectItem>
+                  {supervisors.map((supervisor) => (
+                    <SelectItem key={supervisor.id} value={supervisor.id}>
+                      {supervisor.full_name} ({supervisor.employee_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                If a different supervisor instructed you to work overtime, select them here. They will be asked to confirm before your direct supervisor approves.
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
          <FormField
            control={form.control}
            name="attachment_urls"
@@ -327,11 +371,11 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           >
             {isSubmitting ? 'Submitting...' : 'Submit OT Request'}
           </Button>
-          <Button 
-            type="button" 
+          <Button
+            type="button"
             variant="secondary"
             onClick={onCancel}
-            className="w-full text-gray-600 border hover:bg-gray-50"
+            className="w-full"
           >
             Cancel
           </Button>
