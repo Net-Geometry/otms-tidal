@@ -25,7 +25,8 @@ export default defineConfig(({ mode }) => ({
       manifest: false, // Use existing manifest.json in public/
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        globIgnores: ['**/node_modules/**/*', 'sw.js', 'workbox-*.js']
+        globIgnores: ['**/node_modules/**/*', 'sw.js', 'workbox-*.js'],
+        maximumFileSizeToCacheInBytes: 2.5 * 1024 * 1024 // 2.5 MB limit to accommodate main bundle
       },
       devOptions: {
         enabled: true, // Enable SW in dev mode for push notification testing
