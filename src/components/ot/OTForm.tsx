@@ -3,13 +3,12 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon, Clock } from 'lucide-react';
+import { CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,35 +16,6 @@ import { FileUpload } from './FileUpload';
 import { calculateTotalHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-
-// Generate hours (00-23 in 24-hour format)
-const generateHours = () => {
-  return Array.from({ length: 24 }, (_, i) => {
-    const hour = i.toString().padStart(2, '0');
-    return { value: hour, label: hour };
-  });
-};
-
-// Generate minutes in 5-minute increments
-const generateMinutes = () => {
-  return Array.from({ length: 12 }, (_, i) => {
-    const minute = (i * 5).toString().padStart(2, '0');
-    return { value: minute, label: minute };
-  });
-};
-
-// Parse HH:MM string into hour and minute
-const parseTime = (timeString: string) => {
-  if (!timeString) return { hour: '', minute: '' };
-  const [hour, minute] = timeString.split(':');
-  return { hour: hour || '', minute: minute || '' };
-};
-
-// Format hour and minute into HH:MM string
-const formatTime = (hour: string, minute: string) => {
-  if (!hour || !minute) return '';
-  return `${hour}:${minute}`;
-};
 
 // Create schema factory that accepts requireAttachment parameter
 const createOTFormSchema = (requireAttachment: boolean) => z.object({
@@ -215,157 +185,29 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           <FormField
             control={form.control}
             name="start_time"
-            render={({ field }) => {
-              const { hour, minute } = parseTime(field.value);
-              
-              return (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Start Time *</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? field.value : <span>Select time</span>}
-                          <Clock className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-4" align="start">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-2">
-                          <div className="text-xs font-medium text-muted-foreground">Hour</div>
-                          <Select
-                            value={hour}
-                            onValueChange={(value) => {
-                              const currentMinute = parseTime(field.value).minute || '00';
-                              field.onChange(formatTime(value, currentMinute));
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="HH" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {generateHours().map((h) => (
-                                <SelectItem key={h.value} value={h.value}>
-                                  {h.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="text-xs font-medium text-muted-foreground">Minute</div>
-                          <Select
-                            value={minute}
-                            onValueChange={(value) => {
-                              const currentHour = parseTime(field.value).hour || '00';
-                              field.onChange(formatTime(currentHour, value));
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="MM" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {generateMinutes().map((m) => (
-                                <SelectItem key={m.value} value={m.value}>
-                                  {m.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Start Time *</FormLabel>
+                <FormControl>
+                  <Input type="time" step="300" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
 
           <FormField
             control={form.control}
             name="end_time"
-            render={({ field }) => {
-              const { hour, minute } = parseTime(field.value);
-              
-              return (
-                <FormItem className="flex flex-col">
-                  <FormLabel>End Time *</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant="outline"
-                          className={cn(
-                            'w-full pl-3 text-left font-normal',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? field.value : <span>Select time</span>}
-                          <Clock className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-4" align="start">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-2">
-                          <div className="text-xs font-medium text-muted-foreground">Hour</div>
-                          <Select
-                            value={hour}
-                            onValueChange={(value) => {
-                              const currentMinute = parseTime(field.value).minute || '00';
-                              field.onChange(formatTime(value, currentMinute));
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="HH" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {generateHours().map((h) => (
-                                <SelectItem key={h.value} value={h.value}>
-                                  {h.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="space-y-2">
-                          <div className="text-xs font-medium text-muted-foreground">Minute</div>
-                          <Select
-                            value={minute}
-                            onValueChange={(value) => {
-                              const currentHour = parseTime(field.value).hour || '00';
-                              field.onChange(formatTime(currentHour, value));
-                            }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="MM" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {generateMinutes().map((m) => (
-                                <SelectItem key={m.value} value={m.value}>
-                                  {m.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              );
-            }}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>End Time *</FormLabel>
+                <FormControl>
+                  <Input type="time" step="300" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
         </div>
 
