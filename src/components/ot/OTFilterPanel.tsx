@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, Search, Calendar } from 'lucide-react';
 import { OTFilters } from '@/hooks/useOTFilters';
+import { MonthPicker } from './MonthPicker';
+import { startOfMonth } from 'date-fns';
 
 export interface OTFilterPanelProps {
   filters: OTFilters;
@@ -12,6 +14,7 @@ export interface OTFilterPanelProps {
   updateFilter: <K extends keyof OTFilters>(key: K, value: OTFilters[K]) => void;
   clearFilters: () => void;
   applyDatePreset: (preset: string) => void;
+  applyMonthFilter: (date: Date | undefined) => void;
   activeFilterCount: number;
   onClose?: () => void;
 }
@@ -22,6 +25,7 @@ export function OTFilterPanel({
   updateFilter,
   clearFilters,
   applyDatePreset,
+  applyMonthFilter,
   activeFilterCount,
   onClose,
 }: OTFilterPanelProps) {
@@ -51,6 +55,46 @@ export function OTFilterPanel({
               <X className="h-3 w-3" />
             </Button>
           )}
+        </div>
+      </div>
+
+      {/* Month Picker */}
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium">Filter by Month</Label>
+        <div className="flex items-center gap-2">
+          <MonthPicker
+            selectedMonth={
+              filters.startDate && filters.endDate && selectedPreset === 'month-picker'
+                ? startOfMonth(new Date(filters.startDate))
+                : undefined
+            }
+            onMonthChange={(date) => {
+              applyMonthFilter(date);
+            }}
+          />
+          {filters.startDate && filters.endDate && selectedPreset === 'month-picker' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 px-2"
+              onClick={() => applyMonthFilter(undefined)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Quick select a specific month
+        </p>
+      </div>
+
+      {/* Or Divider */}
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">Or</span>
         </div>
       </div>
 
