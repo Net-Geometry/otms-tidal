@@ -19,6 +19,7 @@ import { useOTFilters } from '@/hooks/useOTFilters';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { OTRequest } from '@/types/otms';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
 export default function OTHistory() {
   const navigate = useNavigate();
@@ -35,10 +36,7 @@ export default function OTHistory() {
   const { 
     filters, 
     selectedPreset,
-    updateFilter, 
-    clearFilters, 
     applyMonthFilter,
-    getDateRangeLabel, 
     activeFilterCount 
   } = useOTFilters();
 
@@ -167,8 +165,6 @@ export default function OTHistory() {
                         <OTFilterPanel
                           filters={filters}
                           selectedPreset={selectedPreset}
-                          updateFilter={updateFilter}
-                          clearFilters={clearFilters}
                           applyMonthFilter={applyMonthFilter}
                           activeFilterCount={activeFilterCount}
                           onClose={() => setFilterOpen(false)}
@@ -188,8 +184,6 @@ export default function OTHistory() {
               <OTFilterPanel
                 filters={filters}
                 selectedPreset={selectedPreset}
-                updateFilter={updateFilter}
-                clearFilters={clearFilters}
                 applyMonthFilter={applyMonthFilter}
                 activeFilterCount={activeFilterCount}
                 onClose={() => setFilterOpen(false)}
@@ -199,26 +193,11 @@ export default function OTHistory() {
                 )}
 
                 {/* Active filter badges */}
-                {filters.ticketNumber && (
+                {(filters.startDate && filters.endDate && selectedPreset === 'month-picker') && (
                   <Badge variant="secondary" className="gap-1.5">
-                    {filters.ticketNumber}
+                    {format(new Date(filters.startDate), 'MMMM yyyy')}
                     <button
-                      onClick={() => updateFilter('ticketNumber', undefined)}
-                      className="hover:bg-secondary-foreground/20 rounded-full p-0.5"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-
-                {(filters.startDate || filters.endDate) && (
-                  <Badge variant="secondary" className="gap-1.5">
-                    {getDateRangeLabel()}
-                    <button
-                      onClick={() => {
-                        updateFilter('startDate', undefined);
-                        updateFilter('endDate', undefined);
-                      }}
+                      onClick={() => applyMonthFilter(undefined)}
                       className="hover:bg-secondary-foreground/20 rounded-full p-0.5"
                     >
                       <X className="h-3 w-3" />
