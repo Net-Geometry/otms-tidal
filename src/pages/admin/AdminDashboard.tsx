@@ -7,6 +7,7 @@ import { DashboardCard } from '@/components/DashboardCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Settings, Users, Clock, DollarSign, FileText, Shield } from 'lucide-react';
+import { formatCurrency } from '@/lib/otCalculations';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -134,7 +135,7 @@ export default function AdminDashboard() {
               />
               <DashboardCard
                 title="Total Expenditure"
-                value={`RM ${stats.totalExpenditure.toFixed(2)}`}
+                value={formatCurrency(stats.totalExpenditure)}
                 subtitle="This month"
                 icon={DollarSign}
               />
