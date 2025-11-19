@@ -66,6 +66,29 @@ export function useOTFilters() {
     setSelectedPreset(preset);
   }, []);
 
+  const applyMonthFilter = useCallback((date: Date | undefined) => {
+    if (!date) {
+      // Clear month filter
+      setFilters(prev => ({
+        ...prev,
+        startDate: undefined,
+        endDate: undefined,
+      }));
+      setSelectedPreset('');
+      return;
+    }
+
+    const start = startOfMonth(date);
+    const end = endOfMonth(date);
+
+    setFilters(prev => ({
+      ...prev,
+      startDate: start.toISOString().split('T')[0],
+      endDate: end.toISOString().split('T')[0],
+    }));
+    setSelectedPreset('month-picker');
+  }, []);
+
   const getActiveFilterCount = useCallback(() => {
     let count = 0;
     if (filters.startDate || filters.endDate) count++;
@@ -81,6 +104,7 @@ export function useOTFilters() {
       'thisMonth': 'This Month',
       'lastMonth': 'Last Month',
       'thisYear': 'This Year',
+      'month-picker': 'Month',
     };
 
     if (selectedPreset && presetLabels[selectedPreset]) {
@@ -110,6 +134,7 @@ export function useOTFilters() {
     updateFilter,
     clearFilters,
     applyDatePreset,
+    applyMonthFilter,
     getDateRangeLabel,
     activeFilterCount: getActiveFilterCount(),
   };
