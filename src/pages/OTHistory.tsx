@@ -37,7 +37,6 @@ export default function OTHistory() {
     selectedPreset,
     updateFilter, 
     clearFilters, 
-    applyDatePreset,
     applyMonthFilter,
     getDateRangeLabel, 
     activeFilterCount 
@@ -170,7 +169,6 @@ export default function OTHistory() {
                           selectedPreset={selectedPreset}
                           updateFilter={updateFilter}
                           clearFilters={clearFilters}
-                          applyDatePreset={applyDatePreset}
                           applyMonthFilter={applyMonthFilter}
                           activeFilterCount={activeFilterCount}
                           onClose={() => setFilterOpen(false)}
@@ -187,16 +185,15 @@ export default function OTHistory() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-auto p-0">
-                <OTFilterPanel
-                  filters={filters}
-                  selectedPreset={selectedPreset}
-                  updateFilter={updateFilter}
-                  clearFilters={clearFilters}
-                  applyDatePreset={applyDatePreset}
-                  applyMonthFilter={applyMonthFilter}
-                  activeFilterCount={activeFilterCount}
-                  onClose={() => setFilterOpen(false)}
-                />
+              <OTFilterPanel
+                filters={filters}
+                selectedPreset={selectedPreset}
+                updateFilter={updateFilter}
+                clearFilters={clearFilters}
+                applyMonthFilter={applyMonthFilter}
+                activeFilterCount={activeFilterCount}
+                onClose={() => setFilterOpen(false)}
+              />
                     </PopoverContent>
                   </Popover>
                 )}
