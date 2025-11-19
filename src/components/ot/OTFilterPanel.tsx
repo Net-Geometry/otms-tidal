@@ -1,88 +1,81 @@
 import React from 'react';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { X, Search } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OTFilters } from '@/hooks/useOTFilters';
-import { MonthPicker } from './MonthPicker';
-import { startOfMonth } from 'date-fns';
+import { format, subMonths, startOfMonth } from 'date-fns';
 
 export interface OTFilterPanelProps {
   filters: OTFilters;
   selectedPreset: string;
-  updateFilter: <K extends keyof OTFilters>(key: K, value: OTFilters[K]) => void;
-  clearFilters: () => void;
   applyMonthFilter: (date: Date | undefined) => void;
   activeFilterCount: number;
   onClose?: () => void;
 }
 
+// Generate month options (last 12 months from current month)
+const generateMonthOptions = () => {
+  const options = [];
+  const now = new Date();
+  
+  for (let i = 0; i < 12; i++) {
+    const monthDate = subMonths(startOfMonth(now), i);
+    options.push({
+      value: monthDate.toISOString(),
+      label: format(monthDate, 'MMMM yyyy'),
+    });
+  }
+  
+  return options;
+};
+
 export function OTFilterPanel({
   filters,
   selectedPreset,
-  updateFilter,
-  clearFilters,
   applyMonthFilter,
   activeFilterCount,
   onClose,
 }: OTFilterPanelProps) {
+  const monthOptions = generateMonthOptions();
+
   return (
     <div className="w-80 p-4 space-y-4">
-      {/* Ticket Number Search */}
+      {/* Month Selector */}
       <div className="space-y-1.5">
-        <Label htmlFor="ticketNumber" className="text-xs font-medium">
-          Ticket Number
-        </Label>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            id="ticketNumber"
-            placeholder="Search ticket..."
-            value={filters.ticketNumber || ''}
-            onChange={(e) => updateFilter('ticketNumber', e.target.value || undefined)}
-            className="pl-8 pr-8 h-9 text-sm"
-          />
-          {filters.ticketNumber && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="absolute right-0.5 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0"
-              onClick={() => updateFilter('ticketNumber', undefined)}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Month Picker */}
-      <div className="space-y-1.5">
-        <Label className="text-xs font-medium">Filter by Month</Label>
-        <div className="flex items-center gap-2">
-          <MonthPicker
-            selectedMonth={
-              filters.startDate && filters.endDate && selectedPreset === 'month-picker'
-                ? startOfMonth(new Date(filters.startDate))
-                : undefined
+        <Label className="text-xs font-medium">Select Month</Label>
+        <Select
+          value={
+            filters.startDate && filters.endDate && selectedPreset === 'month-picker'
+              ? new Date(filters.startDate).toISOString()
+              : undefined
+          }
+          onValueChange={(value) => {
+            if (value) {
+              applyMonthFilter(new Date(value));
             }
-            onMonthChange={(date) => {
-              applyMonthFilter(date);
-            }}
-          />
-          {filters.startDate && filters.endDate && selectedPreset === 'month-picker' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 px-2"
-              onClick={() => applyMonthFilter(undefined)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Quick select a specific month
-        </p>
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="All months" />
+          </SelectTrigger>
+          <SelectContent>
+            {monthOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {filters.startDate && filters.endDate && selectedPreset === 'month-picker' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full mt-2"
+            onClick={() => applyMonthFilter(undefined)}
+          >
+            Clear Filter
+          </Button>
+        )}
       </div>
 
       {/* Actions */}
@@ -90,10 +83,10 @@ export function OTFilterPanel({
         <Button
           variant="ghost"
           size="sm"
-          onClick={clearFilters}
+          onClick={() => applyMonthFilter(undefined)}
           disabled={activeFilterCount === 0}
         >
-          Reset
+          Clear
         </Button>
         <Button size="sm" onClick={onClose}>
           Done
