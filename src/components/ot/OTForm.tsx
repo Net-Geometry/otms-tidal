@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { FileUpload } from './FileUpload';
 import { calculateTotalHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
 import { cn } from '@/lib/utils';
@@ -24,19 +24,9 @@ const createOTFormSchema = (requireAttachment: boolean) => z.object({
   }),
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
-  reason_dropdown: z.enum([
-    'System maintenance',
-    'Project deadline',
-    'Unexpected breakdown',
-    'Client support',
-    'Staff shortage',
-    'Other'
-  ], {
-    required_error: 'Please select a reason for overtime',
-  }),
-  reason_other: z.string()
-    .max(100, 'Reason cannot exceed 100 characters')
-    .optional(),
+  reason: z.string()
+    .min(10, 'Reason must be at least 10 characters')
+    .max(500, 'Reason cannot exceed 500 characters'),
   attachment_urls: requireAttachment 
     ? z.array(z.string().url('Invalid file URL'))
         .min(1, 'At least one attachment is required')
@@ -44,14 +34,6 @@ const createOTFormSchema = (requireAttachment: boolean) => z.object({
     : z.array(z.string().url('Invalid file URL'))
         .max(5, 'Maximum 5 attachments allowed')
         .optional(),
-}).refine((data) => {
-  if (data.reason_dropdown === 'Other') {
-    return data.reason_other && data.reason_other.trim().length >= 20;
-  }
-  return true;
-}, {
-  message: 'Please provide a detailed reason (minimum 20 characters)',
-  path: ['reason_other'],
 });
 
 type OTFormValues = z.infer<ReturnType<typeof createOTFormSchema>>;
@@ -73,7 +55,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   const form = useForm<OTFormValues>({
     resolver: zodResolver(createOTFormSchema(requireAttachment)),
     defaultValues: defaultValues || {
-      reason_other: '',
+      reason: '',
       attachment_urls: [],
     },
   });
@@ -118,17 +100,13 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   };
 
   const handleSubmit = (values: OTFormValues) => {
-    const finalReason = values.reason_dropdown === 'Other' 
-      ? values.reason_other || ''
-      : values.reason_dropdown;
-    
     onSubmit({
       ot_date: format(values.ot_date, 'yyyy-MM-dd'),
       start_time: values.start_time,
       end_time: values.end_time,
       total_hours: totalHours,
       day_type: dayType,
-      reason: finalReason,
+      reason: values.reason,
       attachment_urls: values.attachment_urls,
     });
   };
@@ -250,49 +228,24 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
         <FormField
           control={form.control}
-          name="reason_dropdown"
+          name="reason"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Reason for OT *</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select reason for overtime" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="System maintenance">System maintenance</SelectItem>
-                  <SelectItem value="Project deadline">Project deadline</SelectItem>
-                  <SelectItem value="Unexpected breakdown">Unexpected breakdown</SelectItem>
-                  <SelectItem value="Client support">Client support</SelectItem>
-                  <SelectItem value="Staff shortage">Staff shortage</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <Textarea
+                  placeholder="Please provide a detailed reason for overtime (minimum 10 characters)"
+                  className="min-h-[100px] resize-none"
+                  {...field}
+                />
+              </FormControl>
+              <div className="text-xs text-muted-foreground text-right">
+                {field.value?.length || 0} / 500 characters
+              </div>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        {form.watch('reason_dropdown') === 'Other' && (
-          <FormField
-            control={form.control}
-            name="reason_other"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Other Reason (if applicable)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="text"
-                    placeholder="Enter your own reason"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
 
          <FormField
            control={form.control}

@@ -8,30 +8,6 @@ interface ResubmitOTFormProps {
   onSuccess?: () => void;
 }
 
-function getReasonCategory(reason: string): 'System maintenance' | 'Project deadline' | 'Unexpected breakdown' | 'Client support' | 'Staff shortage' | 'Other' {
-  const presetReasons = [
-    'System maintenance',
-    'Project deadline',
-    'Unexpected breakdown',
-    'Client support',
-    'Staff shortage',
-  ];
-  
-  return presetReasons.includes(reason) ? reason as any : 'Other';
-}
-
-function isOtherReason(reason: string): boolean {
-  const presetReasons = [
-    'System maintenance',
-    'Project deadline',
-    'Unexpected breakdown',
-    'Client support',
-    'Staff shortage',
-  ];
-  
-  return !presetReasons.includes(reason);
-}
-
 export function ResubmitOTForm({ request, onSuccess }: ResubmitOTFormProps) {
   const { mutate: resubmitOT, isPending } = useOTResubmit();
   
@@ -40,8 +16,7 @@ export function ResubmitOTForm({ request, onSuccess }: ResubmitOTFormProps) {
     ot_date: new Date(request.ot_date),
     start_time: request.start_time,
     end_time: request.end_time,
-    reason_dropdown: getReasonCategory(request.reason),
-    reason_other: isOtherReason(request.reason) ? request.reason : '',
+    reason: request.reason,
     attachment_urls: request.attachment_urls || [],
   };
   
