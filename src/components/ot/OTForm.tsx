@@ -189,7 +189,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormItem>
                 <FormLabel>Start Time *</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <Input type="time" step="300" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -203,7 +203,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormItem>
                 <FormLabel>End Time *</FormLabel>
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <Input type="time" step="300" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
