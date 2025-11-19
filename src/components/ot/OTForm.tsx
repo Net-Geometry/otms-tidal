@@ -9,6 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +17,22 @@ import { FileUpload } from './FileUpload';
 import { calculateTotalHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+
+// Generate time options in 5-minute increments
+const TIME_STEP_MINUTES = 5;
+
+function generateTimeOptions() {
+  const options: { value: string; label: string }[] = [];
+  for (let minutes = 0; minutes < 24 * 60; minutes += TIME_STEP_MINUTES) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    const value = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    options.push({ value, label: value });
+  }
+  return options;
+}
+
+const TIME_OPTIONS = generateTimeOptions();
 
 // Create schema factory that accepts requireAttachment parameter
 const createOTFormSchema = (requireAttachment: boolean) => z.object({
@@ -182,33 +199,61 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="start_time"
-            render={({ field }) => (
+            <FormField
+              control={form.control}
+              name="start_time"
+              render={({ field }) => (
               <FormItem>
                 <FormLabel>Start Time *</FormLabel>
                 <FormControl>
-                  <Input type="time" step="300" {...field} />
+                  <Select
+                    value={field.value || ''}
+                    onValueChange={(value) => field.onChange(value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select start time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {TIME_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
-            )}
-          />
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="end_time"
-            render={({ field }) => (
+            <FormField
+              control={form.control}
+              name="end_time"
+              render={({ field }) => (
               <FormItem>
                 <FormLabel>End Time *</FormLabel>
                 <FormControl>
-                  <Input type="time" step="300" {...field} />
+                  <Select
+                    value={field.value || ''}
+                    onValueChange={(value) => field.onChange(value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select end time" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {TIME_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </FormControl>
                 <FormMessage />
               </FormItem>
-            )}
-          />
+              )}
+            />
         </div>
 
         <Card className="p-4 bg-muted/50">
