@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -217,48 +217,73 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
             name="start_time"
             render={({ field }) => {
               const { hour, minute } = parseTime(field.value);
+              
               return (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Start Time *</FormLabel>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select
-                      value={hour}
-                      onValueChange={(value) => {
-                        const currentMinute = parseTime(field.value).minute || '00';
-                        field.onChange(formatTime(value, currentMinute));
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Hour" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {generateHours().map((h) => (
-                          <SelectItem key={h.value} value={h.value}>
-                            {h.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    <Select
-                      value={minute}
-                      onValueChange={(value) => {
-                        const currentHour = parseTime(field.value).hour || '00';
-                        field.onChange(formatTime(currentHour, value));
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Min" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {generateMinutes().map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? field.value : <span>Select time</span>}
+                          <Clock className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-4" align="start">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">Hour</div>
+                          <Select
+                            value={hour}
+                            onValueChange={(value) => {
+                              const currentMinute = parseTime(field.value).minute || '00';
+                              field.onChange(formatTime(value, currentMinute));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="HH" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {generateHours().map((h) => (
+                                <SelectItem key={h.value} value={h.value}>
+                                  {h.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">Minute</div>
+                          <Select
+                            value={minute}
+                            onValueChange={(value) => {
+                              const currentHour = parseTime(field.value).hour || '00';
+                              field.onChange(formatTime(currentHour, value));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="MM" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {generateMinutes().map((m) => (
+                                <SelectItem key={m.value} value={m.value}>
+                                  {m.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               );
@@ -270,48 +295,73 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
             name="end_time"
             render={({ field }) => {
               const { hour, minute } = parseTime(field.value);
+              
               return (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>End Time *</FormLabel>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select
-                      value={hour}
-                      onValueChange={(value) => {
-                        const currentMinute = parseTime(field.value).minute || '00';
-                        field.onChange(formatTime(value, currentMinute));
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Hour" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {generateHours().map((h) => (
-                          <SelectItem key={h.value} value={h.value}>
-                            {h.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    <Select
-                      value={minute}
-                      onValueChange={(value) => {
-                        const currentHour = parseTime(field.value).hour || '00';
-                        field.onChange(formatTime(currentHour, value));
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Min" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {generateMinutes().map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? field.value : <span>Select time</span>}
+                          <Clock className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-4" align="start">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">Hour</div>
+                          <Select
+                            value={hour}
+                            onValueChange={(value) => {
+                              const currentMinute = parseTime(field.value).minute || '00';
+                              field.onChange(formatTime(value, currentMinute));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="HH" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {generateHours().map((h) => (
+                                <SelectItem key={h.value} value={h.value}>
+                                  {h.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-muted-foreground">Minute</div>
+                          <Select
+                            value={minute}
+                            onValueChange={(value) => {
+                              const currentHour = parseTime(field.value).hour || '00';
+                              field.onChange(formatTime(currentHour, value));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="MM" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {generateMinutes().map((m) => (
+                                <SelectItem key={m.value} value={m.value}>
+                                  {m.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
                 </FormItem>
               );
