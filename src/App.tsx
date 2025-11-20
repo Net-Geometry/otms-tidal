@@ -1,6 +1,8 @@
+import { lazy, Suspense } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
+import { ActiveRoleProvider } from "./hooks/useActiveRole";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthGuard } from "./components/AuthGuard";
 import { RootRedirect } from "./components/RootRedirect";
@@ -10,36 +12,49 @@ import { PWAInstallBanner } from "./components/PWAInstallBanner";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { createQueryClient } from "./lib/queryClient";
+import { ContentLoadingSkeleton } from "./components/ContentLoadingSkeleton";
+import { HolidayManagement } from "./components/admin/HolidayManagement";
+
+// Keep auth routes eager for fast login experience
 import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
 import SetupPassword from "./pages/SetupPassword";
 import ChangePassword from "./pages/ChangePassword";
-import Profile from "./pages/Profile";
-import Dashboard from "./pages/Dashboard";
-import SubmitOT from "./pages/SubmitOT";
-import OTHistory from "./pages/OTHistory";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
-import ApproveOT from "./pages/hr/ApproveOT";
-import Employees from "./pages/hr/Employees";
-import Departments from "./pages/hr/Departments";
-import HRSettings from "./pages/hr/Settings";
-import OTReports from "./pages/hr/OTReports";
-import Settings from "./pages/Settings";
-import HolidayCalendars from "./pages/hr/HolidayCalendars";
-import NewHolidayCalendar from "./pages/hr/NewHolidayCalendar";
-import EditHolidayCalendar from "./pages/hr/EditHolidayCalendar";
-import { HolidayManagement } from "./components/admin/HolidayManagement";
 
-import Calendar from "./pages/Calendar";
-import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
-import HRDashboard from "./pages/hr/HRDashboard";
-import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
-import VerifyOT from "./pages/supervisor/VerifyOT";
-import ManagementDashboard from "./pages/management/ManagementDashboard";
-import ReviewOT from "./pages/management/ReviewOT";
-import ManagementApproveOT from "./pages/management/ApproveOT";
-import AdminDashboard from "./pages/admin/AdminDashboard";
+// Lazy load all dashboard routes
+const EmployeeDashboard = lazy(() => import("./pages/employee/EmployeeDashboard"));
+const HRDashboard = lazy(() => import("./pages/hr/HRDashboard"));
+const SupervisorDashboard = lazy(() => import("./pages/supervisor/SupervisorDashboard"));
+const ManagementDashboard = lazy(() => import("./pages/management/ManagementDashboard"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+
+// Lazy load shared routes
+const Profile = lazy(() => import("./pages/Profile"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Calendar = lazy(() => import("./pages/Calendar"));
+
+// Lazy load employee routes
+const SubmitOT = lazy(() => import("./pages/SubmitOT"));
+const OTHistory = lazy(() => import("./pages/OTHistory"));
+
+// Lazy load supervisor routes
+const VerifyOT = lazy(() => import("./pages/supervisor/VerifyOT"));
+
+// Lazy load HR routes
+const ApproveOT = lazy(() => import("./pages/hr/ApproveOT"));
+const Employees = lazy(() => import("./pages/hr/Employees"));
+const Departments = lazy(() => import("./pages/hr/Departments"));
+const HRSettings = lazy(() => import("./pages/hr/Settings"));
+const OTReports = lazy(() => import("./pages/hr/OTReports"));
+const HolidayCalendars = lazy(() => import("./pages/hr/HolidayCalendars"));
+const NewHolidayCalendar = lazy(() => import("./pages/hr/NewHolidayCalendar"));
+const EditHolidayCalendar = lazy(() => import("./pages/hr/EditHolidayCalendar"));
+
+const ReviewOT = lazy(() => import("./pages/management/ReviewOT"));
+const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
 
 const queryClient = createQueryClient();
 
@@ -49,9 +64,11 @@ const App = () => (
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
-            <AuthGuard>
-              <PWAInstallBanner />
-              <Routes>
+            <ActiveRoleProvider>
+              <AuthGuard>
+                <PWAInstallBanner />
+                <Suspense fallback={<ContentLoadingSkeleton />}>
+                <Routes>
                 <Route path="/" element={<RootRedirect />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/set-password" element={<SetPassword />} />
@@ -91,18 +108,20 @@ const App = () => (
                 <Route path="/hr/holidays" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HolidayManagement /></ProtectedRoute>} />
                 <Route path="/hr/settings" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRSettings /></ProtectedRoute>} />
                 <Route path="/hr/ot-reports" element={<ProtectedRoute requiredRole={['hr', 'admin']}><OTReports /></ProtectedRoute>} />
-                
+
                 {/* Management routes */}
                 <Route path="/management/approve" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveOT /></ProtectedRoute>} />
                 <Route path="/management/report" element={<ProtectedRoute requiredRole={['management', 'admin']}><ReviewOT /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
-              </Routes>
+                </Routes>
+              </Suspense>
               <Toaster />
               <Sonner />
-            </AuthGuard>
-        </AuthProvider>
-      </BrowserRouter>
+              </AuthGuard>
+            </ActiveRoleProvider>
+          </AuthProvider>
+        </BrowserRouter>
     </QueryClientProvider>
     </ThemeProvider>
   </ErrorBoundary>

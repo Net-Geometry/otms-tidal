@@ -108,7 +108,7 @@ const getStatusFilter = (role: ApprovalRole, statusFilter?: string): OTStatus[] 
       return ['pending_verification', 'supervisor_verified', 'supervisor_confirmed', 'respective_supervisor_confirmed', 'rejected'];
     }
     if (role === 'management') {
-      return ['hr_certified', 'management_approved', 'rejected'];
+      return ['hr_certified', 'management_approved', 'rejected', 'pending_hr_recertification'];
     }
   }
 
@@ -150,7 +150,7 @@ const getRemarksField = (role: ApprovalRole): string => {
     case 'management':
       return 'management_remarks';
     default:
-      return 'management_remarks';
+      return 'hr_remarks';
   }
 };
 
@@ -164,7 +164,7 @@ const getTimestampField = (role: ApprovalRole): string => {
     case 'management':
       return 'management_reviewed_at';
     default:
-      return 'management_reviewed_at';
+      return 'hr_approved_at';
   }
 };
 
@@ -411,7 +411,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Management rejection goes to HR recertification instead of final rejection
+      // Management rejection sends back to HR for recertification, others get final rejection
       const status = role === 'management' ? 'pending_hr_recertification' : 'rejected';
 
       const updateData: any = {

@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
 
-type Theme = "dark" | "light" | "system"
+type Theme = "dark" | "light" | "pink" | "system"
 
 type ThemeProviderProps = {
   children: ReactNode
@@ -24,6 +24,7 @@ export function ThemeProvider({
       disableTransitionOnChange
       storageKey={storageKey}
       forcedTheme={undefined}
+      themes={["light", "dark", "pink"]}
       {...props}
     >
       {children}

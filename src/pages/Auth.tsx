@@ -39,7 +39,27 @@ export default function Auth() {
         });
 
       if (lookupError || !data) {
-        toast.error('Employee ID not found. Please check and try again.');
+        toast.error('Invalid Employee ID or password. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check if account is inactive (e.g., disabled management users)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('employee_id', employeeId.trim())
+        .maybeSingle();
+
+      if (profileError) {
+        toast.error('Invalid Employee ID or password. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Prevent inactive users from authenticating
+      if (profile?.status === 'inactive') {
+        toast.error('This account is not active. Please contact an administrator.');
         setIsSubmitting(false);
         return;
       }
@@ -48,14 +68,14 @@ export default function Auth() {
       const { error } = await signIn(data, password);
 
       if (error) {
-        toast.error(error.message || 'Unable to sign in. Please try again.');
+        toast.error('Invalid Employee ID or password. Please try again.');
         setIsSubmitting(false);
         return;
       }
 
       toast.success('Welcome back!');
     } catch (err: any) {
-      toast.error(err.message || 'Unable to sign in. Please try again.');
+      toast.error('Invalid Employee ID or password. Please try again.');
       setIsSubmitting(false);
     }
   };

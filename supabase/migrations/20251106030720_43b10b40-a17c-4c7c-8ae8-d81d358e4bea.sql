@@ -33,7 +33,7 @@ BEGIN
   IF NEW.status = 'hr_certified' AND OLD.status = 'supervisor_verified' THEN
     SELECT array_agg(user_id) INTO management_users
     FROM user_roles WHERE role = 'management';
-    
+
     IF management_users IS NOT NULL THEN
       INSERT INTO notifications (user_id, title, message, link, notification_type)
       SELECT unnest(management_users),
@@ -71,7 +71,7 @@ BEGIN
   IF NEW.status = 'pending_hr_recertification' AND OLD.status = 'hr_certified' THEN
     SELECT array_agg(user_id) INTO hr_users
     FROM user_roles WHERE role = 'hr';
-    
+
     IF hr_users IS NOT NULL THEN
       INSERT INTO notifications (user_id, title, message, link, notification_type)
       SELECT unnest(hr_users),
@@ -120,20 +120,21 @@ BEGIN
     END IF;
   END IF;
   
-  -- When HR recertifies and sends back to Management
-  IF NEW.status = 'hr_certified' AND OLD.status = 'pending_hr_recertification' THEN
-    SELECT array_agg(user_id) INTO management_users
-    FROM user_roles WHERE role = 'management';
-    
-    IF management_users IS NOT NULL THEN
-      INSERT INTO notifications (user_id, title, message, link, notification_type)
-      SELECT unnest(management_users),
-             'OT Request Recertified by HR',
-             'HR has recertified an OT request. Please review again.',
-             '/management/approve?request=' || NEW.id,
-             'ot_pending_review';
-    END IF;
-  END IF;
+  -- DISABLED: When HR recertifies and sends back to Management
+  -- Management approval workflow is now disabled
+  -- IF NEW.status = 'hr_certified' AND OLD.status = 'pending_hr_recertification' THEN
+  --   SELECT array_agg(user_id) INTO management_users
+  --   FROM user_roles WHERE role = 'management';
+  --
+  --   IF management_users IS NOT NULL THEN
+  --     INSERT INTO notifications (user_id, title, message, link, notification_type)
+  --     SELECT unnest(management_users),
+  --            'OT Request Recertified by HR',
+  --            'HR has recertified an OT request. Please review again.',
+  --            '/management/approve?request=' || NEW.id,
+  --            'ot_pending_review';
+  --   END IF;
+  -- END IF;
   
   -- When HR declines recertification → notify employee
   IF NEW.status = 'rejected' AND OLD.status = 'pending_hr_recertification' THEN
@@ -158,17 +159,18 @@ BEGIN
     END IF;
   END IF;
   
-  -- When Management approves → notify employee
-  IF NEW.status = 'management_approved' AND OLD.status = 'hr_certified' THEN
-    INSERT INTO notifications (user_id, title, message, link, notification_type)
-    VALUES (
-      employee_id,
-      'Your OT Request Has Been Fully Approved',
-      'Your OT request has been finalized and approved by Management.',
-      '/ot/history?request=' || NEW.id,
-      'ot_approved'
-    );
-  END IF;
+  -- DISABLED: When Management approves → notify employee
+  -- Management approval workflow is now disabled
+  -- IF NEW.status = 'management_approved' AND OLD.status = 'hr_certified' THEN
+  --   INSERT INTO notifications (user_id, title, message, link, notification_type)
+  --   VALUES (
+  --     employee_id,
+  --     'Your OT Request Has Been Fully Approved',
+  --     'Your OT request has been finalized and approved by Management.',
+  --     '/ot/history?request=' || NEW.id,
+  --     'ot_approved'
+  --   );
+  -- END IF;
   
   RETURN NEW;
 END;

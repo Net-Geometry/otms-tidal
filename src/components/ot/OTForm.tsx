@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -12,11 +12,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileUpload } from './FileUpload';
+import { TimePickerInput } from './TimePickerInput';
 import { calculateTotalHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupervisors } from '@/hooks/useSupervisors';
+import { canSubmitOTForDate } from '@/utils/otValidation';
 
 // Create schema factory that accepts requireAttachment parameter
 const createOTFormSchema = (requireAttachment: boolean) => z.object({
@@ -71,9 +74,35 @@ interface OTFormProps {
 export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel, defaultValues, requireAttachment = false }: OTFormProps) {
   const [totalHours, setTotalHours] = useState<number>(0);
   const [dayType, setDayType] = useState<string>('weekday');
+  const [cutoffDay, setCutoffDay] = useState<number>(10);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   // Use the custom hook to fetch supervisors, excluding the employee's direct supervisor
   const { data: supervisors = [] } = useSupervisors({ employeeId });
+
+  // Fetch cutoff day from settings
+  useEffect(() => {
+    const fetchCutoffDay = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ot_settings')
+          .select('ot_submission_cutoff_day')
+          .single();
+
+        if (error) {
+          console.error('Error fetching cutoff day:', error);
+          setCutoffDay(10); // Fallback to default
+        } else if (data?.ot_submission_cutoff_day) {
+          setCutoffDay(data.ot_submission_cutoff_day);
+        }
+      } catch (err) {
+        console.error('Error fetching OT settings:', err);
+        setCutoffDay(10); // Fallback to default
+      }
+    };
+
+    fetchCutoffDay();
+  }, []);
 
   const form = useForm<OTFormValues>({
     resolver: zodResolver(createOTFormSchema(requireAttachment)),
@@ -197,14 +226,33 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => date > new Date() || date < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)}
+                      onSelect={(date) => {
+                        if (date) {
+                          const validation = canSubmitOTForDate(date, new Date(), cutoffDay);
+                          if (validation.isAllowed) {
+                            field.onChange(date);
+                            setSubmissionError(null);
+                          } else {
+                            setSubmissionError(validation.message || 'This date is not allowed for OT submission');
+                          }
+                        }
+                      }}
+                      disabled={(date) => {
+                        const validation = canSubmitOTForDate(date, new Date(), cutoffDay);
+                        return !validation.isAllowed;
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
                 <FormMessage />
+                {submissionError && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{submissionError}</AlertDescription>
+                  </Alert>
+                )}
               </FormItem>
             )}
           />
@@ -218,10 +266,9 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormItem>
                 <FormLabel>Start Time *</FormLabel>
                 <FormControl>
-                  <Input
-                    type="time"
-                    {...field}
-                    className="text-foreground dark:text-foreground [color-scheme:light] dark:[color-scheme:dark]"
+                  <TimePickerInput
+                    value={field.value}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />
@@ -236,10 +283,9 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormItem>
                 <FormLabel>End Time *</FormLabel>
                 <FormControl>
-                  <Input
-                    type="time"
-                    {...field}
-                    className="text-foreground dark:text-foreground [color-scheme:light] dark:[color-scheme:dark]"
+                  <TimePickerInput
+                    value={field.value}
+                    onChange={field.onChange}
                   />
                 </FormControl>
                 <FormMessage />

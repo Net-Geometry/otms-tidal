@@ -17,19 +17,19 @@ import { supabase } from '@/integrations/supabase/client';
 
 export default function ReviewOT() {
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Filter state
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [appliedMonth, setAppliedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [appliedYear, setAppliedYear] = useState<string>(currentDate.getFullYear().toString());
-  
+
   // Convert applied month and year to Date object for the hook
   const filterDate = useMemo(() => {
     return new Date(parseInt(appliedYear), parseInt(appliedMonth) - 1, 1);
   }, [appliedMonth, appliedYear]);
-  
+
   const { data, isLoading } = useManagementReportData(filterDate);
 
   const aggregatedData = data?.aggregated || [];
@@ -79,7 +79,7 @@ export default function ReviewOT() {
 
     const monthStr = format(filterDate, 'MMM_yyyy');
     exportToCSV(formattedData, `Management_OT_Report_${monthStr}`, headers);
-    
+
     toast({
       title: 'Report exported',
       description: 'Excel file has been downloaded successfully.'
@@ -187,7 +187,7 @@ export default function ReviewOT() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <h2 className="text-lg font-semibold">Monthly OT Summary Report</h2>
-              
+
               <div className="flex items-center gap-3">
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-[180px] border-input bg-background focus:border-ring focus:ring-ring">
@@ -250,15 +250,15 @@ export default function ReviewOT() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleExportCSV}
                   disabled={isLoading || filteredData.length === 0}
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Export Excel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleExportPDF}
                   disabled={isLoading || filteredData.length === 0}
                 >
@@ -268,7 +268,7 @@ export default function ReviewOT() {
               </div>
             </div>
 
-          <ManagementReportTable 
+          <ManagementReportTable
             data={filteredData}
             isLoading={isLoading}
             selectedMonth={filterDate}
