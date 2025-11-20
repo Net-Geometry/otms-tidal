@@ -16,7 +16,7 @@ function Calendar({ className, classNames, showOutsideDays = true, compact = fal
       className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: compact ? "space-y-3" : "space-y-6",
+        month: compact ? "space-y-3" : "space-y-3",
         caption: compact
           ? "flex justify-center pt-1 relative items-center mb-3 pb-2 border-b border-border"
           : "flex justify-center pt-1 relative items-center mb-6",
@@ -36,15 +36,15 @@ function Calendar({ className, classNames, showOutsideDays = true, compact = fal
         nav_button_previous: "absolute left-1",
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse",
-        head_row: compact ? "flex gap-1 mb-2" : "flex gap-4 mb-4",
+        head_row: compact ? "flex gap-1 mb-2" : "flex gap-2 mb-2",
         head_cell: compact
           ? "text-muted-foreground font-semibold text-[11px] flex-1 text-center py-1 tracking-[0.3px]"
           : "text-muted-foreground font-semibold text-sm flex-1 text-center",
-        row: compact ? "flex w-full gap-1 mb-1" : "flex w-full gap-4 mb-4",
+        row: compact ? "flex w-full gap-1 mb-1" : "flex w-full gap-2 mb-2",
         cell: "flex-1 text-center text-base p-0 relative",
         day: compact
           ? "h-[34px] w-full p-0 font-medium text-[13px] text-foreground border-0 rounded-md hover:bg-secondary hover:text-primary transition-all duration-200 aria-selected:opacity-100 bg-transparent"
-          : "h-20 w-full p-4 font-medium border border-border rounded-lg hover:scale-105 hover:shadow-[0_0_10px_rgba(95,38,180,0.15)] transition-all duration-200 aria-selected:opacity-100 bg-card",
+          : "h-12 w-full p-2 font-medium border border-border rounded-lg hover:scale-105 hover:shadow-[0_0_10px_rgba(95,38,180,0.15)] transition-all duration-200 aria-selected:opacity-100 bg-card text-sm",
         day_range_end: "day-range-end",
         day_selected: compact
           ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground font-semibold"

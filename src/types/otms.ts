@@ -1,4 +1,6 @@
+// DISABLED: Management role removed - OT process now stops at HR approval
 export type AppRole = 'employee' | 'supervisor' | 'hr' | 'management' | 'admin';
+// DISABLED: management_approved and pending_hr_recertification statuses removed
 export type OTStatus = 'pending_verification' | 'supervisor_verified' | 'hr_certified' | 'management_approved' | 'rejected' | 'pending_hr_recertification' | 'pending_supervisor_confirmation' | 'supervisor_confirmed' | 'pending_respective_supervisor_confirmation' | 'respective_supervisor_confirmed' | 'pending_supervisor_review';
 export type DayType = 'weekday' | 'saturday' | 'sunday' | 'public_holiday';
 
@@ -29,8 +31,11 @@ export interface OTRequest {
   hr_id: string | null;
   hr_approved_at: string | null;
   hr_remarks: string | null;
-  management_reviewed_at: string | null;
-  management_remarks: string | null;
+  // DISABLED: Management fields removed - OT process now stops at HR approval
+  // management_reviewed_at: string | null;
+  // management_remarks: string | null;
+  management_reviewed_at?: string | null; // Kept for backward compatibility
+  management_remarks?: string | null; // Kept for backward compatibility
   eligibility_rule_id: string | null;
   formula_id: string | null;
   threshold_violations: any;

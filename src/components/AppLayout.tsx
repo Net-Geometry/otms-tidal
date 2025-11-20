@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useActiveRole } from '@/hooks/useActiveRole';
 import { useIsMobile, useIsTablet, useDeviceType } from '@/hooks/use-mobile';
 import {
   Sidebar,
@@ -39,6 +40,7 @@ import {
 import { NotificationBell } from '@/components/NotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { InstallBanner } from '@/components/pwa/InstallBanner';
+import { DashboardSwitcher } from '@/components/DashboardSwitcher';
 import { 
   LayoutDashboard, 
   PlusCircle, 
@@ -60,8 +62,11 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
-function AppSidebar() {
-  const { hasRole } = useAuth();
+interface AppSidebarProps {
+  activeRole: string | null;
+}
+
+function AppSidebar({ activeRole }: AppSidebarProps) {
   const { open } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
@@ -147,8 +152,9 @@ function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         {Object.entries(menuGroups).map(([groupKey, group]) => {
-          const filteredItems = group.items.filter(item => 
-            item.roles.some(role => hasRole(role as AppRole))
+          // Only show items that match the currently active role
+          const filteredItems = group.items.filter(item =>
+            activeRole && item.roles.includes(activeRole as AppRole)
           );
           
           // Skip rendering empty groups
@@ -199,6 +205,7 @@ function AppSidebar() {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { user, signOut } = useAuth();
+  const { activeRole } = useActiveRole();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
   const deviceType = useDeviceType();
@@ -256,14 +263,17 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
-        <AppSidebar />
+        <AppSidebar activeRole={activeRole} />
         <div className="flex-1 flex flex-col">
           <header className={`
-            ${deviceType === 'mobile' ? 'h-14' : deviceType === 'tablet' ? 'h-15' : 'h-16'} 
-            border-b bg-card flex items-center justify-between 
+            ${deviceType === 'mobile' ? 'h-14' : deviceType === 'tablet' ? 'h-15' : 'h-16'}
+            border-b bg-card flex items-center justify-between
             ${deviceType === 'mobile' ? 'px-4' : deviceType === 'tablet' ? 'px-5' : 'px-6'}
           `}>
-            <SidebarTrigger />
+            <div className="flex items-center gap-2">
+              <SidebarTrigger />
+              <DashboardSwitcher />
+            </div>
             <div className={`flex items-center ${deviceType === 'mobile' ? 'gap-2' : deviceType === 'tablet' ? 'gap-3' : 'gap-4'}`}>
               <NotificationBell />
               <ThemeToggle />

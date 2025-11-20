@@ -20,7 +20,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   roles: AppRole[];
-  profileStatus: 'active' | 'pending_password' | null;
+  // ADDED: 'inactive' status for disabled accounts (e.g., management users)
+  profileStatus: 'active' | 'pending_password' | 'inactive' | null;
   signIn: (email: string, password: string) => Promise<{ error?: Error }>;
   signOut: () => Promise<void>;
   isLoadingSession: boolean;
@@ -28,10 +29,31 @@ interface AuthContextType {
   isLoadingRoles: boolean;
   getDefaultRoute: () => string;
   hasRole: (role: AppRole) => boolean;
+  validateRoleCombination: (rolesToCheck: AppRole[]) => { isValid: boolean; error?: string };
 }
 
 // Context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Helper function to validate role combinations
+// Admin cannot be combined with other roles; all other roles can combine freely
+function isValidRoleCombination(rolesToCheck: AppRole[]): { isValid: boolean; error?: string } {
+  if (!rolesToCheck || rolesToCheck.length === 0) {
+    return { isValid: true };
+  }
+
+  const hasAdmin = rolesToCheck.includes('admin');
+  const hasOtherRoles = rolesToCheck.length > 1;
+
+  if (hasAdmin && hasOtherRoles) {
+    return {
+      isValid: false,
+      error: 'Admin role cannot be combined with other roles',
+    };
+  }
+
+  return { isValid: true };
+}
 
 // Auth Provider Component
 interface AuthProviderProps {
@@ -211,14 +233,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Get default route based on user roles
   const getDefaultRoute = useCallback(() => {
     if (!roles.length) return '/dashboard';
-    
+
     // Priority order for role-based routing
     if (roles.includes('admin')) return '/admin/dashboard';
     if (roles.includes('hr')) return '/hr/dashboard';
     if (roles.includes('management')) return '/management/dashboard';
     if (roles.includes('supervisor')) return '/supervisor/dashboard';
     if (roles.includes('employee')) return '/employee/dashboard';
-    
+
     return '/dashboard';
   }, [roles]);
 
@@ -226,6 +248,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const hasRole = useCallback((role: AppRole) => {
     return roles.includes(role);
   }, [roles]);
+
+  // Validate role combinations
+  const validateRoleCombination = useCallback((rolesToCheck: AppRole[]) => {
+    return isValidRoleCombination(rolesToCheck);
+  }, []);
 
   // Sign in wrapper
   const signIn = async (email: string, password: string) => {
@@ -259,7 +286,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Derive auth state directly from query data
   const user = session?.user || null;
-  const profileStatus = profile?.status === 'pending_password' ? 'pending_password' : 'active';
+  // ADDED: Support for 'inactive' status to disable accounts (e.g., management users)
+  const profileStatus = profile?.status === 'pending_password'
+    ? 'pending_password'
+    : profile?.status === 'inactive'
+    ? 'inactive'
+    : 'active';
 
   const value: AuthContextType = {
     user,
@@ -274,6 +306,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoadingRoles,
     getDefaultRoute,
     hasRole,
+    validateRoleCombination,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
