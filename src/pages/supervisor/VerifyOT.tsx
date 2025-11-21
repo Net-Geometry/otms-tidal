@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OTApprovalTable } from '@/components/approvals/OTApprovalTable';
@@ -14,7 +15,7 @@ export default function VerifyOT() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('pending_verification');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
-  
+
   const {
     requests,
     isLoading,
@@ -82,19 +83,19 @@ export default function VerifyOT() {
           .select('status')
           .eq('id', requestId)
           .maybeSingle();
-        
+
         if (data) {
           const statusToTab: Record<string, string> = {
             'pending_verification': 'pending_verification',
             'supervisor_verified': 'completed',
             'rejected': 'rejected',
           };
-          
+
           const tab = statusToTab[data.status] || 'all';
           setStatusFilter(tab);
         }
       };
-      
+
       fetchRequestStatus();
     }
   }, [searchParams]);
@@ -112,11 +113,10 @@ export default function VerifyOT() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Verify OT Requests</h1>
-          <p className="text-muted-foreground">Review and verify overtime requests from your team</p>
-        </div>
+      <PageLayout
+        title="Verify OT Requests"
+        description="Review and verify overtime requests from your team"
+      >
 
         <Card className="p-6">
           <div className="space-y-4">
@@ -166,7 +166,7 @@ export default function VerifyOT() {
             </Tabs>
           </div>
         </Card>
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

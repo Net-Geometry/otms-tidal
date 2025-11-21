@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { OTHistoryTable } from '@/components/ot/OTHistoryTable';
 import { OTDetailsSheet } from '@/components/ot/OTDetailsSheet';
 import { OTSummaryCards } from '@/components/ot/OTSummaryCards';
@@ -33,11 +34,11 @@ export default function OTHistory() {
   const [editRequest, setEditRequest] = useState<OTRequest | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  const { 
-    filters, 
+  const {
+    filters,
     selectedPreset,
     applyMonthFilter,
-    activeFilterCount 
+    activeFilterCount
   } = useOTFilters();
 
   const { data: requests = [], isLoading } = useOTRequests({
@@ -112,19 +113,16 @@ export default function OTHistory() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold">OT Request History</h1>
-              <p className="text-muted-foreground text-sm md:text-base">View and track your overtime requests</p>
-            </div>
+      <PageLayout
+        title="OT Request History"
+        description="View and track your overtime requests"
+        onBack={() => navigate('/dashboard')}
+        actions={
+          <div className="flex items-center gap-2">
+            {/* Actions will be moved here if needed, or kept in the content if they are complex */}
           </div>
-        </div>
+        }
+      >
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -142,7 +140,7 @@ export default function OTHistory() {
               <div>
                 <CardTitle>All Requests</CardTitle>
                 <CardDescription>
-                  {activeFilterCount > 0 
+                  {activeFilterCount > 0
                     ? `Filtered results (${requests.length} ${requests.length === 1 ? 'request' : 'requests'})`
                     : 'Complete history of your OT submissions'
                   }
@@ -181,13 +179,13 @@ export default function OTHistory() {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-auto p-0">
-              <OTFilterPanel
-                filters={filters}
-                selectedPreset={selectedPreset}
-                applyMonthFilter={applyMonthFilter}
-                activeFilterCount={activeFilterCount}
-                onClose={() => setFilterOpen(false)}
-              />
+                      <OTFilterPanel
+                        filters={filters}
+                        selectedPreset={selectedPreset}
+                        applyMonthFilter={applyMonthFilter}
+                        activeFilterCount={activeFilterCount}
+                        onClose={() => setFilterOpen(false)}
+                      />
                     </PopoverContent>
                   </Popover>
                 )}
@@ -221,14 +219,14 @@ export default function OTHistory() {
               </div>
             ) : requests.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                {activeFilterCount > 0 
+                {activeFilterCount > 0
                   ? 'No OT requests match your filters. Try adjusting your search criteria.'
                   : 'No OT requests found. Submit your first OT request to get started.'
                 }
               </div>
             ) : (
-              <OTHistoryTable 
-                requests={requests} 
+              <OTHistoryTable
+                requests={requests}
                 onViewDetails={handleViewDetails}
               />
             )}
@@ -280,7 +278,7 @@ export default function OTHistory() {
             </div>
           </DialogContent>
         </Dialog>
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

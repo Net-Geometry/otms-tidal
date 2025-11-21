@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Grid3x3, List, Search } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -51,18 +52,16 @@ export default function Departments() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold">Departments</h1>
-            <p className="text-muted-foreground">Manage organizational departments and structures</p>
-          </div>
+      <PageLayout
+        title="Departments"
+        description="Manage organizational departments and structures"
+        actions={
           <Button onClick={handleCreate}>
             <Plus className="h-4 w-4 mr-2" />
             Add Department
           </Button>
-        </div>
+        }
+      >
 
         {/* Stats */}
         {isLoading ? (
@@ -139,7 +138,7 @@ export default function Departments() {
             )}
           </>
         )}
-      </div>
+      </PageLayout>
 
       <DepartmentDialog
         open={showDialog}

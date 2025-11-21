@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { EnhancedEmployeeDashboardCard } from '@/components/employee/EnhancedEmployeeDashboardCard';
 import { EmployeeOTWeeklyChart } from '@/components/employee/EmployeeOTWeeklyChart';
 import { EmployeeOTStatusChart } from '@/components/employee/EmployeeOTStatusChart';
@@ -36,7 +37,7 @@ export default function EmployeeDashboard() {
       .select('full_name')
       .eq('id', user.id)
       .single();
-    
+
     if (data) setFullName(data.full_name);
   };
 
@@ -60,10 +61,10 @@ export default function EmployeeDashboard() {
     }
 
     const totalHours = data?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
-    const pendingRequests = data?.filter(req => 
+    const pendingRequests = data?.filter(req =>
       req.status === 'pending_verification'
     ).length || 0;
-    const approvedRequests = data?.filter(req => 
+    const approvedRequests = data?.filter(req =>
       req.status === 'hr_certified' || req.status === 'bod_approved' || req.status === 'supervisor_verified'
     ).length || 0;
 
@@ -73,13 +74,10 @@ export default function EmployeeDashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-4 md:space-y-6 bg-muted/30 -m-4 md:-m-6 p-4 md:p-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Employee Dashboard</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">
-            {fullName ? `Welcome back, ${fullName}!` : 'Welcome back!'} Here's your OT overview for this month.
-          </p>
-        </div>
+      <PageLayout
+        title="Employee Dashboard"
+        description={fullName ? `Welcome back, ${fullName}! Here's your OT overview for this month.` : "Welcome back! Here's your OT overview for this month."}
+      >
 
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -125,7 +123,8 @@ export default function EmployeeDashboard() {
         </div>
 
         <QuickTips />
-      </div>
-    </AppLayout>
+
+      </PageLayout>
+    </AppLayout >
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { OTTrendChart } from '@/components/hr/charts/OTTrendChart';
 import { DepartmentOTChart } from '@/components/hr/charts/DepartmentOTChart';
@@ -34,7 +35,7 @@ export default function HRDashboard() {
       .select('full_name')
       .eq('id', user.id)
       .single();
-    
+
     if (data) setFullName(data.full_name);
   };
 
@@ -55,11 +56,11 @@ export default function HRDashboard() {
       .select('total_hours, status')
       .gte('created_at', startOfMonth.toISOString());
 
-    const pendingApprovals = otRequests?.filter(req => 
+    const pendingApprovals = otRequests?.filter(req =>
       req.status === 'pending_verification' || req.status === 'supervisor_verified'
     ).length || 0;
 
-    const approvedThisMonth = otRequests?.filter(req => 
+    const approvedThisMonth = otRequests?.filter(req =>
       req.status === 'hr_certified' || req.status === 'bod_approved'
     ).length || 0;
 
@@ -76,13 +77,10 @@ export default function HRDashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 md:space-y-8">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">HR Dashboard</h1>
-          <p className="text-muted-foreground mt-1 text-sm md:text-base">
-            {fullName ? `Welcome back, ${fullName}!` : 'Welcome back!'} Here's your organization overview.
-          </p>
-        </div>
+      <PageLayout
+        title="HR Dashboard"
+        description={fullName ? `Welcome back, ${fullName}! Here's your organization overview.` : "Welcome back! Here's your organization overview."}
+      >
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {loading ? (
@@ -135,7 +133,7 @@ export default function HRDashboard() {
         </div>
 
         <QuickActions />
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

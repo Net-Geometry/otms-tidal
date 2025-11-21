@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,18 +20,18 @@ import { format } from 'date-fns';
 
 export default function OTReports() {
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [appliedMonth, setAppliedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [appliedYear, setAppliedYear] = useState<string>(currentDate.getFullYear().toString());
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
-  
+
   const filterDate = useMemo(() => {
     return new Date(parseInt(appliedYear), parseInt(appliedMonth) - 1, 1);
   }, [appliedMonth, appliedYear]);
-  
+
   const { data, isLoading } = useHRReportData(filterDate);
   const { data: companyProfile } = useCompanyProfile();
 
@@ -56,10 +57,10 @@ export default function OTReports() {
   const filteredData = aggregatedData.filter(item => {
     // Company filter
     const matchesCompany = selectedCompany === 'all' || item.company_id === selectedCompany;
-    
+
     // Search filter
     if (!searchQuery) return matchesCompany;
-    
+
     const query = searchQuery.toLowerCase();
     const matchesSearch = (
       item.employee_no.toLowerCase().includes(query) ||
@@ -69,7 +70,7 @@ export default function OTReports() {
       item.company_name.toLowerCase().includes(query) ||
       item.company_code.toLowerCase().includes(query)
     );
-    
+
     return matchesCompany && matchesSearch;
   });
 
@@ -78,7 +79,7 @@ export default function OTReports() {
     const totalEmployees = filteredData.length;
     const totalHours = filteredData.reduce((sum, item) => sum + item.total_ot_hours, 0);
     const totalCost = filteredData.reduce((sum, item) => sum + item.amount, 0);
-    
+
     return {
       totalCompanies: uniqueCompanies,
       totalEmployees,
@@ -120,8 +121,8 @@ export default function OTReports() {
 
     const monthStr = format(filterDate, 'MMM_yyyy');
     exportToCSV(
-      formattedData, 
-      `HR_OT_Report_${monthStr}`, 
+      formattedData,
+      `HR_OT_Report_${monthStr}`,
       headers,
       {
         reportName: 'HR Overtime Report',
@@ -129,7 +130,7 @@ export default function OTReports() {
         generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm')
       }
     );
-    
+
     toast({
       title: 'Report exported',
       description: 'Excel file has been downloaded successfully.'
@@ -174,7 +175,7 @@ export default function OTReports() {
         },
         companyGroups: companyGroups,
       });
-      
+
       toast({
         title: 'PDF generated',
         description: 'Report has been downloaded successfully.'
@@ -191,11 +192,10 @@ export default function OTReports() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">OT Reports</h1>
-          <p className="text-muted-foreground">Filter and export monthly overtime summaries by department and employee.</p>
-        </div>
+      <PageLayout
+        title="OT Reports"
+        description="Filter and export monthly overtime summaries by department and employee."
+      >
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <EnhancedDashboardCard
@@ -232,7 +232,7 @@ export default function OTReports() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <h2 className="text-lg font-semibold">Monthly OT Summary Report</h2>
-              
+
               <div className="flex items-center gap-3">
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-[180px] border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
@@ -295,15 +295,15 @@ export default function OTReports() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleExportCSV}
                   disabled={isLoading || filteredData.length === 0}
                 >
                   <Download className="mr-2 h-4 w-4" />
                   Export Excel
                 </Button>
-                <Button 
+                <Button
                   onClick={handleExportPDF}
                   disabled={isLoading || filteredData.length === 0}
                 >
@@ -322,14 +322,14 @@ export default function OTReports() {
                   stats={company.stats}
                   defaultExpanded={index === 0}
                 >
-                  <HRReportTable 
+                  <HRReportTable
                     data={company.employees}
                     isLoading={false}
                     selectedMonth={filterDate}
                   />
                 </CompanyReportCard>
               ))}
-              
+
               {companyGroups.length === 0 && !isLoading && (
                 <div className="text-center py-12 text-muted-foreground">
                   No overtime data found for the selected period.
@@ -338,7 +338,7 @@ export default function OTReports() {
             </div>
           </div>
         </Card>
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

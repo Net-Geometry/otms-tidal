@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,7 +71,7 @@ export default function Employees() {
     }));
 
     exportToCSV(exportData, `employees-${new Date().toISOString().split('T')[0]}`, headers);
-    
+
     toast({
       title: 'Success',
       description: 'Employee list exported successfully',
@@ -79,12 +80,10 @@ export default function Employees() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold">Employee Management</h1>
-            <p className="text-muted-foreground">Manage employee accounts and access</p>
-          </div>
+      <PageLayout
+        title="Employee Management"
+        description="Manage employee accounts and access"
+        actions={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RotateCw className="h-4 w-4 mr-2" />
@@ -99,7 +98,8 @@ export default function Employees() {
               Add Employee
             </Button>
           </div>
-        </div>
+        }
+      >
 
         <EmployeeStats employees={employees || []} />
 
@@ -127,19 +127,19 @@ export default function Employees() {
         </div>
 
         <Card className="p-6">
-          <EmployeeTable 
-            employees={employees || []} 
+          <EmployeeTable
+            employees={employees || []}
             isLoading={isLoading}
             searchQuery={searchQuery}
             statusFilter={statusFilter}
           />
         </Card>
 
-        <InviteEmployeeDialog 
-          open={inviteDialogOpen} 
+        <InviteEmployeeDialog
+          open={inviteDialogOpen}
           onOpenChange={setInviteDialogOpen}
         />
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

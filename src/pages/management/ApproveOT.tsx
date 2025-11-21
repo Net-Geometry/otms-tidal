@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -114,11 +115,10 @@ export default function ApproveOT() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Management Approval</h1>
-          <p className="text-muted-foreground">Review and approve overtime requests. Monthly approval cycle available.</p>
-        </div>
+      <PageLayout
+        title="Management Approval"
+        description="Review and approve overtime requests. Monthly approval cycle available."
+      >
 
         <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="hr_certified">
           <TabsList>
@@ -216,7 +216,7 @@ export default function ApproveOT() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+      </PageLayout>
 
       {/* Bulk Approval Confirmation Dialog */}
       <Dialog open={showBulkConfirmation} onOpenChange={setShowBulkConfirmation}>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Clock, ClipboardList, CheckSquare, ClipboardCheck } from 'lucide-react';
 import { SupervisorDashboardCard } from '@/components/supervisor/SupervisorDashboardCard';
@@ -36,7 +37,7 @@ export default function SupervisorDashboard() {
       .select('full_name')
       .eq('id', user.id)
       .single();
-    
+
     if (data) setFullName(data.full_name);
   };
 
@@ -78,14 +79,10 @@ export default function SupervisorDashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-8">
-        {/* Header Section */}
-        <div>
-          <h1 className="text-3xl font-bold">Supervisor Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Welcome back, {fullName || 'Supervisor'}! Here's your team's OT performance overview for this month.
-          </p>
-        </div>
+      <PageLayout
+        title="Supervisor Dashboard"
+        description={fullName ? `Welcome back, ${fullName}! Here's your team's OT performance overview for this month.` : "Welcome back! Here's your team's OT performance overview for this month."}
+      >
 
         {/* KPI Cards Grid */}
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
@@ -155,7 +152,7 @@ export default function SupervisorDashboard() {
 
         {/* Footer Note */}
         <FooterNote />
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }
