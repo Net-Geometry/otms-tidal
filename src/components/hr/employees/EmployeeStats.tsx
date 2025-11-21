@@ -1,6 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, UserCheck, UserPlus, DollarSign } from 'lucide-react';
+import { Users, UserCheck, UserPlus, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/otCalculations';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
 
 interface Employee {
   status: string;
@@ -14,9 +17,29 @@ interface EmployeeStatsProps {
 export function EmployeeStats({ employees }: EmployeeStatsProps) {
   const totalEmployees = employees.length;
   const activeEmployees = employees.filter(e => e.status === 'active').length;
-  const avgSalary = employees.length > 0 
-    ? employees.reduce((sum, e) => sum + e.basic_salary, 0) / employees.length 
-    : 0;
+
+  // Fetch total OT for current month
+  const { data: otData } = useQuery({
+    queryKey: ['monthly-ot-total'],
+    queryFn: async () => {
+      const startDate = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+      const endDate = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+
+      const { data, error } = await supabase
+        .from('ot_requests')
+        .select('ot_amount')
+        .gte('ot_date', startDate)
+        .lte('ot_date', endDate)
+        .in('status', ['supervisor_verified', 'hr_certified', 'management_approved']);
+
+      if (error) throw error;
+
+      const total = data?.reduce((sum, record) => sum + (record.ot_amount || 0), 0) || 0;
+      return total;
+    },
+  });
+
+  const totalMonthlyOT = otData || 0;
 
   const stats = [
     {
@@ -41,9 +64,9 @@ export function EmployeeStats({ employees }: EmployeeStatsProps) {
       bgColor: 'bg-yellow-500/10',
     },
     {
-      title: 'Average Salary',
-      value: formatCurrency(avgSalary),
-      icon: DollarSign,
+      title: 'Total OT per Month',
+      value: formatCurrency(totalMonthlyOT),
+      icon: Clock,
       color: 'text-purple-600 dark:text-purple-400',
       bgColor: 'bg-purple-500/10',
     },
