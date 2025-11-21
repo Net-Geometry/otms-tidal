@@ -23,7 +23,9 @@ import { useDepartments } from '@/hooks/hr/useDepartments';
 import { useEmployees } from '@/hooks/hr/useEmployees';
 import { usePositions } from '@/hooks/hr/usePositions';
 import { useCompanies } from '@/hooks/hr/useCompanies';
+import { useResetEmployeePassword } from '@/hooks/hr/useResetEmployeePassword';
 import { formatCurrency } from '@/lib/otCalculations';
+import { KeyRound } from 'lucide-react';
 
 interface EmployeeDetailsSheetProps {
   employee: Profile | null;
@@ -47,6 +49,7 @@ export function EmployeeDetailsSheet({
   const [selectedRole, setSelectedRole] = useState<AppRole>('employee');
 
   const updateEmployee = useUpdateEmployee();
+  const resetPassword = useResetEmployeePassword();
   const { data: companies } = useCompanies();
   const { data: departments } = useDepartments();
   const { data: employees = [] } = useEmployees();
@@ -92,6 +95,13 @@ export function EmployeeDetailsSheet({
   const handleCancel = () => {
     setFormData(employee);
     setMode('view');
+  };
+
+  const handleResetPassword = () => {
+    resetPassword.mutate({
+      employeeId: employee.id,
+      email: employee.email,
+    });
   };
 
   const isEditing = mode === 'edit';
@@ -518,7 +528,18 @@ export function EmployeeDetailsSheet({
                 </Button>
               </>
             ) : (
-              <Button onClick={() => setMode('edit')}>Edit</Button>
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleResetPassword}
+                  disabled={resetPassword.isPending}
+                  className="gap-2"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  {resetPassword.isPending ? 'Sending...' : 'Reset Password'}
+                </Button>
+                <Button onClick={() => setMode('edit')}>Edit</Button>
+              </>
             )}
           </div>
         </div>
