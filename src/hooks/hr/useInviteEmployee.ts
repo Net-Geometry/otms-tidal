@@ -47,9 +47,30 @@ export function useInviteEmployee() {
       
       let errorMessage = 'Failed to add employee';
       
-      // Handle edge function errors
+      // Try to extract the actual error message from the edge function response
       if (error.message) {
-        errorMessage = error.message;
+        // Check if the message contains a JSON error object at the end
+        const jsonMatch = error.message.match(/\{.*"error".*\}$/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            errorMessage = parsed.error || errorMessage;
+          } catch {
+            // If JSON parsing fails, use the original message
+            errorMessage = error.message;
+          }
+        } else {
+          // Use the message directly if no JSON found
+          errorMessage = error.message;
+        }
+      }
+      
+      // Fallback to error object properties
+      if (error.error) {
+        errorMessage = error.error;
+      }
+      if (error.details) {
+        errorMessage = error.details;
       }
       
       toast({

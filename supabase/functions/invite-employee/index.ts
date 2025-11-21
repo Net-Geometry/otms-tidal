@@ -75,6 +75,24 @@ serve(async (req) => {
       throw new Error(`Employee No ${employee_id} already exists. Please use a unique Employee No.`);
     }
 
+    // VALIDATION: Check if email already exists in profiles BEFORE creating auth user
+    // Only check if it's a real email (not placeholder)
+    if (email && email.trim() !== '' && !email.includes('@internal.company')) {
+      const { data: emailProfile, error: emailCheckError } = await supabaseAdmin
+        .from('profiles')
+        .select('employee_id, full_name, status')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+        throw emailCheckError;
+      }
+
+      if (emailProfile) {
+        throw new Error(`This email is already used by Employee No ${emailProfile.employee_id} (${emailProfile.full_name}). Please use a different email or update that employee's record instead.`);
+      }
+    }
+
     // Create auth user with temporary default password
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: effectiveEmail,
@@ -89,7 +107,7 @@ serve(async (req) => {
     if (authError) {
       // Check if it's a duplicate email error
       if (authError.message?.includes('already registered') || authError.message?.includes('email_exists')) {
-        throw new Error(`Email ${effectiveEmail} is already registered. Please use a different email.`);
+        throw new Error(`A user with this email address already exists in the system (possibly as an admin/HR login). Please use a different email for this employee or update the existing user instead.`);
       }
       throw authError;
     }
