@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { canSubmitOTForDate } from '@/utils/otValidation';
@@ -114,9 +115,15 @@ export function useOTSubmit() {
       // All submissions begin in pending_verification so direct supervisor can review first
       const initialStatus = 'pending_verification';
 
+      // Generate ticket number: OT-YYYYMMDD-RANDOM
+      const dateStr = format(new Date(data.ot_date), 'yyyyMMdd');
+      const randomSuffix = Math.random().toString(36).substring(2, 6).toUpperCase();
+      const ticketNumber = `OT-${dateStr}-${randomSuffix}`;
+
       const { data: otRequest, error } = await supabase
         .from('ot_requests')
-        .insert({
+        .insert([{
+          ticket_number: ticketNumber,
           employee_id: user.id,
           supervisor_id: profile.supervisor_id || null,
           ot_date: data.ot_date,
@@ -128,7 +135,7 @@ export function useOTSubmit() {
           respective_supervisor_id: data.respective_supervisor_id || null,
           attachment_urls: data.attachment_urls,
           status: initialStatus,
-        })
+        }])
         .select()
         .single();
 

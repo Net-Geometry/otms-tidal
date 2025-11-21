@@ -49,8 +49,9 @@ export function RequestRespectiveSupervisorConfirmationSheet({
   const remainingChars = MAX_REMARKS_LENGTH - remarks.length;
   const isRemarksValid = remarks.length <= MAX_REMARKS_LENGTH;
 
-  // Get respective supervisor info from the profiles relationship
-  const respectiveSupervisor = request.profiles_respective_supervisor;
+  // Get respective supervisor - it's not on request, need to fetch separately if needed
+  // For now, we just show the ID
+  const respectiveSupervisorId = request.respective_supervisor_id;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -142,26 +143,16 @@ export function RequestRespectiveSupervisorConfirmationSheet({
           </div>
 
           {/* Respective Supervisor Information */}
-          {respectiveSupervisor && (
+          {respectiveSupervisorId && (
             <>
               <Separator />
               <div className="space-y-4 bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
                 <h3 className="font-semibold text-lg text-blue-900 dark:text-blue-100">
                   Respective Supervisor for Confirmation
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Supervisor Name</Label>
-                    <p className="font-medium">
-                      {respectiveSupervisor.full_name || 'Unknown Supervisor'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Employee ID</Label>
-                    <p className="font-mono text-sm">
-                      {respectiveSupervisor.employee_id || 'N/A'}
-                    </p>
-                  </div>
+                <div>
+                  <Label className="text-muted-foreground">Supervisor ID</Label>
+                  <p className="font-mono text-sm">{respectiveSupervisorId}</p>
                 </div>
               </div>
             </>

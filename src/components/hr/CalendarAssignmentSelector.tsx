@@ -110,9 +110,9 @@ export function CalendarAssignmentSelector({
               </Badge>
             )}
           </div>
-          {assignedCalendar.applicable_locations && assignedCalendar.applicable_locations.length > 0 && (
+          {assignedCalendar.state_codes && assignedCalendar.state_codes.length > 0 && (
             <div className="text-xs text-muted-foreground mt-1">
-              Locations: {assignedCalendar.applicable_locations.join(', ')}
+              States: {assignedCalendar.state_codes.join(', ')}
             </div>
           )}
         </div>
@@ -156,9 +156,9 @@ export function CalendarAssignmentSelector({
                     <SelectItem key={calendar.id} value={calendar.id}>
                       <div className="flex flex-col">
                         <span>{calendar.name}</span>
-                        {calendar.applicable_locations && calendar.applicable_locations.length > 0 && (
+                        {calendar.state_codes && calendar.state_codes.length > 0 && (
                           <span className="text-xs text-muted-foreground">
-                            {calendar.applicable_locations.join(', ')}
+                            {calendar.state_codes.join(', ')}
                           </span>
                         )}
                       </div>
