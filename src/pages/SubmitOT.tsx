@@ -19,7 +19,7 @@ export default function SubmitOT() {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('employee_id, full_name, require_ot_attachment')
+        .select('employee_id, full_name')
         .eq('id', user.id)
         .single();
       
@@ -68,7 +68,6 @@ export default function SubmitOT() {
               employeeId={profile?.employee_id || ''}
               fullName={profile?.full_name || ''}
               onCancel={handleCancel}
-              requireAttachment={profile?.require_ot_attachment ?? false}
             />
           </CardContent>
         </Card>
