@@ -53,7 +53,7 @@ export function useManagementReportData(selectedMonth?: Date) {
 
       // Aggregate by employee
       const aggregated = aggregateByEmployee(data || []);
-      
+
       // Calculate stats
       const stats = calculateStats(data || []);
 
@@ -68,11 +68,11 @@ export function useManagementReportData(selectedMonth?: Date) {
 
 function aggregateByEmployee(requests: any[]): EmployeeOTSummary[] {
   const grouped = new Map<string, EmployeeOTSummary>();
-  
+
   requests.forEach(req => {
     const empId = req.employee_id;
     const profile = req.profiles;
-    
+
     if (!grouped.has(empId)) {
       grouped.set(empId, {
         employee_no: profile?.employee_id || empId,
@@ -87,13 +87,13 @@ function aggregateByEmployee(requests: any[]): EmployeeOTSummary[] {
         monthly_total: 0
       });
     }
-    
+
     const emp = grouped.get(empId)!;
     emp.total_ot_hours += req.total_hours || 0;
     emp.amount += req.ot_amount || 0;
     emp.monthly_total = emp.amount;
   });
-  
+
   return Array.from(grouped.values());
 }
 

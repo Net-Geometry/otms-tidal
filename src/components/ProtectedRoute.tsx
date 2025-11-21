@@ -34,6 +34,11 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to="/setup-password" replace />;
   }
 
+  // Redirect inactive users (e.g., disabled management users) to login
+  if (profileStatus === 'inactive') {
+    return <Navigate to="/auth" replace />;
+  }
+
   // Admin bypass: admins can access all routes
   if (roles.includes('admin')) {
     return <>{children}</>;

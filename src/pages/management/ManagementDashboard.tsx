@@ -33,56 +33,82 @@ export default function ManagementDashboard() {
 
   const fetchProfile = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single();
-    
-    if (data) setFullName(data.full_name);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      if (data) setFullName(data.full_name);
+    } catch (err) {
+      console.error('Profile fetch exception:', err);
+    }
   };
 
   const fetchStats = async () => {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    try {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
 
-    const startOfLastMonth = new Date(startOfMonth);
-    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+      const startOfLastMonth = new Date(startOfMonth);
+      startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
 
-    // Current month data
-    const { data: currentMonthData } = await supabase
-      .from('ot_requests')
-      .select('total_hours, ot_amount, status')
-      .gte('created_at', startOfMonth.toISOString());
+      // Current month data
+      const { data: currentMonthData, error: currentError } = await supabase
+        .from('ot_requests')
+        .select('total_hours, ot_amount, status')
+        .gte('created_at', startOfMonth.toISOString());
 
-    // Last month data for trend
-    const { data: lastMonthData } = await supabase
-      .from('ot_requests')
-      .select('total_hours')
-      .gte('created_at', startOfLastMonth.toISOString())
-      .lt('created_at', startOfMonth.toISOString());
+      if (currentError) {
+        console.error('Error fetching current month data:', currentError);
+        setLoading(false);
+        return;
+      }
 
-    const totalOTHours = currentMonthData?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
-    const totalExpenditure = currentMonthData?.reduce((sum, req) => sum + (req.ot_amount || 0), 0) || 0;
-    
-    const approvedCount = currentMonthData?.filter(req => 
-      req.status === 'hr_certified' || req.status === 'management_approved'
-    ).length || 0;
-    const totalCount = currentMonthData?.length || 1;
-    const complianceRate = Math.round((approvedCount / totalCount) * 100);
+      // Last month data for trend
+      const { data: lastMonthData, error: lastError } = await supabase
+        .from('ot_requests')
+        .select('total_hours')
+        .gte('created_at', startOfLastMonth.toISOString())
+        .lt('created_at', startOfMonth.toISOString());
 
-    const lastMonthHours = lastMonthData?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 1;
-    const trend = lastMonthHours > 0 ? ((totalOTHours - lastMonthHours) / lastMonthHours) * 100 : 0;
-    const monthlyTrend = `${trend >= 0 ? '+' : ''}${trend.toFixed(1)}%`;
+      if (lastError) {
+        console.error('Error fetching last month data:', lastError);
+        setLoading(false);
+        return;
+      }
 
-    setStats({
-      totalOTHours,
-      totalExpenditure,
-      complianceRate,
-      monthlyTrend,
-    });
-    setLoading(false);
+      const totalOTHours = currentMonthData?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
+      const totalExpenditure = currentMonthData?.reduce((sum, req) => sum + (req.ot_amount || 0), 0) || 0;
+
+      const approvedCount = currentMonthData?.filter(req =>
+        req.status === 'hr_certified' || req.status === 'management_approved'
+      ).length || 0;
+      const totalCount = currentMonthData?.length || 1;
+      const complianceRate = Math.round((approvedCount / totalCount) * 100);
+
+      const lastMonthHours = lastMonthData?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 1;
+      const trend = lastMonthHours > 0 ? ((totalOTHours - lastMonthHours) / lastMonthHours) * 100 : 0;
+      const monthlyTrend = `${trend >= 0 ? '+' : ''}${trend.toFixed(1)}%`;
+
+      setStats({
+        totalOTHours,
+        totalExpenditure,
+        complianceRate,
+        monthlyTrend,
+      });
+      setLoading(false);
+    } catch (err) {
+      console.error('Stats fetch exception:', err);
+      setLoading(false);
+    }
   };
 
   return (
@@ -148,7 +174,9 @@ export default function ManagementDashboard() {
           </div>
         </div>
 
-        <QuickInsights />
+        <div>
+          <QuickInsights />
+        </div>
       </div>
     </AppLayout>
   );

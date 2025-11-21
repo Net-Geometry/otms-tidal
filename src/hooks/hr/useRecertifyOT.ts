@@ -39,7 +39,7 @@ export function useRecertifyOTActions() {
       const { error } = await supabase
         .from('ot_requests')
         .update({
-          status: 'hr_certified',
+          status: 'pending_management_approval',
           hr_id: user.id,
           hr_approved_at: new Date().toISOString(),
           hr_remarks: remarks,

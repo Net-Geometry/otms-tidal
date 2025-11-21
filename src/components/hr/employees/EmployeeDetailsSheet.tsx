@@ -27,6 +27,9 @@ import { useResetEmployeePassword } from '@/hooks/hr/useResetEmployeePassword';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/otCalculations';
 import { KeyRound, AlertTriangle } from 'lucide-react';
+import { RoleSelector } from '@/components/RoleSelector';
+import { CalendarAssignmentSelector } from '@/components/hr/CalendarAssignmentSelector';
+import { StateSelector } from '@/components/hr/StateSelector';
 
 interface EmployeeDetailsSheetProps {
   employee: Profile | null;
@@ -35,7 +38,6 @@ interface EmployeeDetailsSheetProps {
   mode: 'view' | 'edit';
 }
 
-const roles: AppRole[] = ['employee', 'supervisor', 'hr', 'management', 'admin'];
 const employmentTypes = ['Permanent', 'Contract', 'Internship'];
 const statuses = ['active', 'inactive'];
 
@@ -47,7 +49,7 @@ export function EmployeeDetailsSheet({
 }: EmployeeDetailsSheetProps) {
   const [mode, setMode] = useState<'view' | 'edit'>(initialMode);
   const [formData, setFormData] = useState<Partial<Profile>>({});
-  const [selectedRole, setSelectedRole] = useState<AppRole>('employee');
+  const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
 
   const { hasRole } = useAuth();
   const updateEmployee = useUpdateEmployee();
@@ -66,10 +68,10 @@ export function EmployeeDetailsSheet({
   useEffect(() => {
     if (employee) {
       setFormData(employee);
-      setSelectedRole(
+      setSelectedRoles(
         employee.user_roles && employee.user_roles.length > 0
-          ? employee.user_roles[0].role
-          : 'employee'
+          ? employee.user_roles.map((r) => r.role)
+          : []
       );
     }
   }, [employee]);
@@ -86,7 +88,7 @@ export function EmployeeDetailsSheet({
         id: employee.id,
         ...formData,
         position: positionTitle,
-        role: selectedRole,
+        roles: selectedRoles,
       },
       {
         onSuccess: () => {
@@ -378,20 +380,24 @@ export function EmployeeDetailsSheet({
               )}
             </div>
 
-            {/* Row 8: Work Location + State */}
+            {/* Row 8: State (Work Location) */}
             <div className="grid gap-2">
-              <Label htmlFor="work_location">Work Location</Label>
+              <Label htmlFor="state">Work State/Location</Label>
               {isEditing ? (
-                <Input
-                  id="work_location"
-                  value={formData.work_location || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, work_location: e.target.value })
-                  }
-                  placeholder="e.g. HQ, Site A"
+                <StateSelector
+                  value={formData.state || employee.state}
+                  onChange={(value) => setFormData({ ...formData, state: value })}
+                  showStateName
                 />
               ) : (
-                <div className="text-sm">{employee.work_location || '-'}</div>
+                <div className="text-sm">
+                  {employee.state || '-'}
+                  {employee.state && (
+                    <Badge variant="outline" className="ml-2 text-xs">
+                      {employee.state}
+                    </Badge>
+                  )}
+                </div>
               )}
             </div>
 
@@ -427,33 +433,25 @@ export function EmployeeDetailsSheet({
 
             {/* Row 10: Role + Status */}
             <div className="grid gap-2">
-              <Label htmlFor="role">Role</Label>
-              {employee.user_roles && employee.user_roles.length > 0 ? (
-                <div className="space-y-2">
-                  <Badge variant="outline" className="w-fit capitalize">
-                    {employee.user_roles[0].role}
-                  </Badge>
-                  <p className="text-xs text-muted-foreground">
-                    Role cannot be changed for security reasons. All role changes are logged.
-                  </p>
-                </div>
-              ) : isEditing ? (
-                <Select value={selectedRole} onValueChange={(value) => setSelectedRole(value as AppRole)}>
-                  <SelectTrigger id="role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role} value={role} className="capitalize">
-                        {role}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <Label htmlFor="role">Roles</Label>
+              {isEditing ? (
+                <RoleSelector
+                  selectedRoles={selectedRoles}
+                  onRolesChange={setSelectedRoles}
+                  disabled={false}
+                />
               ) : (
-                <Badge variant="outline" className="w-fit capitalize">
-                  employee
-                </Badge>
+                <div className="flex flex-wrap gap-2">
+                  {selectedRoles.length > 0 ? (
+                    selectedRoles.map((role) => (
+                      <Badge key={role} variant="outline" className="capitalize">
+                        {role}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">No roles assigned</span>
+                  )}
+                </div>
               )}
             </div>
 
@@ -536,6 +534,23 @@ export function EmployeeDetailsSheet({
                 </Badge>
               )}
             </div>
+          </div>
+
+          {/* Calendar Assignment Section */}
+          <div className="border-t pt-6">
+            <Label className="text-base font-semibold mb-3 block">Calendar Assignment</Label>
+            {isEditing ? (
+              <CalendarAssignmentSelector
+                employeeId={employee.id}
+                state={formData.state || employee.state}
+              />
+            ) : (
+              <CalendarAssignmentSelector
+                employeeId={employee.id}
+                state={employee.state}
+                disabled
+              />
+            )}
           </div>
 
           <div className="flex gap-2 justify-end">

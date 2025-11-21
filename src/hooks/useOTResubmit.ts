@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { canSubmitOTForDate } from '@/utils/otValidation';
 
 interface ResubmitData {
   originalRequestId: string;
@@ -21,6 +22,26 @@ export function useOTResubmit() {
     mutationFn: async (data: ResubmitData) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      // Get submission cutoff day from settings
+      const { data: settings, error: settingsError } = await supabase
+        .from('ot_settings')
+        .select('ot_submission_cutoff_day')
+        .single();
+
+      if (settingsError) {
+        console.error('Error fetching OT settings:', settingsError);
+        // Continue with default cutoff day
+      }
+
+      const cutoffDay = settings?.ot_submission_cutoff_day || 10;
+
+      // Validate OT date against submission deadline rules
+      const otDateObj = new Date(data.ot_date);
+      const validation = canSubmitOTForDate(otDateObj, new Date(), cutoffDay);
+      if (!validation.isAllowed) {
+        throw new Error(validation.message || 'This date is not allowed for OT submission');
+      }
 
       // Get original request info
       const { data: originalRequest, error: fetchError } = await supabase

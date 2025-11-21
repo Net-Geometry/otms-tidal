@@ -1,0 +1,146 @@
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { useCreateEligibilityRule } from '@/hooks/hr/useCreateEligibilityRule';
+import { useUpdateEligibilityRule } from '@/hooks/hr/useUpdateEligibilityRule';
+
+interface EligibilityRule {
+  id: string;
+  rule_name: string;
+  min_salary: number;
+  max_salary: number;
+  is_active: boolean;
+  department_ids?: string[];
+  role_ids?: string[];
+  employment_types?: string[];
+}
+
+interface EligibilityRuleDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  rule?: EligibilityRule | null;
+}
+
+export function EligibilityRuleDialog({ open, onOpenChange, rule }: EligibilityRuleDialogProps) {
+  const [formData, setFormData] = useState({
+    rule_name: '',
+    min_salary: 0,
+    max_salary: 0,
+    is_active: true,
+  });
+
+  const createRule = useCreateEligibilityRule();
+  const updateRule = useUpdateEligibilityRule();
+
+  useEffect(() => {
+    if (rule) {
+      setFormData({
+        rule_name: rule.rule_name,
+        min_salary: rule.min_salary,
+        max_salary: rule.max_salary,
+        is_active: rule.is_active,
+      });
+    } else if (!open) {
+      setFormData({
+        rule_name: '',
+        min_salary: 0,
+        max_salary: 0,
+        is_active: true,
+      });
+    }
+  }, [rule, open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (rule) {
+      await updateRule.mutateAsync({
+        id: rule.id,
+        ...formData,
+      });
+    } else {
+      await createRule.mutateAsync(formData);
+    }
+
+    onOpenChange(false);
+  };
+
+  const isLoading = createRule.isPending || updateRule.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>{rule ? 'Edit' : 'Add'} Eligibility Rule</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="rule_name">Rule Name</Label>
+            <Input
+              id="rule_name"
+              value={formData.rule_name}
+              onChange={(e) => setFormData({ ...formData, rule_name: e.target.value })}
+              placeholder="e.g., Standard Employee Eligibility"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="min_salary">Minimum Salary (RM)</Label>
+              <Input
+                id="min_salary"
+                type="number"
+                step="0.01"
+                value={formData.min_salary}
+                onChange={(e) => setFormData({ ...formData, min_salary: parseFloat(e.target.value) })}
+                placeholder="0.00"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="max_salary">Maximum Salary (RM)</Label>
+              <Input
+                id="max_salary"
+                type="number"
+                step="0.01"
+                value={formData.max_salary}
+                onChange={(e) => setFormData({ ...formData, max_salary: parseFloat(e.target.value) })}
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="is_active">Active</Label>
+              <p className="text-sm text-muted-foreground">
+                Enable this rule immediately
+              </p>
+            </div>
+            <Switch
+              id="is_active"
+              checked={formData.is_active}
+              onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Saving...' : rule ? 'Update' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

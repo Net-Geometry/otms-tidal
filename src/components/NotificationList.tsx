@@ -2,7 +2,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { CheckCheck, Bell } from 'lucide-react';
+import { CheckCheck, Bell, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,27 @@ import { cn } from '@/lib/utils';
 export function NotificationList() {
   const { notifications, markAsRead, markAllAsRead, isLoading } = useNotifications();
   const navigate = useNavigate();
+
+  // Icon mapping for different notification types
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'ot_pending_confirmation':
+        return <AlertCircle className="h-4 w-4 text-amber-500" />;
+      case 'ot_supervisor_confirmed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'ot_approved':
+      case 'ot_requests_approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'ot_rejected':
+      case 'ot_requests_rejected':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'ot_pending_review':
+      case 'ot_requests_new':
+        return <Clock className="h-4 w-4 text-blue-500" />;
+      default:
+        return <Bell className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
 
   const handleNotificationClick = (notification: any) => {
     if (!notification.is_read) {
@@ -66,19 +87,24 @@ export function NotificationList() {
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 space-y-1">
-                    <p className={cn(
-                      "text-sm font-medium leading-none",
-                      !notification.is_read && "font-semibold"
-                    )}>
-                      {notification.title}
-                    </p>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {notification.message}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                    </p>
+                  <div className="flex items-start gap-3 flex-1">
+                    <div className="mt-0.5">
+                      {getNotificationIcon(notification.notification_type)}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className={cn(
+                        "text-sm font-medium leading-none",
+                        !notification.is_read && "font-semibold"
+                      )}>
+                        {notification.title}
+                      </p>
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {notification.message}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                      </p>
+                    </div>
                   </div>
                   {!notification.is_read && (
                     <div className="h-2 w-2 rounded-full bg-primary flex-shrink-0 mt-1" />

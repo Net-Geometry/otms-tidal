@@ -63,34 +63,81 @@ All colors MUST be HSL.
     --card-foreground: 210 40% 98%;
     --popover: 217.2 32.6% 17.5%;
     --popover-foreground: 210 40% 98%;
-    
+
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    
+
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
-    
+
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    
+
     --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
-    
+
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 100%;
-    
+
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
-    
+
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
-    
+
     --info: 262 83% 58%;
     --info-foreground: 0 0% 100%;
-    
+
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 217 91% 60%;
+  }
+
+  /* Pink theme - Complete pink aesthetic */
+  .pink {
+    --background: 320 60% 95%;
+    --foreground: 320 30% 20%;
+    --card: 320 40% 96%;
+    --card-foreground: 320 30% 20%;
+    --popover: 320 40% 96%;
+    --popover-foreground: 320 30% 20%;
+
+    --primary: 320 75% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 320 40% 85%;
+    --secondary-foreground: 320 30% 20%;
+
+    --muted: 320 40% 90%;
+    --muted-foreground: 320 20% 50%;
+
+    --accent: 320 80% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --info: 262 83% 58%;
+    --info-foreground: 0 0% 100%;
+
+    --border: 320 50% 88%;
+    --input: 320 50% 88%;
+    --ring: 320 75% 55%;
+
+    --sidebar-background: 320 40% 25%;
+    --sidebar-foreground: 320 60% 95%;
+    --sidebar-primary: 320 75% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 320 50% 40%;
+    --sidebar-accent-foreground: 320 60% 95%;
+    --sidebar-border: 320 50% 40%;
+    --sidebar-ring: 320 75% 55%;
   }
 }
 

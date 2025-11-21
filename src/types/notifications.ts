@@ -10,6 +10,10 @@ export interface NotificationPreferences {
   ot_requests_approved: boolean;
   /** Notifications when OT requests are rejected (employees) */
   ot_requests_rejected: boolean;
+  /** Notifications when OT needs supervisor confirmation (supervisors only) */
+  ot_pending_confirmation: boolean;
+  /** Notifications when supervisor confirms OT request (employees) */
+  ot_supervisor_confirmed: boolean;
   /** Global disable flag - when true, all notifications are disabled */
   all_disabled: boolean;
 }
@@ -21,6 +25,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   ot_requests_new: true,
   ot_requests_approved: true,
   ot_requests_rejected: true,
+  ot_pending_confirmation: true,
+  ot_supervisor_confirmed: true,
   all_disabled: false,
 };
 
@@ -55,6 +61,18 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     key: 'ot_requests_rejected',
     label: 'Request Rejected',
     description: 'Get notified when your OT requests are rejected',
+    roles: ['employee']
+  },
+  {
+    key: 'ot_pending_confirmation',
+    label: 'Confirmation Required',
+    description: 'Get notified when verified OT requests need your confirmation',
+    roles: ['supervisor']
+  },
+  {
+    key: 'ot_supervisor_confirmed',
+    label: 'OT Confirmed',
+    description: 'Get notified when your supervisor confirms your OT request',
     roles: ['employee']
   }
 ];

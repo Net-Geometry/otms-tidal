@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -12,10 +12,15 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileUpload } from './FileUpload';
+import { TimePickerInput } from './TimePickerInput';
 import { calculateTotalHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useSupervisors } from '@/hooks/useSupervisors';
+import { canSubmitOTForDate } from '@/utils/otValidation';
 
 // Fixed schema with optional attachments for all employees
 const OTFormSchema = z.object({
@@ -31,6 +36,35 @@ const OTFormSchema = z.object({
     .max(5, 'Maximum 5 attachments allowed')
     .optional()
     .default([]),
+  reason_dropdown: z.enum([
+    'System maintenance',
+    'Project deadline',
+    'Unexpected breakdown',
+    'Client support',
+    'Staff shortage',
+    'Other'
+  ], {
+    required_error: 'Please select a reason for overtime',
+  }),
+  reason_other: z.string()
+    .max(100, 'Reason cannot exceed 100 characters')
+    .optional(),
+  respective_supervisor_id: z.string().uuid().optional().or(z.literal('none')),
+  attachment_urls: requireAttachment
+    ? z.array(z.string().url('Invalid file URL'))
+        .min(1, 'At least one attachment is required')
+        .max(5, 'Maximum 5 attachments allowed')
+    : z.array(z.string().url('Invalid file URL'))
+        .max(5, 'Maximum 5 attachments allowed')
+        .optional(),
+}).refine((data) => {
+  if (data.reason_dropdown === 'Other') {
+    return data.reason_other && data.reason_other.trim().length >= 20;
+  }
+  return true;
+}, {
+  message: 'Please provide a detailed reason (minimum 20 characters)',
+  path: ['reason_other'],
 });
 
 type OTFormValues = z.infer<typeof OTFormSchema>;
@@ -47,11 +81,42 @@ interface OTFormProps {
 export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel, defaultValues }: OTFormProps) {
   const [totalHours, setTotalHours] = useState<number>(0);
   const [dayType, setDayType] = useState<string>('weekday');
+  const [cutoffDay, setCutoffDay] = useState<number>(10);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+
+  // Use the custom hook to fetch supervisors, excluding the employee's direct supervisor
+  const { data: supervisors = [] } = useSupervisors({ employeeId });
+
+  // Fetch cutoff day from settings
+  useEffect(() => {
+    const fetchCutoffDay = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ot_settings')
+          .select('ot_submission_cutoff_day')
+          .single();
+
+        if (error) {
+          console.error('Error fetching cutoff day:', error);
+          setCutoffDay(10); // Fallback to default
+        } else if (data?.ot_submission_cutoff_day) {
+          setCutoffDay(data.ot_submission_cutoff_day);
+        }
+      } catch (err) {
+        console.error('Error fetching OT settings:', err);
+        setCutoffDay(10); // Fallback to default
+      }
+    };
+
+    fetchCutoffDay();
+  }, []);
 
   const form = useForm<OTFormValues>({
     resolver: zodResolver(OTFormSchema),
     defaultValues: defaultValues || {
       reason: '',
+      reason_other: '',
+      respective_supervisor_id: 'none',
       attachment_urls: [],
     },
   });
@@ -96,13 +161,18 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   };
 
   const handleSubmit = (values: OTFormValues) => {
+    const finalReason = values.reason_dropdown === 'Other'
+      ? values.reason_other || ''
+      : values.reason_dropdown;
+
     onSubmit({
       ot_date: format(values.ot_date, 'yyyy-MM-dd'),
       start_time: values.start_time,
       end_time: values.end_time,
       total_hours: totalHours,
       day_type: dayType,
-      reason: values.reason,
+      reason: finalReason,
+      respective_supervisor_id: values.respective_supervisor_id === 'none' ? null : values.respective_supervisor_id,
       attachment_urls: values.attachment_urls,
     });
   };
@@ -111,28 +181,28 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
         {/* Employee Information Card */}
-        <Card className="bg-gray-50 p-4 rounded-lg border">
+        <Card className="bg-card p-4 rounded-lg border">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Employee ID
               </label>
-              <Input 
-                type="text" 
+              <Input
+                type="text"
                 value={employeeId}
                 readOnly
-                className="bg-white"
+                className="bg-muted"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Full Name
               </label>
-              <Input 
-                type="text" 
+              <Input
+                type="text"
                 value={fullName}
                 readOnly
-                className="bg-white"
+                className="bg-muted"
               />
             </div>
           </div>
@@ -156,7 +226,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                         )}
                       >
                         {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        <CalendarIcon className="ml-auto h-4 w-4 text-foreground/60 dark:text-foreground/50" />
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
@@ -164,14 +234,33 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
-                      disabled={(date) => date > new Date() || date < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)}
+                      onSelect={(date) => {
+                        if (date) {
+                          const validation = canSubmitOTForDate(date, new Date(), cutoffDay);
+                          if (validation.isAllowed) {
+                            field.onChange(date);
+                            setSubmissionError(null);
+                          } else {
+                            setSubmissionError(validation.message || 'This date is not allowed for OT submission');
+                          }
+                        }
+                      }}
+                      disabled={(date) => {
+                        const validation = canSubmitOTForDate(date, new Date(), cutoffDay);
+                        return !validation.isAllowed;
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
                 <FormMessage />
+                {submissionError && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{submissionError}</AlertDescription>
+                  </Alert>
+                )}
               </FormItem>
             )}
           />
@@ -185,7 +274,10 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormItem>
                 <FormLabel>Start Time *</FormLabel>
                 <FormControl>
-                  <Input type="time" step="300" {...field} />
+                  <TimePickerInput
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -199,7 +291,10 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormItem>
                 <FormLabel>End Time *</FormLabel>
                 <FormControl>
-                  <Input type="time" step="300" {...field} />
+                  <TimePickerInput
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -243,6 +338,55 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           )}
         />
 
+        {form.watch('reason_dropdown') === 'Other' && (
+          <FormField
+            control={form.control}
+            name="reason_other"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Other Reason (if applicable)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="text"
+                    placeholder="Enter your own reason"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        <FormField
+          control={form.control}
+          name="respective_supervisor_id"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Instructed by Supervisor (Optional)</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || ''}>
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select if another supervisor instructed this OT" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">None - Direct supervisor only</SelectItem>
+                  {supervisors.map((supervisor) => (
+                    <SelectItem key={supervisor.id} value={supervisor.id}>
+                      {supervisor.full_name} ({supervisor.employee_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                If a different supervisor instructed you to work overtime, select them here. They will be asked to confirm before your direct supervisor approves.
+              </p>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
          <FormField
            control={form.control}
            name="attachment_urls"
@@ -276,11 +420,11 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           >
             {isSubmitting ? 'Submitting...' : 'Submit OT Request'}
           </Button>
-          <Button 
-            type="button" 
+          <Button
+            type="button"
             variant="secondary"
             onClick={onCancel}
-            className="w-full text-gray-600 border hover:bg-gray-50"
+            className="w-full"
           >
             Cancel
           </Button>

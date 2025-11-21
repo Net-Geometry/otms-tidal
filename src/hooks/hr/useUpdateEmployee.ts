@@ -24,7 +24,7 @@ interface UpdateEmployeeData {
   status?: string;
   is_ot_eligible?: boolean;
   require_ot_attachment?: boolean;
-  role?: AppRole;
+  roles?: AppRole[];
 }
 
 export function useUpdateEmployee() {
@@ -32,7 +32,9 @@ export function useUpdateEmployee() {
 
   return useMutation({
     mutationFn: async (data: UpdateEmployeeData) => {
-      const { id, role, ...profileData } = data;
+      const { id, roles, ...profileData } = data;
+      
+      // Note: employee_id is intentionally never updatable - it's a permanent identifier
 
       // Whitelist of valid profiles table columns
       const allowedColumns = [
@@ -86,26 +88,36 @@ export function useUpdateEmployee() {
 
       if (profileError) throw profileError;
 
-      // Update role if provided
-      if (role) {
-        // Delete existing roles
+      // Update roles if provided
+      if (roles && roles.length > 0) {
+        // Use the database function to validate and update roles
+        const { data, error: functionError } = await supabase
+          .rpc('update_user_roles', {
+            _user_id: id,
+            _roles: roles,
+          });
+
+        if (functionError) throw functionError;
+        if (data && data.length > 0) {
+          const result = data[0];
+          if (!result.success) {
+            throw new Error(result.error_message || 'Failed to update roles');
+          }
+        }
+      } else if (roles !== undefined && roles.length === 0) {
+        // If roles array is explicitly empty, delete all roles
         const { error: deleteError } = await supabase
           .from('user_roles')
           .delete()
           .eq('user_id', id);
 
         if (deleteError) throw deleteError;
-
-        // Insert new role
-        const { error: insertError } = await supabase
-          .from('user_roles')
-          .insert({ user_id: id, role });
-
-        if (insertError) throw insertError;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hr-employees'] });
+      // Also invalidate auth-related queries in case the user's own roles changed
+      queryClient.invalidateQueries({ queryKey: ['auth-roles'] });
       toast({
         title: 'Success',
         description: 'Employee updated successfully',

@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import { useApprovalThresholds } from '@/hooks/hr/useApprovalThresholds';
 import { useDeleteApprovalThreshold } from '@/hooks/hr/useDeleteApprovalThreshold';
 import { ThresholdCard } from './ThresholdCard';
+import { ThresholdDialog } from './ThresholdDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
@@ -20,12 +21,29 @@ export function ThresholdsTab() {
   const { data: thresholds, isLoading } = useApprovalThresholds();
   const deleteThreshold = useDeleteApprovalThreshold();
   const [thresholdToDelete, setThresholdToDelete] = useState<any>(null);
+  const [thresholdToEdit, setThresholdToEdit] = useState<any>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleDelete = () => {
     if (thresholdToDelete) {
       deleteThreshold.mutate(thresholdToDelete.id);
       setThresholdToDelete(null);
     }
+  };
+
+  const handleEdit = (threshold: any) => {
+    setThresholdToEdit(threshold);
+    setIsDialogOpen(true);
+  };
+
+  const handleAdd = () => {
+    setThresholdToEdit(null);
+    setIsDialogOpen(true);
+  };
+
+  const handleDialogClose = () => {
+    setIsDialogOpen(false);
+    setThresholdToEdit(null);
   };
 
   return (
@@ -37,7 +55,7 @@ export function ThresholdsTab() {
             Set daily, weekly, and monthly OT limits
           </p>
         </div>
-        <Button className="bg-[#5F26B4] hover:bg-[#5F26B4]/90">
+        <Button className="bg-[#5F26B4] hover:bg-[#5F26B4]/90" onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
           Add Threshold
         </Button>
@@ -54,7 +72,7 @@ export function ThresholdsTab() {
             <ThresholdCard
               key={threshold.id}
               threshold={threshold}
-              onEdit={() => {}}
+              onEdit={handleEdit}
               onDelete={setThresholdToDelete}
             />
           ))
@@ -64,6 +82,12 @@ export function ThresholdsTab() {
           </div>
         )}
       </div>
+
+      <ThresholdDialog
+        open={isDialogOpen}
+        onOpenChange={handleDialogClose}
+        threshold={thresholdToEdit}
+      />
 
       <AlertDialog open={!!thresholdToDelete} onOpenChange={() => setThresholdToDelete(null)}>
         <AlertDialogContent>
