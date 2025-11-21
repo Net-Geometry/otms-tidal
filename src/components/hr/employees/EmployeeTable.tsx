@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -86,144 +87,243 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Employee ID</TableHead>
-            <TableHead>Full Name</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Company</TableHead>
-            <TableHead>Department</TableHead>
-            <TableHead>Position</TableHead>
-            <TableHead>Role</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>OT Eligible</TableHead>
-            <TableHead>Attachment Req.</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filteredEmployees.map((employee) => (
-            <TableRow key={employee.id}>
-              <TableCell className="font-mono text-sm">{employee.employee_id}</TableCell>
-              <TableCell className="font-medium">{employee.full_name}</TableCell>
-              <TableCell>{employee.email}</TableCell>
-              <TableCell>
-                {employee.company?.name ? (
-                  <span>{employee.company.name}</span>
-                ) : (
-                  <div className="flex items-center gap-1 text-amber-600">
+    <div>
+      <ResponsiveTable
+        cardConfig={{
+          data: filteredEmployees,
+          emptyMessage: 'No employees found',
+          render: (employee) => ({
+            title: employee.full_name,
+            subtitle: employee.employee_id,
+            fields: [
+              {
+                label: 'Email',
+                value: employee.email,
+                variant: 'default'
+              },
+              {
+                label: 'Status',
+                value: employee.status === 'pending_setup' ? 'Pending Setup' : employee.status,
+                variant: 'badge'
+              },
+              {
+                label: 'Department',
+                value: employee.department?.name || (
+                  <span className="text-amber-600 flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
-                    <span className="text-sm">Not assigned</span>
-                  </div>
-                )}
-              </TableCell>
-              <TableCell>
-                {employee.department?.name ? (
-                  <span>{employee.department.name}</span>
-                ) : (
-                  <div className="flex items-center gap-1 text-amber-600">
-                    <AlertTriangle className="h-3 w-3" />
-                    <span className="text-sm">Not assigned</span>
-                  </div>
-                )}
-              </TableCell>
-              <TableCell>
-                {employee.position ? (
-                  <span>{employee.position}</span>
-                ) : (
-                  <div className="flex items-center gap-1 text-amber-600">
-                    <AlertTriangle className="h-3 w-3" />
-                    <span className="text-sm">Not assigned</span>
-                  </div>
-                )}
-              </TableCell>
-              <TableCell>
-                {employee.user_roles && employee.user_roles.length > 0
-                  ? employee.user_roles.map(ur => ur.role).join(', ')
-                  : '-'
-                }
-              </TableCell>
-              <TableCell>
-                <Badge
-                  className={
-                    employee.status === 'active' 
-                      ? 'bg-green-100 text-green-700 hover:bg-green-100' 
-                      : employee.status === 'pending_setup'
-                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-100'
-                      : employee.status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200'
-                      : 'bg-muted text-muted-foreground hover:bg-muted'
-                  }
+                    Not assigned
+                  </span>
+                )
+              },
+              {
+                label: 'OT Eligible',
+                value: (
+                  <Switch
+                    checked={employee.is_ot_eligible ?? true}
+                    onCheckedChange={(checked) => handleToggleOTEligibility(employee, checked)}
+                    disabled={updateEmployee.isPending}
+                  />
+                )
+              }
+            ],
+            actions: (
+              <div className="flex gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedEmployee(employee);
+                    setSheetMode('view');
+                    setIsSheetOpen(true);
+                  }}
+                  className="h-9 w-9"
                 >
-                  {employee.status === 'pending_setup' ? 'Pending Setup' : employee.status}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <Switch
-                  checked={employee.is_ot_eligible ?? true}
-                  onCheckedChange={(checked) => handleToggleOTEligibility(employee, checked)}
-                  disabled={updateEmployee.isPending}
-                />
-              </TableCell>
-              <TableCell>
-                {employee.require_ot_attachment ? (
-                  <Badge variant="secondary" className="text-xs">
-                    Required
-                  </Badge>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Optional</span>
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedEmployee(employee);
+                    setSheetMode('edit');
+                    setIsSheetOpen(true);
+                  }}
+                  className="h-9 w-9"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                {(employee.status === 'pending' || employee.status === 'inactive') && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleResendInvite(employee);
+                    }}
+                    disabled={resendInvite.isPending}
+                    className="h-9 w-9"
+                  >
+                    <Mail className="h-4 w-4" />
+                  </Button>
                 )}
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedEmployee(employee);
-                      setSheetMode('view');
-                      setIsSheetOpen(true);
-                    }}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedEmployee(employee);
-                      setSheetMode('edit');
-                      setIsSheetOpen(true);
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  {(employee.status === 'pending' || employee.status === 'inactive') && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleResendInvite(employee)}
-                      disabled={resendInvite.isPending}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-9 w-9 text-destructive hover:text-destructive"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setEmployeeToDelete(employee);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            )
+          })
+        }}
+      >
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Employee ID</TableHead>
+                <TableHead>Full Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Position</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>OT Eligible</TableHead>
+                <TableHead>Attachment Req.</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredEmployees.map((employee) => (
+                <TableRow key={employee.id}>
+                  <TableCell className="font-mono text-sm">{employee.employee_id}</TableCell>
+                  <TableCell className="font-medium">{employee.full_name}</TableCell>
+                  <TableCell>{employee.email}</TableCell>
+                  <TableCell>
+                    {employee.company?.name ? (
+                      <span>{employee.company.name}</span>
+                    ) : (
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span className="text-sm">Not assigned</span>
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {employee.department?.name ? (
+                      <span>{employee.department.name}</span>
+                    ) : (
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span className="text-sm">Not assigned</span>
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {employee.position ? (
+                      <span>{employee.position}</span>
+                    ) : (
+                      <div className="flex items-center gap-1 text-amber-600">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span className="text-sm">Not assigned</span>
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {employee.user_roles && employee.user_roles.length > 0
+                      ? employee.user_roles.map(ur => ur.role).join(', ')
+                      : '-'
+                    }
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      className={
+                        employee.status === 'active'
+                          ? 'bg-green-100 text-green-700 hover:bg-green-100'
+                          : employee.status === 'pending_setup'
+                          ? 'bg-blue-100 text-blue-700 hover:bg-blue-100'
+                          : employee.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200'
+                          : 'bg-muted text-muted-foreground hover:bg-muted'
+                      }
                     >
-                      <Mail className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => setEmployeeToDelete(employee)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                      {employee.status === 'pending_setup' ? 'Pending Setup' : employee.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={employee.is_ot_eligible ?? true}
+                      onCheckedChange={(checked) => handleToggleOTEligibility(employee, checked)}
+                      disabled={updateEmployee.isPending}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {employee.require_ot_attachment ? (
+                      <Badge variant="secondary" className="text-xs">
+                        Required
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Optional</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedEmployee(employee);
+                          setSheetMode('view');
+                          setIsSheetOpen(true);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedEmployee(employee);
+                          setSheetMode('edit');
+                          setIsSheetOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      {(employee.status === 'pending' || employee.status === 'inactive') && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleResendInvite(employee)}
+                          disabled={resendInvite.isPending}
+                        >
+                          <Mail className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => setEmployeeToDelete(employee)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </ResponsiveTable>
 
       <EmployeeDetailsSheet
         employee={selectedEmployee}
@@ -237,8 +337,8 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Employee</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {employeeToDelete?.full_name}? 
-              This action cannot be undone and will permanently remove the employee 
+              Are you sure you want to delete {employeeToDelete?.full_name}?
+              This action cannot be undone and will permanently remove the employee
               account and all associated data.
             </AlertDialogDescription>
           </AlertDialogHeader>

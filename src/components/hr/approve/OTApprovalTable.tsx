@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { StatusBadge } from '@/components/StatusBadge';
 import { OTRequest } from '@/types/otms';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
@@ -46,55 +47,102 @@ export function OTApprovalTable({ requests, isLoading }: OTApprovalTableProps) {
 
   return (
     <>
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Ticket #</TableHead>
-              <TableHead>Employee</TableHead>
-              <TableHead>OT Date</TableHead>
-              <TableHead>Day Type</TableHead>
-              <TableHead>Hours</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {requests.map((request) => (
-              <TableRow key={request.id}>
-                <TableCell>
-                  <span className="font-mono text-sm font-medium text-primary">
-                    {request.ticket_number}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{request.employee_id}</div>
-                  </div>
-                </TableCell>
-                <TableCell>{format(new Date(request.ot_date), 'dd MMM yyyy')}</TableCell>
-                <TableCell>{getDayTypeBadge(request.day_type)}</TableCell>
-                <TableCell>{formatHours(request.total_hours)} hrs</TableCell>
-                <TableCell>{formatCurrency(request.ot_amount || 0)}</TableCell>
-                <TableCell>
-                  <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
-                </TableCell>
-                <TableCell>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedRequest(request)}
-                  >
-                    <Eye className="h-4 w-4 mr-1" />
-                    View Details
-                  </Button>
-                </TableCell>
+      <ResponsiveTable
+        cardConfig={{
+          data: requests,
+          emptyMessage: 'No OT requests found',
+          render: (request) => ({
+            title: `Ticket #${request.ticket_number}`,
+            subtitle: request.employee_id,
+            fields: [
+              {
+                label: 'OT Date',
+                value: format(new Date(request.ot_date), 'dd MMM yyyy')
+              },
+              {
+                label: 'Day Type',
+                value: getDayTypeBadge(request.day_type)
+              },
+              {
+                label: 'Hours',
+                value: `${formatHours(request.total_hours)} hrs`
+              },
+              {
+                label: 'Amount',
+                value: formatCurrency(request.ot_amount || 0),
+                variant: 'highlight'
+              },
+              {
+                label: 'Status',
+                value: <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
+              }
+            ],
+            actions: (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedRequest(request);
+                }}
+                className="h-9 w-9"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )
+          })
+        }}
+      >
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ticket #</TableHead>
+                <TableHead>Employee</TableHead>
+                <TableHead>OT Date</TableHead>
+                <TableHead>Day Type</TableHead>
+                <TableHead>Hours</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {requests.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell>
+                    <span className="font-mono text-sm font-medium text-primary">
+                      {request.ticket_number}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <div className="font-medium">{request.employee_id}</div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{format(new Date(request.ot_date), 'dd MMM yyyy')}</TableCell>
+                  <TableCell>{getDayTypeBadge(request.day_type)}</TableCell>
+                  <TableCell>{formatHours(request.total_hours)} hrs</TableCell>
+                  <TableCell>{formatCurrency(request.ot_amount || 0)}</TableCell>
+                  <TableCell>
+                    <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedRequest(request)}
+                    >
+                      <Eye className="h-4 w-4 mr-1" />
+                      View Details
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </ResponsiveTable>
 
       <OTApprovalDetailsSheet
         request={selectedRequest}

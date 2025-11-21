@@ -152,12 +152,12 @@ export function AddHolidayForm({ open, onClose, existingHoliday }: AddHolidayFor
 
   return (
     <Dialog open={open} onOpenChange={() => handleCancel()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">
             {isEditing ? 'Edit Holiday Override' : 'Add Holiday Override'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs sm:text-sm">
             {isEditing
               ? 'Update the details for this holiday override.'
               : 'Add a new holiday to your company calendar. This will override any scraped holidays on the same date.'}
@@ -165,7 +165,7 @@ export function AddHolidayForm({ open, onClose, existingHoliday }: AddHolidayFor
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
             {/* Date Picker */}
             <FormField
               control={form.control}
@@ -221,11 +221,15 @@ export function AddHolidayForm({ open, onClose, existingHoliday }: AddHolidayFor
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Holiday Name *</FormLabel>
+                  <FormLabel className="text-xs sm:text-sm">Holiday Name *</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Company Founder Day" {...field} />
+                    <Input
+                      placeholder="e.g., Company Founder Day"
+                      className="h-10 sm:h-9 text-base sm:text-sm"
+                      {...field}
+                    />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs sm:text-sm" />
                 </FormItem>
               )}
             />
@@ -236,10 +240,10 @@ export function AddHolidayForm({ open, onClose, existingHoliday }: AddHolidayFor
               name="type"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Holiday Type *</FormLabel>
+                  <FormLabel className="text-xs sm:text-sm">Holiday Type *</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-10 sm:h-9 text-base sm:text-sm">
                         <SelectValue placeholder="Select holiday type" />
                       </SelectTrigger>
                     </FormControl>
@@ -255,10 +259,10 @@ export function AddHolidayForm({ open, onClose, existingHoliday }: AddHolidayFor
                       </SelectItem>
                     </SelectContent>
                   </Select>
-                  <FormDescription>
+                  <FormDescription className="text-xs sm:text-sm">
                     Emergency holidays will trigger immediate notifications to all employees.
                   </FormDescription>
-                  <FormMessage />
+                  <FormMessage className="text-xs sm:text-sm" />
                 </FormItem>
               )}
             />
@@ -269,25 +273,34 @@ export function AddHolidayForm({ open, onClose, existingHoliday }: AddHolidayFor
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormLabel className="text-xs sm:text-sm">Description (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Additional details about this holiday..."
-                      className="resize-none"
+                      className="resize-none text-base sm:text-sm min-h-[100px] sm:min-h-[80px]"
                       rows={3}
                       {...field}
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs sm:text-sm" />
                 </FormItem>
               )}
             />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={handleCancel}>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancel}
+                className="w-full sm:w-auto h-10 sm:h-9 text-base sm:text-sm"
+              >
                 Cancel
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button
+                type="submit"
+                disabled={form.formState.isSubmitting}
+                className="w-full sm:w-auto h-10 sm:h-9 text-base sm:text-sm"
+              >
                 {form.formState.isSubmitting
                   ? 'Saving...'
                   : isEditing

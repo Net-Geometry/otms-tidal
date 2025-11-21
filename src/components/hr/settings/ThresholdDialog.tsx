@@ -83,26 +83,27 @@ export function ThresholdDialog({ open, onOpenChange, threshold }: ThresholdDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{threshold ? 'Edit' : 'Add'} Approval Threshold</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">{threshold ? 'Edit' : 'Add'} Approval Threshold</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="threshold_name">Threshold Name</Label>
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+          <div className="space-y-2 sm:space-y-2">
+            <Label htmlFor="threshold_name" className="text-xs sm:text-sm">Threshold Name</Label>
             <Input
               id="threshold_name"
               value={formData.threshold_name}
               onChange={(e) => setFormData({ ...formData, threshold_name: e.target.value })}
               placeholder="e.g., Standard OT Limits"
+              className="h-10 sm:h-9 text-base sm:text-sm"
               required
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="daily_limit_hours">Daily Limit (hours)</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="space-y-2 sm:space-y-2">
+              <Label htmlFor="daily_limit_hours" className="text-xs sm:text-sm">Daily Limit (hrs)</Label>
               <Input
                 id="daily_limit_hours"
                 type="number"
@@ -110,12 +111,13 @@ export function ThresholdDialog({ open, onOpenChange, threshold }: ThresholdDial
                 value={formData.daily_limit_hours}
                 onChange={(e) => setFormData({ ...formData, daily_limit_hours: parseFloat(e.target.value) })}
                 placeholder="0"
+                className="h-10 sm:h-9 text-base sm:text-sm"
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="weekly_limit_hours">Weekly Limit (hours)</Label>
+            <div className="space-y-2 sm:space-y-2">
+              <Label htmlFor="weekly_limit_hours" className="text-xs sm:text-sm">Weekly Limit (hrs)</Label>
               <Input
                 id="weekly_limit_hours"
                 type="number"
@@ -123,12 +125,13 @@ export function ThresholdDialog({ open, onOpenChange, threshold }: ThresholdDial
                 value={formData.weekly_limit_hours}
                 onChange={(e) => setFormData({ ...formData, weekly_limit_hours: parseFloat(e.target.value) })}
                 placeholder="0"
+                className="h-10 sm:h-9 text-base sm:text-sm"
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="monthly_limit_hours">Monthly Limit (hours)</Label>
+            <div className="space-y-2 sm:space-y-2">
+              <Label htmlFor="monthly_limit_hours" className="text-xs sm:text-sm">Monthly Limit (hrs)</Label>
               <Input
                 id="monthly_limit_hours"
                 type="number"
@@ -136,13 +139,14 @@ export function ThresholdDialog({ open, onOpenChange, threshold }: ThresholdDial
                 value={formData.monthly_limit_hours}
                 onChange={(e) => setFormData({ ...formData, monthly_limit_hours: parseFloat(e.target.value) })}
                 placeholder="0"
+                className="h-10 sm:h-9 text-base sm:text-sm"
                 required
               />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="max_claimable_amount">Maximum Claimable Amount (RM)</Label>
+          <div className="space-y-2 sm:space-y-2">
+            <Label htmlFor="max_claimable_amount" className="text-xs sm:text-sm">Max Claimable Amount (RM)</Label>
             <Input
               id="max_claimable_amount"
               type="number"
@@ -150,14 +154,15 @@ export function ThresholdDialog({ open, onOpenChange, threshold }: ThresholdDial
               value={formData.max_claimable_amount}
               onChange={(e) => setFormData({ ...formData, max_claimable_amount: parseFloat(e.target.value) })}
               placeholder="0.00"
+              className="h-10 sm:h-9 text-base sm:text-sm"
               required
             />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0 rounded-lg border p-3 sm:p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="auto_block_enabled">Auto-block on Exceed</Label>
-              <p className="text-sm text-muted-foreground">
+              <Label htmlFor="auto_block_enabled" className="text-xs sm:text-sm font-medium">Auto-block on Exceed</Label>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Automatically block submissions exceeding limits
               </p>
             </div>
@@ -168,10 +173,10 @@ export function ThresholdDialog({ open, onOpenChange, threshold }: ThresholdDial
             />
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0 rounded-lg border p-3 sm:p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="is_active">Active</Label>
-              <p className="text-sm text-muted-foreground">
+              <Label htmlFor="is_active" className="text-xs sm:text-sm font-medium">Active</Label>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Enable this threshold immediately
               </p>
             </div>
@@ -182,11 +187,21 @@ export function ThresholdDialog({ open, onOpenChange, threshold }: ThresholdDial
             />
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+              className="w-full sm:w-auto h-10 sm:h-9 text-base sm:text-sm"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full sm:w-auto h-10 sm:h-9 text-base sm:text-sm"
+            >
               {isLoading ? 'Saving...' : threshold ? 'Update' : 'Create'}
             </Button>
           </DialogFooter>

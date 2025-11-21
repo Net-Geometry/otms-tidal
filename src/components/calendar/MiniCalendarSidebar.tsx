@@ -1,8 +1,19 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  return isMobile;
+};
 
 interface MiniCalendarSidebarProps {
   selectedDate: Date;
@@ -19,6 +30,7 @@ export function MiniCalendarSidebar({
   isOpen = true,
   onToggle,
 }: MiniCalendarSidebarProps) {
+  const isMobile = useIsMobile();
   const [displayMonth, setDisplayMonth] = useState(selectedDate);
 
   const monthStart = startOfMonth(displayMonth);
@@ -38,68 +50,77 @@ export function MiniCalendarSidebar({
 
   const weekDays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-  if (!isOpen) {
+  // On mobile, hide sidebar by default and show only toggle
+  if (isMobile && !isOpen) {
     return (
-      <div className="w-14 border-r border-border flex flex-col items-center py-4 gap-4">
+      <div className="hidden sm:flex h-full border-r border-border flex-col items-center py-4 gap-4">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => onToggle?.(true)}
-          className="h-8 w-8"
+          className="h-10 w-10"
           title="Open calendar sidebar"
         >
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-5 w-5" />
         </Button>
       </div>
     );
   }
 
+  // Hide entire sidebar on mobile when not explicitly opened
+  if (isMobile && !isOpen) {
+    return null;
+  }
+
   return (
-    <div className="w-64 border-r border-border flex flex-col gap-4 p-4">
-      {/* Toggle Button */}
-      <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onToggle?.(false)}
-          className="h-8 w-8"
-          title="Close calendar sidebar"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-      </div>
+    <div className={`${isMobile ? "fixed inset-0 bg-background z-40 p-4 overflow-y-auto" : "w-64 border-r border-border"} flex flex-col gap-4 ${isMobile ? "" : "p-4"}`}>
+      {/* Toggle Button - Only on mobile */}
+      {isMobile && (
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Calendar</h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onToggle?.(false)}
+            className="h-9 w-9"
+            title="Close calendar sidebar"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        </div>
+      )}
 
       {/* Mini Calendar */}
-      <div className="border border-border rounded-lg p-3 bg-card">
+      <div className={`border border-border rounded-lg ${isMobile ? "p-4" : "p-3"} bg-card`}>
         {/* Month Navigation */}
-        <div className="flex items-center justify-between mb-4">
+        <div className={`flex items-center justify-between mb-4 ${isMobile ? "gap-2" : ""}`}>
           <Button
             variant="ghost"
             size="icon"
             onClick={handlePrevMonth}
-            className="h-8 w-8"
+            className={isMobile ? "h-9 w-9" : "h-8 w-8"}
           >
-            <ChevronLeft className="h-3 w-3" />
+            <ChevronLeft className={isMobile ? "h-5 w-5" : "h-3 w-3"} />
           </Button>
-          <h3 className="text-sm font-semibold text-foreground">
-            {format(displayMonth, "MMMM yyyy")}
+          <h3 className={`font-semibold text-foreground ${isMobile ? "text-base" : "text-sm"}`}>
+            {format(displayMonth, isMobile ? "MMM yyyy" : "MMMM yyyy")}
           </h3>
           <Button
             variant="ghost"
             size="icon"
             onClick={handleNextMonth}
-            className="h-8 w-8"
+            className={isMobile ? "h-9 w-9" : "h-8 w-8"}
           >
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className={isMobile ? "h-5 w-5" : "h-3 w-3"} />
           </Button>
         </div>
 
         {/* Week Days Header */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
+        <div className={`grid grid-cols-7 gap-1 mb-2 ${isMobile ? "gap-2" : ""}`}>
           {weekDays.map((day) => (
             <div
               key={day}
-              className="text-center text-xs font-semibold text-muted-foreground"
+              className={`text-center font-semibold text-muted-foreground ${isMobile ? "text-sm" : "text-xs"}`}
             >
               {day}
             </div>
@@ -107,19 +128,26 @@ export function MiniCalendarSidebar({
         </div>
 
         {/* Calendar Days */}
-        <div className="grid grid-cols-7 gap-1">
+        <div className={`grid grid-cols-7 gap-1 ${isMobile ? "gap-2" : ""}`}>
           {/* Empty cells for days before month start */}
           {Array.from({ length: monthStart.getDay() }).map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square" />
+            <div key={`empty-${i}`} className={isMobile ? "h-10" : "aspect-square"} />
           ))}
 
           {/* Month days */}
           {days.map((day) => (
             <button
               key={day.toISOString()}
-              onClick={() => onDateSelect(day)}
+              onClick={() => {
+                onDateSelect(day);
+                // Close on mobile after selection
+                if (isMobile) {
+                  onToggle?.(false);
+                }
+              }}
               className={cn(
-                "aspect-square rounded-md text-xs font-medium transition-colors flex items-center justify-center relative",
+                `${isMobile ? "h-10 min-h-10" : "aspect-square"} rounded-md font-medium transition-colors flex items-center justify-center relative`,
+                isMobile ? "text-sm" : "text-xs",
                 isSelected(day)
                   ? "bg-primary text-primary-foreground ring-2 ring-primary/50"
                   : hasHoliday(day)
@@ -129,7 +157,7 @@ export function MiniCalendarSidebar({
             >
               {format(day, "d")}
               {hasHoliday(day) && !isSelected(day) && (
-                <div className="absolute bottom-0.5 w-1 h-1 rounded-full bg-orange-600 dark:bg-orange-400" />
+                <div className="absolute bottom-1 w-1.5 h-1.5 rounded-full bg-orange-600 dark:bg-orange-400" />
               )}
             </button>
           ))}
@@ -140,11 +168,14 @@ export function MiniCalendarSidebar({
       <div className="flex gap-2">
         <Button
           variant="outline"
-          className="flex-1 text-xs h-8"
+          className={`flex-1 ${isMobile ? "h-10 text-sm" : "text-xs h-8"}`}
           onClick={() => {
             const today = new Date();
             setDisplayMonth(today);
             onDateSelect(today);
+            if (isMobile) {
+              onToggle?.(false);
+            }
           }}
         >
           Today
