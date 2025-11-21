@@ -33,8 +33,6 @@ export function useUpdateEmployee() {
   return useMutation({
     mutationFn: async (data: UpdateEmployeeData) => {
       const { id, role, ...profileData } = data;
-      
-      // Note: employee_id is intentionally never updatable - it's a permanent identifier
 
       // Whitelist of valid profiles table columns
       const allowedColumns = [
@@ -65,6 +63,20 @@ export function useUpdateEmployee() {
           }
         }
       });
+
+      // Check for duplicate employee_id if it's being changed
+      if (updateBody.employee_id) {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('id, employee_id')
+          .eq('employee_id', updateBody.employee_id)
+          .neq('id', id)
+          .maybeSingle();
+
+        if (existing) {
+          throw new Error(`Employee No ${updateBody.employee_id} already exists. Please use a unique Employee No.`);
+        }
+      }
 
       // Update profile with sanitized data
       const { error: profileError } = await supabase
