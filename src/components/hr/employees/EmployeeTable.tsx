@@ -99,7 +99,6 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
             <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>OT Eligible</TableHead>
-            <TableHead>Attachment Req.</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -166,15 +165,6 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                   onCheckedChange={(checked) => handleToggleOTEligibility(employee, checked)}
                   disabled={updateEmployee.isPending}
                 />
-              </TableCell>
-              <TableCell>
-                {employee.require_ot_attachment ? (
-                  <Badge variant="secondary" className="text-xs">
-                    Required
-                  </Badge>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Optional</span>
-                )}
               </TableCell>
               <TableCell>
                 <div className="flex gap-2">
