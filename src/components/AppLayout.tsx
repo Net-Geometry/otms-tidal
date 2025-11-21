@@ -110,7 +110,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/ot/submit', label: 'Submit OT', icon: PlusCircle, roles: ['employee'] },
         { path: '/ot/history', label: 'OT History', icon: History, roles: ['employee'] },
-        { path: '/supervisor/verify', label: 'Verify OT', icon: CheckCircle, roles: ['supervisor'] },
+        { path: '/supervisor/verify', label: 'Verify OT', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/hr/approve', label: 'Certify OT', icon: CheckCircle, roles: ['hr', 'admin'] },
         { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['management', 'admin'] },
       ],

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,7 @@ import { usePositions } from '@/hooks/hr/usePositions';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 
 const inviteSchema = z.object({
-  email: z.string().trim().email('Invalid email address'),
+  email: z.string().trim().email('Invalid email address').optional().or(z.literal('')),
   full_name: z.string().trim().min(1, 'Full name is required').max(100),
   employee_id: z.string().trim().min(1, 'Employee No is required').max(50),
   ic_no: z.string().trim().max(50).optional(),
@@ -23,9 +24,6 @@ const inviteSchema = z.object({
   position_id: z.string().uuid('Position is required'),
   department_id: z.string().uuid('Department is required'),
   basic_salary: z.number().min(1, 'Basic salary must be greater than 0'),
-  epf_no: z.string().trim().max(50).optional(),
-  socso_no: z.string().trim().max(50).optional(),
-  income_tax_no: z.string().trim().max(50).optional(),
   employment_type: z.string().min(1, 'Employment type is required'),
   joining_date: z.string().min(1, 'Joining date is required'),
   work_location: z.string().trim().min(1, 'Work location is required').max(100),
@@ -50,12 +48,30 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
   const form = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
     defaultValues: {
-      role: 'employee',
+      employee_id: '',
+      full_name: '',
+      email: '',
+      ic_no: '',
+      phone_no: '',
+      company_id: '',
+      department_id: '',
+      position_id: '',
+      basic_salary: undefined,
       employment_type: 'Permanent',
+      joining_date: '',
+      work_location: '',
       supervisor_id: '',
+      role: 'employee',
       is_ot_eligible: true,
     },
   });
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      form.reset();
+    }
+  }, [open, form]);
 
   // Watch department_id to filter positions
   const selectedDepartmentId = form.watch('department_id');
@@ -73,7 +89,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
     const positionTitle = selectedPosition?.title || '';
 
     inviteEmployee({
-      email: data.email,
+      email: data.email || null,
       full_name: data.full_name,
       employee_id: data.employee_id,
       ic_no: data.ic_no || null,
@@ -83,9 +99,6 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
       company_id: data.company_id,
       department_id: data.department_id,
       basic_salary: data.basic_salary,
-      epf_no: data.epf_no || null,
-      socso_no: data.socso_no || null,
-      income_tax_no: data.income_tax_no || null,
       employment_type: data.employment_type,
       joining_date: data.joining_date,
       work_location: data.work_location,
@@ -161,7 +174,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email *</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="e.g. employee@company.com" {...field} />
                     </FormControl>
@@ -300,53 +313,8 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
               />
             </div>
 
-            {/* Row 6: EPF & SOCSO */}
+            {/* Row 6: Employment Type & Joining Date */}
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="epf_no"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>EPF No</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter EPF No" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="socso_no"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>SOCSO No</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter SOCSO No" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            {/* Row 7: Income Tax & Employment Type */}
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="income_tax_no"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Income Tax No</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter Income Tax No" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="employment_type"
@@ -369,10 +337,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                   </FormItem>
                 )}
               />
-            </div>
 
-            {/* Row 8: Joining Date & Work Location */}
-            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="joining_date"
@@ -417,7 +382,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                     </FormControl>
                     <SelectContent>
                       {employees
-                        .filter(emp => emp.user_roles?.some(r => ['supervisor', 'hr', 'admin'].includes(r.role)))
+                        .filter(emp => emp.user_roles?.some(r => ['supervisor', 'hr', 'management', 'admin'].includes(r.role)))
                         .map((emp) => (
                           <SelectItem key={emp.id} value={emp.id}>
                             {emp.full_name} ({emp.employee_id})

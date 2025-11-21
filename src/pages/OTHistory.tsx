@@ -1,32 +1,50 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Filter, Download } from 'lucide-react';
+import { ArrowLeft, Filter, Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { AppLayout } from '@/components/AppLayout';
 import { OTHistoryTable } from '@/components/ot/OTHistoryTable';
 import { OTDetailsSheet } from '@/components/ot/OTDetailsSheet';
 import { OTSummaryCards } from '@/components/ot/OTSummaryCards';
 import { ResubmitOTForm } from '@/components/ot/ResubmitOTForm';
 import { EditOTForm } from '@/components/ot/EditOTForm';
+import { OTFilterPanel } from '@/components/ot/OTFilterPanel';
 import { useOTRequests } from '@/hooks/useOTRequests';
+import { useOTFilters } from '@/hooks/useOTFilters';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { OTRequest } from '@/types/otms';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
 
 export default function OTHistory() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedRequest, setSelectedRequest] = useState<OTRequest | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [resubmitDialogOpen, setResubmitDialogOpen] = useState(false);
   const [resubmitRequest, setResubmitRequest] = useState<OTRequest | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editRequest, setEditRequest] = useState<OTRequest | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const { data: requests = [], isLoading } = useOTRequests({ status: statusFilter });
+  const { 
+    filters, 
+    selectedPreset,
+    applyMonthFilter,
+    activeFilterCount 
+  } = useOTFilters();
+
+  const { data: requests = [], isLoading } = useOTRequests({
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    ticketNumber: filters.ticketNumber,
+  });
 
   // Auto-open request from URL parameter
   useEffect(() => {
@@ -67,11 +85,13 @@ export default function OTHistory() {
   const handleExportCSV = () => {
     if (!requests.length) return;
 
-    const headers = ['Date', 'Day Type', 'Hours', 'Status', 'Reason'];
+    const headers = ['Ticket', 'Date', 'Day Type', 'Hours', 'Amount', 'Status', 'Reason'];
     const rows = requests.map(r => [
+      r.ticket_number,
       r.ot_date,
       r.day_type,
       r.total_hours,
+      r.ot_amount || 0,
       r.status,
       r.reason.replace(/,/g, ';'),
     ]);
@@ -84,8 +104,9 @@ export default function OTHistory() {
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
+    const filterSuffix = activeFilterCount > 0 ? '-filtered' : '';
     a.href = url;
-    a.download = `ot-history-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `ot-history${filterSuffix}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
   };
 
@@ -120,37 +141,90 @@ export default function OTHistory() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <CardTitle>All Requests</CardTitle>
-                <CardDescription>Complete history of your OT submissions</CardDescription>
+                <CardDescription>
+                  {activeFilterCount > 0 
+                    ? `Filtered results (${requests.length} ${requests.length === 1 ? 'request' : 'requests'})`
+                    : 'Complete history of your OT submissions'
+                  }
+                </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Filter by status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="pending_verification">Pending Verification</SelectItem>
-                    <SelectItem value="supervisor_verified">Supervisor Verified</SelectItem>
-                    <SelectItem value="hr_certified">HR Certified</SelectItem>
-                    <SelectItem value="management_approved">Management Approved</SelectItem>
-                    <SelectItem value="pending_hr_recertification">Pending HR Recertification</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <div className="flex items-center gap-2 flex-wrap">
+                {isMobile ? (
+                  <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+                    <SheetTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent side="bottom" className="h-[85vh]">
+                      <SheetHeader>
+                        <SheetTitle>Filters</SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-4">
+                        <OTFilterPanel
+                          filters={filters}
+                          selectedPreset={selectedPreset}
+                          applyMonthFilter={applyMonthFilter}
+                          activeFilterCount={activeFilterCount}
+                          onClose={() => setFilterOpen(false)}
+                        />
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                ) : (
+                  <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-auto p-0">
+              <OTFilterPanel
+                filters={filters}
+                selectedPreset={selectedPreset}
+                applyMonthFilter={applyMonthFilter}
+                activeFilterCount={activeFilterCount}
+                onClose={() => setFilterOpen(false)}
+              />
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                {/* Active filter badges */}
+                {(filters.startDate && filters.endDate && selectedPreset === 'month-picker') && (
+                  <Badge variant="secondary" className="gap-1.5">
+                    {format(new Date(filters.startDate), 'MMMM yyyy')}
+                    <button
+                      onClick={() => applyMonthFilter(undefined)}
+                      className="hover:bg-secondary-foreground/20 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+
+                <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={requests.length === 0}>
                   <Download className="h-4 w-4 mr-2" />
-                  Export Excel
+                  Export
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {isLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <Skeleton key={i} className="h-16 w-full" />
                 ))}
+              </div>
+            ) : requests.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {activeFilterCount > 0 
+                  ? 'No OT requests match your filters. Try adjusting your search criteria.'
+                  : 'No OT requests found. Submit your first OT request to get started.'
+                }
               </div>
             ) : (
               <OTHistoryTable 

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileUpload } from './FileUpload';
@@ -21,13 +22,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { useSupervisors } from '@/hooks/useSupervisors';
 import { canSubmitOTForDate } from '@/utils/otValidation';
 
-// Create schema factory that accepts requireAttachment parameter
-const createOTFormSchema = (requireAttachment: boolean) => z.object({
+// Fixed schema with optional attachments for all employees
+const OTFormSchema = z.object({
   ot_date: z.date({
     required_error: 'OT date is required',
   }),
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
+  reason: z.string()
+    .min(10, 'Reason must be at least 10 characters')
+    .max(500, 'Reason cannot exceed 500 characters'),
+  attachment_urls: z.array(z.string().url('Invalid file URL'))
+    .max(5, 'Maximum 5 attachments allowed')
+    .optional()
+    .default([]),
   reason_dropdown: z.enum([
     'System maintenance',
     'Project deadline',
@@ -59,7 +67,7 @@ const createOTFormSchema = (requireAttachment: boolean) => z.object({
   path: ['reason_other'],
 });
 
-type OTFormValues = z.infer<ReturnType<typeof createOTFormSchema>>;
+type OTFormValues = z.infer<typeof OTFormSchema>;
 
 interface OTFormProps {
   onSubmit: (data: any) => void;
@@ -68,10 +76,9 @@ interface OTFormProps {
   fullName: string;
   onCancel: () => void;
   defaultValues?: Partial<OTFormValues>;
-  requireAttachment?: boolean;
 }
 
-export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel, defaultValues, requireAttachment = false }: OTFormProps) {
+export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel, defaultValues }: OTFormProps) {
   const [totalHours, setTotalHours] = useState<number>(0);
   const [dayType, setDayType] = useState<string>('weekday');
   const [cutoffDay, setCutoffDay] = useState<number>(10);
@@ -105,8 +112,9 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   }, []);
 
   const form = useForm<OTFormValues>({
-    resolver: zodResolver(createOTFormSchema(requireAttachment)),
+    resolver: zodResolver(OTFormSchema),
     defaultValues: defaultValues || {
+      reason: '',
       reason_other: '',
       respective_supervisor_id: 'none',
       attachment_urls: [],
@@ -311,25 +319,20 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
         <FormField
           control={form.control}
-          name="reason_dropdown"
+          name="reason"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Reason for OT *</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select reason for overtime" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="System maintenance">System maintenance</SelectItem>
-                  <SelectItem value="Project deadline">Project deadline</SelectItem>
-                  <SelectItem value="Unexpected breakdown">Unexpected breakdown</SelectItem>
-                  <SelectItem value="Client support">Client support</SelectItem>
-                  <SelectItem value="Staff shortage">Staff shortage</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <Textarea
+                  placeholder="Please provide a detailed reason for overtime (minimum 10 characters)"
+                  className="min-h-[100px] resize-none"
+                  {...field}
+                />
+              </FormControl>
+              <div className="text-xs text-muted-foreground text-right">
+                {field.value?.length || 0} / 500 characters
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -390,7 +393,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
            render={({ field }) => (
              <FormItem>
                <FormLabel>
-                 Attachments {requireAttachment ? '*' : '(Optional)'}
+                 Attachments (Optional)
                </FormLabel>
                <FormControl>
                  <FileUpload

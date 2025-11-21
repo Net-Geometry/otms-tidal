@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AppLayout } from '@/components/AppLayout';
 import { DashboardCard } from '@/components/DashboardCard';
@@ -8,9 +8,10 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Clock, CheckCircle, AlertCircle, Plus, History } from 'lucide-react';
 import { toast } from 'sonner';
+import { LoadingSkeleton } from '@/components/LoadingSkeleton';
 
 export default function Dashboard() {
-  const { user, roles, hasRole } = useAuth();
+  const { user, roles, hasRole, isLoadingRoles, getDefaultRoute } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalHours: 0,
@@ -18,6 +19,20 @@ export default function Dashboard() {
     approved: 0
   });
   const [loading, setLoading] = useState(true);
+
+  // Wait for roles to load
+  if (isLoadingRoles) {
+    return <LoadingSkeleton />;
+  }
+
+  // If user has a role-specific dashboard, redirect them there
+  if (user && roles.length > 0) {
+    const defaultRoute = getDefaultRoute();
+    // Only redirect if they should go to a specific role dashboard
+    if (defaultRoute !== '/dashboard') {
+      return <Navigate to={defaultRoute} replace />;
+    }
+  }
 
   useEffect(() => {
     fetchStats();

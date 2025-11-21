@@ -17,14 +17,25 @@ export interface ManagementSummaryData {
     totalEmployees: number;
     totalHours: number;
     totalCost: number;
+    totalCompanies: number;
   };
-  employees: Array<{
-    employeeNo: string;
-    name: string;
-    department: string;
-    position: string;
-    otHours: number;
-    otAmount: number;
+  companyGroups: Array<{
+    companyId: string;
+    companyName: string;
+    companyCode: string;
+    employees: Array<{
+      employeeNo: string;
+      name: string;
+      department: string;
+      position: string;
+      otHours: number;
+      otAmount: number;
+    }>;
+    stats: {
+      totalEmployees: number;
+      totalHours: number;
+      totalCost: number;
+    };
   }>;
 }
 
@@ -66,28 +77,30 @@ export async function generateManagementSummaryPDF(data: ManagementSummaryData):
 
   // ===== HEADER SECTION (matching payslip) =====
   
-  // Company logo (left side)
+  // Company logo (centered)
   const logoSize = 35; // 35mm x 35mm
+  const headerContentWidth = logoSize + 15 + 112; // logo + gap + text area
+  const headerStartX = (pageWidth - headerContentWidth) / 2;
   
   if (data.company.logo_url) {
     const imageData = await loadImageFromUrl(data.company.logo_url);
     if (imageData) {
       try {
-        doc.addImage(imageData, 'PNG', leftMargin, yPos, logoSize, logoSize);
+        doc.addImage(imageData, 'PNG', headerStartX, yPos, logoSize, logoSize);
       } catch (error) {
         console.error('Failed to add image to PDF:', error);
-        drawLogoPlaceholder(doc, leftMargin, yPos, logoSize, data.company.name);
+        drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.company.name);
       }
     } else {
-      drawLogoPlaceholder(doc, leftMargin, yPos, logoSize, data.company.name);
+      drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.company.name);
     }
   } else {
-    drawLogoPlaceholder(doc, leftMargin, yPos, logoSize, data.company.name);
+    drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.company.name);
   }
 
-  // Company info (right side)
-  const companyInfoX = leftMargin + logoSize + 15;
-  const maxTextWidth = pageWidth - companyInfoX - rightMargin; // ~112mm
+  // Company info (right side of logo)
+  const companyInfoX = headerStartX + logoSize + 15;
+  const maxTextWidth = 112; // Fixed width for text area
   
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
@@ -127,21 +140,28 @@ export async function generateManagementSummaryPDF(data: ManagementSummaryData):
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...blackColor);
-  doc.text('OVERTIME SUMMARY REPORT', leftMargin, yPos);
+  doc.text('OVERTIME SUMMARY REPORT', pageWidth / 2, yPos, { align: 'center' });
   
   yPos += 6;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grayColor);
-  doc.text('All Employees', leftMargin, yPos);
+  doc.text('All Employees', pageWidth / 2, yPos, { align: 'center' });
 
-  // Period (right aligned)
+  // Period (below title, centered)
+  yPos += 5;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grayColor);
-  doc.text('Period: ', pageWidth - rightMargin - 45, yPos);
+  const periodLabel = 'Period: ';
+  const periodLabelWidth = doc.getTextWidth(periodLabel);
+  const periodValueWidth = doc.getTextWidth(data.period.display);
+  const totalPeriodWidth = periodLabelWidth + periodValueWidth;
+  const periodStartX = (pageWidth - totalPeriodWidth) / 2;
+  
+  doc.text(periodLabel, periodStartX, yPos);
   doc.setTextColor(...blackColor);
-  doc.text(data.period.display, pageWidth - rightMargin, yPos, { align: 'right' });
+  doc.text(data.period.display, periodStartX + periodLabelWidth, yPos);
 
   // ===== SUMMARY STATISTICS BOXES (replaces NET PAY box) =====
   yPos += 10;
@@ -150,9 +170,11 @@ export async function generateManagementSummaryPDF(data: ManagementSummaryData):
   const boxWidth = 70;
   const boxHeight = 24;
   const boxGap = 8;
+  const totalBoxesWidth = (boxWidth * 2) + boxGap;
+  const boxesStartX = (pageWidth - totalBoxesWidth) / 2;
   
   // Left Box - Total Hours
-  const hoursBoxX = leftMargin;
+  const hoursBoxX = boxesStartX;
   doc.setFillColor(...lightTealBg);
   doc.setDrawColor(...primaryColor);
   doc.setLineWidth(1.5);
@@ -187,81 +209,150 @@ export async function generateManagementSummaryPDF(data: ManagementSummaryData):
   const costText = `RM ${data.statistics.totalCost.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   doc.text(costText, costBoxX + boxWidth / 2, boxStartY + 18, { align: 'center' });
 
-  // Additional stats below boxes
+  // Additional stats below boxes - centered
   yPos = boxStartY + boxHeight + 6;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grayColor);
-  doc.text(`Total Employees: ${data.statistics.totalEmployees}`, leftMargin, yPos);
+  doc.text(`Total Employees: ${data.statistics.totalEmployees} | Companies: ${data.statistics.totalCompanies}`, pageWidth / 2, yPos, { align: 'center' });
 
   // ===== EMPLOYEE DATA SECTION =====
   yPos += 8;
   
-  // Section title (matching payslip earnings section)
+  // Section title - centered
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...primaryColor);
-  doc.text('Employee Overtime Details', leftMargin, yPos);
+  doc.text('Employee Overtime Details by Company', pageWidth / 2, yPos, { align: 'center' });
   
+  yPos += 5;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grayColor);
-  doc.text(`For Period ${data.period.display}`, pageWidth - rightMargin, yPos, { align: 'right' });
+  doc.text(`For Period ${data.period.display}`, pageWidth / 2, yPos, { align: 'center' });
   
   yPos += 2;
+  const lineStartX = leftMargin + 15;
+  const lineEndX = pageWidth - rightMargin - 15;
   doc.setDrawColor(...borderColor);
   doc.setLineWidth(0.3);
-  doc.line(leftMargin, yPos, pageWidth - rightMargin, yPos);
+  doc.line(lineStartX, yPos, lineEndX, yPos);
 
-  yPos += 5;
+  yPos += 8;
 
-  // Employee table using autoTable
-  const tableData = data.employees.map(emp => [
-    emp.employeeNo,
-    emp.name,
-    emp.department,
-    emp.position,
-    `${emp.otHours.toFixed(1)} hrs`,
-    `RM ${emp.otAmount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  ]);
+  // Loop through each company group
+  const tableWidth = 155;
+  const tableStartX = (pageWidth - tableWidth) / 2;
 
-  autoTable(doc, {
-    startY: yPos,
-    head: [['Employee No.', 'Name', 'Department', 'Position', 'OT Hours', 'OT Amount']],
-    body: tableData,
-    theme: 'plain',
-    styles: {
-      fontSize: 9,
-      cellPadding: 3,
-      textColor: [34, 34, 34],
-      lineColor: [230, 230, 230],
-      lineWidth: 0.1,
-    },
-    headStyles: {
-      fillColor: [47, 182, 201],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      halign: 'left',
-    },
-    columnStyles: {
-      0: { cellWidth: 25 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 30 },
-      3: { cellWidth: 30 },
-      4: { halign: 'right', cellWidth: 22 },
-      5: { halign: 'right', cellWidth: 25 },
-    },
-    alternateRowStyles: {
-      fillColor: [248, 248, 248],
-    },
-    margin: { left: leftMargin, right: rightMargin },
-  });
+  for (let i = 0; i < data.companyGroups.length; i++) {
+    const company = data.companyGroups[i];
+    
+    // Add page break if needed (except for first company)
+    if (i > 0 && yPos > 250) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    // Company header
+    doc.setFillColor(...lightTealBg);
+    doc.setDrawColor(...primaryColor);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(tableStartX, yPos - 2, tableWidth, 10, 2, 2, 'FD');
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...primaryColor);
+    doc.text(
+      `${company.companyName} (${company.companyCode})`,
+      pageWidth / 2,
+      yPos + 5,
+      { align: 'center' }
+    );
+    
+    yPos += 12;
+    
+    // Company employee table
+    const tableData = company.employees.map(emp => [
+      emp.employeeNo,
+      emp.name,
+      emp.department,
+      emp.position,
+      `${emp.otHours.toFixed(1)} hrs`,
+      `RM ${emp.otAmount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    ]);
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Employee No.', 'Name', 'Department', 'Position', 'OT Hours', 'OT Amount']],
+      body: tableData,
+      theme: 'plain',
+      styles: {
+        fontSize: 8,
+        cellPadding: 2.5,
+        textColor: [34, 34, 34],
+        lineColor: [230, 230, 230],
+        lineWidth: 0.1,
+      },
+      headStyles: {
+        fillColor: [47, 182, 201],
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        halign: 'left',
+      },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 35 },
+        4: { halign: 'right', cellWidth: 20 },
+        5: { halign: 'right', cellWidth: 'auto' },
+      },
+      margin: { left: tableStartX, right: pageWidth - tableStartX - tableWidth },
+      didDrawPage: (data) => {
+        yPos = data.cursor?.y || yPos;
+      }
+    });
+    
+    yPos = (doc as any).lastAutoTable.finalY + 2;
+    
+    // Company subtotal bar
+    doc.setFillColor(248, 248, 248);
+    doc.rect(tableStartX, yPos, tableWidth, 8, 'F');
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...blackColor);
+    doc.text(
+      `${company.companyName} Total: ${company.stats.totalEmployees} employees`,
+      tableStartX + 5,
+      yPos + 5
+    );
+    doc.text(
+      `${company.stats.totalHours.toFixed(1)} hrs`,
+      tableStartX + 100,
+      yPos + 5,
+      { align: 'right' }
+    );
+    doc.text(
+      `RM ${company.stats.totalCost.toLocaleString('en-MY', { minimumFractionDigits: 2 })}`,
+      tableStartX + tableWidth - 5,
+      yPos + 5,
+      { align: 'right' }
+    );
+    
+    yPos += 15; // Gap before next company
+  }
 
   // ===== FOOTER (matching payslip) =====
   const footerY = 280;
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grayColor);
+  
+  // Generated date on left
+  doc.text(`Generated: ${data.generatedDate}`, leftMargin, footerY);
+  
+  // Computer-generated message centered
   const footerText = 'This is a computer-generated report.';
   doc.text(footerText, pageWidth / 2, footerY, { align: 'center' });
 

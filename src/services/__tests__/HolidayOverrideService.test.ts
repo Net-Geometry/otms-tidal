@@ -393,7 +393,7 @@ describe('HolidayOverrideService', () => {
       service['configService'].getHolidaysForState = vi.fn().mockResolvedValue(scrapedHolidays);
       service.getOverrides = vi.fn().mockResolvedValue(overrides);
 
-      const merged = await service.getMergedHolidays('selangor', 2025);
+      const merged = await service.getMergedHolidays('SGR', 2025);
 
       // Should have 2 holidays: New Year (scraped) and Company Day (override replaces scraped)
       expect(merged).toHaveLength(2);
@@ -435,7 +435,7 @@ describe('HolidayOverrideService', () => {
       service['configService'].getHolidaysForState = vi.fn().mockResolvedValue(scrapedHolidays);
       service.getOverrides = vi.fn().mockResolvedValue(overrides);
 
-      const merged = await service.getMergedHolidays('selangor', 2025);
+      const merged = await service.getMergedHolidays('SGR', 2025);
 
       expect(merged).toHaveLength(2);
       expect(merged[0].date).toBe('2025-03-15'); // March should come first

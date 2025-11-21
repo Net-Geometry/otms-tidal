@@ -14,6 +14,7 @@ export function usePendingRecertifications() {
           profiles!ot_requests_employee_id_fkey(
             employee_id,
             full_name,
+            basic_salary,
             department:departments(name)
           )
         `)

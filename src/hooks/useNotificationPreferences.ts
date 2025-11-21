@@ -45,7 +45,7 @@ export const useNotificationPreferences = (): UseNotificationPreferencesReturn =
       }
 
       // Return preferences or default if null/undefined
-      return (data?.notification_preferences as NotificationPreferences) || DEFAULT_NOTIFICATION_PREFERENCES;
+      return (data?.notification_preferences as unknown as NotificationPreferences) || DEFAULT_NOTIFICATION_PREFERENCES;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
     enabled: true, // Only fetch when component is mounted and needs data
@@ -63,7 +63,7 @@ export const useNotificationPreferences = (): UseNotificationPreferencesReturn =
 
       const { error } = await supabase
         .from('profiles')
-        .update({ notification_preferences: newPreferences })
+        .update({ notification_preferences: newPreferences as unknown as any })
         .eq('id', session.user.id);
 
       if (error) {

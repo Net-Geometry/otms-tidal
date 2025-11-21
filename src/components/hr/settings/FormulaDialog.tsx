@@ -76,7 +76,7 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
       orp_definition: '(Basic / 26 / 8)',
       hrp_definition: '(Basic / 26 / 8)',
       multiplier: 1.5,
-      base_formula: 'ORP',
+      base_formula: 'HRP * Hours',
       is_active: true,
       effective_from: new Date().toISOString().split('T')[0],
     },
@@ -155,6 +155,7 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
 
   const handlePreview = () => {
     const baseFormula = form.getValues('base_formula');
+    const multiplier = form.getValues('multiplier');
     const basicSalary = parseFloat(previewBasicSalary);
     const hours = parseFloat(previewHours);
 
@@ -164,7 +165,7 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
     }
 
     try {
-      const result = evaluateFormula(baseFormula, basicSalary, hours);
+      const result = evaluateFormula(baseFormula, basicSalary, hours, multiplier);
       setPreviewResult(result);
     } catch (e: any) {
       setPreviewResult({ error: e.message });

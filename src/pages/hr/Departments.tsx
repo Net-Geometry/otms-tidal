@@ -151,6 +151,7 @@ export default function Departments() {
         department={selectedDepartment}
         open={showDetailsSheet}
         onOpenChange={setShowDetailsSheet}
+        onEdit={handleEdit}
       />
     </AppLayout>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Calendar, Clock, FileText, AlertCircle, CheckCircle2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Calendar, Clock, FileText, AlertCircle, CheckCircle2, CheckCircle, XCircle, Info, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/StatusBadge';
 import { GroupedOTRequest } from '@/types/otms';
 import { formatCurrency, formatHours, formatTime12Hour } from '@/lib/otCalculations';
+import { useOTDailySessions } from '@/hooks/useOTDailySessions';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 type ApprovalRole = 'supervisor' | 'hr' | 'management';
 
@@ -53,6 +55,14 @@ export function OTApprovalDetailsSheet({
   isRevisingDeniedRequest
 }: OTApprovalDetailsSheetProps) {
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
+  const [showDailyContext, setShowDailyContext] = useState(true);
+
+  // Fetch all sessions for this day
+  const { data: allDailySessions = [] } = useOTDailySessions({
+    employeeId: request?.employee_id || '',
+    otDate: request?.ot_date || '',
+    enabled: open && !!request,
+  });
   const [denialRemarks, setDenialRemarks] = useState('');
   const [showDenyDialog, setShowDenyDialog] = useState(false);
 
@@ -64,6 +74,12 @@ export function OTApprovalDetailsSheet({
   }, [open, request]);
 
   if (!request) return null;
+
+  // Calculate daily totals from ALL sessions
+  const dailyTotalHours = allDailySessions.reduce((sum, s) => sum + s.total_hours, 0);
+  const dailyTotalAmount = allDailySessions.reduce((sum, s) => sum + (s.ot_amount || 0), 0);
+  const currentSessionIds = request.sessions.map(s => s.id);
+  const otherSessions = allDailySessions.filter(s => !currentSessionIds.includes(s.id));
 
   const profile = (request as any).profiles;
 
@@ -135,6 +151,22 @@ export function OTApprovalDetailsSheet({
 
           <Separator />
 
+          {/* Daily Context Info */}
+          {allDailySessions.length > request.sessions.length && (
+            <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-sm">
+                <p className="font-semibold mb-1">Daily OT Calculation Context</p>
+                <p>
+                  This employee has <strong>{allDailySessions.length} sessions</strong> totaling{' '}
+                  <strong>{formatHours(dailyTotalHours)} hours</strong> on this day.
+                  OT amount ({formatCurrency(dailyTotalAmount)}) is calculated for the entire day
+                  and distributed proportionally across all sessions.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* OT Details */}
           <div className="space-y-4">
             <h3 className="font-semibold text-lg">OT Details</h3>
@@ -149,9 +181,16 @@ export function OTApprovalDetailsSheet({
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm mb-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">OT Sessions:</span>
+              <div className="flex items-center justify-between text-sm mb-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">OT Sessions in Current View:</span>
+                </div>
+                {allDailySessions.length > request.sessions.length && (
+                  <Badge variant="secondary" className="text-xs">
+                    {request.sessions.length} of {allDailySessions.length} sessions
+                  </Badge>
+                )}
               </div>
               <div className="space-y-2 ml-6">
                 {canApproveOrReject(request) && (
@@ -181,7 +220,7 @@ export function OTApprovalDetailsSheet({
                               ({formatHours(session.total_hours)} hours)
                             </span>
                           </div>
-                          {session.status && <StatusBadge status={session.status} />}
+                          {session.status && <StatusBadge status={session.status} rejectionStage={request.rejection_stage} />}
                         </div>
                         
                         {session.reason && (
@@ -216,15 +255,43 @@ export function OTApprovalDetailsSheet({
                 
                 {!canApproveOrReject(request) && (
                   <div className="text-sm font-semibold pt-1 border-t border-border">
-                    Total: {formatHours(request.total_hours)} hours
+                    Sessions Total: {formatHours(request.total_hours)} hours
                   </div>
                 )}
               </div>
+
+              {/* Other Sessions on Same Day */}
+              {otherSessions.length > 0 && (
+                <Collapsible open={showDailyContext} onOpenChange={setShowDailyContext}>
+                  <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium hover:underline">
+                    <Info className="h-3 w-3" />
+                    {showDailyContext ? 'Hide' : 'Show'} other sessions on this day ({otherSessions.length})
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 mt-2 ml-6">
+                    {otherSessions.map((session) => (
+                      <div key={session.id} className="bg-muted/30 p-3 rounded border border-dashed space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm">
+                            {formatTime12Hour(session.start_time)} - {formatTime12Hour(session.end_time)}
+                            <span className="ml-2 text-muted-foreground">
+                              ({formatHours(session.total_hours)} hours)
+                            </span>
+                          </div>
+                          <StatusBadge status={session.status} rejectionStage={request.rejection_stage} />
+                        </div>
+                      </div>
+                    ))}
+                    <div className="text-xs text-muted-foreground pt-2 border-t border-dashed">
+                      These sessions are in a different approval status and not included in current action.
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
             </div>
 
             <div className="flex items-center gap-2 text-sm">
               <span className="font-medium">Status:</span>
-              <StatusBadge status={request.status} />
+              <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
             </div>
           </div>
 
@@ -249,20 +316,37 @@ export function OTApprovalDetailsSheet({
 
           {/* Calculation Details - Only visible to HR and Management */}
           {(role === 'hr' || role === 'management') && (
-            <div className="space-y-2 bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-semibold text-sm">Calculation</h4>
-              <div className="grid grid-cols-3 gap-4 text-sm">
+            <div className="space-y-3 bg-muted/50 p-4 rounded-lg">
+              <h4 className="font-semibold text-sm">Calculation Details</h4>
+              
+              {/* Always show daily totals */}
+              <div className="grid grid-cols-3 gap-4 text-sm pb-3 border-b border-border/50">
                 <div>
-                  <p className="text-muted-foreground">ORP</p>
-                  <p className="font-medium">{formatCurrency(request.orp || 0)}</p>
+                  <p className="text-muted-foreground text-xs">Daily Total Hours</p>
+                  <p className="font-semibold">{formatHours(dailyTotalHours)} hrs</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">HRP</p>
-                  <p className="font-medium">{formatCurrency(request.hrp || 0)}</p>
+                <div className="col-span-2">
+                  <p className="text-muted-foreground text-xs">Daily Total OT Amount</p>
+                  <p className="font-semibold text-lg">{formatCurrency(dailyTotalAmount)}</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">OT Amount</p>
-                  <p className="font-medium text-lg">{formatCurrency(request.ot_amount || 0)}</p>
+              </div>
+              
+              <div>
+                <p className="text-muted-foreground text-xs mb-2">
+                  Session Calculation
+                  {allDailySessions.length > request.sessions.length && (
+                    <span className="text-muted-foreground"> (distributed across {allDailySessions.length} sessions)</span>
+                  )}
+                </p>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">ORP</p>
+                    <p className="font-medium">{formatCurrency(request.orp || 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">HRP</p>
+                    <p className="font-medium">{formatCurrency(request.hrp || 0)}</p>
+                  </div>
                 </div>
               </div>
             </div>

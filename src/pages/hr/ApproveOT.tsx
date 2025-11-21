@@ -4,6 +4,8 @@ import { AppLayout } from '@/components/AppLayout';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { OTApprovalTable } from '@/components/approvals/OTApprovalTable';
+import { OTApprovalDetailsSheet } from '@/components/approvals/OTApprovalDetailsSheet';
+import { OTApprovalDetailsSheet as RecertifyDetailsSheet } from '@/components/hr/approve/OTApprovalDetailsSheet';
 import { useOTApproval } from '@/hooks/useOTApproval';
 import { Input } from '@/components/ui/input';
 import { Search, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
@@ -26,6 +28,7 @@ export default function ApproveOT() {
     return tabParam || 'supervisor_verified';
   });
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [recertifyDetailsRequest, setRecertifyDetailsRequest] = useState<any>(null);
   const [recertifySelectedRequest, setRecertifySelectedRequest] = useState<any>(null);
   const [recertifyAction, setRecertifyAction] = useState<'recertify' | 'decline' | null>(null);
   const [recertifyRemarks, setRecertifyRemarks] = useState('');
@@ -41,7 +44,7 @@ export default function ApproveOT() {
   } = useOTApproval({ role: 'hr', status: activeTab === 'pending_hr_recertification' ? 'supervisor_verified' : activeTab });
 
   const { data: recertifyRequests = [], isLoading: isLoadingRecertify } = usePendingRecertifications();
-  const { recertify, decline } = useRecertifyOTActions();
+  const recertifyActions = useRecertifyOTActions();
 
   const filteredRequests = requests?.filter(request => {
     if (!searchQuery) return true;
@@ -111,9 +114,9 @@ export default function ApproveOT() {
     if (!recertifySelectedRequest || !recertifyAction || !recertifyRemarks.trim()) return;
 
     if (recertifyAction === 'recertify') {
-      await recertify.mutateAsync({ requestId: recertifySelectedRequest.id, remarks: recertifyRemarks });
+      await recertifyActions.recertify.mutateAsync({ requestId: recertifySelectedRequest.id, remarks: recertifyRemarks });
     } else {
-      await decline.mutateAsync({ requestId: recertifySelectedRequest.id, remarks: recertifyRemarks });
+      await recertifyActions.decline.mutateAsync({ requestId: recertifySelectedRequest.id, remarks: recertifyRemarks });
     }
 
     setRecertifyDialogOpen(false);
@@ -169,11 +172,11 @@ export default function ApproveOT() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Employee</TableHead>
+                          <TableHead>Employee Name</TableHead>
+                          <TableHead>Employee ID</TableHead>
                           <TableHead>Date</TableHead>
-                          <TableHead>Day Type</TableHead>
-                          <TableHead>Hours</TableHead>
-                          <TableHead>Amount</TableHead>
+                          <TableHead>Submitted OT Sessions</TableHead>
+                          <TableHead>Total Hours</TableHead>
                           <TableHead>Management Remarks</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
@@ -182,29 +185,43 @@ export default function ApproveOT() {
                         {recertifyRequests.map((request: any) => {
                           const profile = request.profiles;
                           const department = profile?.departments;
+                          const sessions = request.ot_sessions || [];
                           return (
-                            <TableRow key={request.id}>
+                            <TableRow 
+                              key={request.id}
+                              className="hover:bg-muted/50 transition-colors cursor-pointer"
+                              onClick={() => setRecertifyDetailsRequest(request)}
+                            >
                               <TableCell>
                                 <div className="font-medium">{profile?.full_name}</div>
-                                <div className="text-sm text-muted-foreground">{profile?.employee_id}</div>
                                 <div className="text-xs text-muted-foreground">{department?.name}</div>
                               </TableCell>
+                              <TableCell className="text-muted-foreground">{profile?.employee_id}</TableCell>
                               <TableCell>{format(new Date(request.ot_date), 'dd MMM yyyy')}</TableCell>
-                              <TableCell className="capitalize">{request.day_type?.replace('_', ' ')}</TableCell>
-                              <TableCell>{request.total_hours}h</TableCell>
-                              <TableCell>RM {request.ot_amount?.toFixed(2)}</TableCell>
+                <TableCell>
+                  <div className="text-sm">
+                    {request.start_time && request.end_time ? (
+                      <span>
+                        {format(new Date(`2000-01-01T${request.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${request.end_time}`), 'h:mm a')} ({request.total_hours}h)
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">{request.total_hours}h total</span>
+                    )}
+                  </div>
+                </TableCell>
+                              <TableCell className="font-medium">{request.total_hours}h</TableCell>
                               <TableCell>
                                 <div className="text-sm max-w-xs">
                                   {request.management_remarks || '-'}
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                                   <Button
                                     size="sm"
                                     variant="default"
                                     onClick={() => handleRecertifyAction(request, 'recertify')}
-                                    disabled={recertify.isPending || decline.isPending}
+                                    disabled={recertifyActions.recertify.isPending || recertifyActions.decline.isPending}
                                   >
                                     <CheckCircle className="h-4 w-4 mr-1" />
                                     Recertify
@@ -213,7 +230,7 @@ export default function ApproveOT() {
                                     size="sm"
                                     variant="destructive"
                                     onClick={() => handleRecertifyAction(request, 'decline')}
-                                    disabled={recertify.isPending || decline.isPending}
+                                    disabled={recertifyActions.recertify.isPending || recertifyActions.decline.isPending}
                                   >
                                     <XCircle className="h-4 w-4 mr-1" />
                                     Decline
@@ -303,7 +320,7 @@ export default function ApproveOT() {
               </Button>
               <Button
                 onClick={handleRecertifySubmit}
-                disabled={!recertifyRemarks.trim() || recertify.isPending || decline.isPending}
+                disabled={!recertifyRemarks.trim() || recertifyActions.recertify.isPending || recertifyActions.decline.isPending}
                 variant={recertifyAction === 'recertify' ? 'default' : 'destructive'}
               >
                 {recertifyAction === 'recertify' ? 'Recertify' : 'Decline'}
@@ -311,6 +328,23 @@ export default function ApproveOT() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <RecertifyDetailsSheet
+          request={recertifyDetailsRequest}
+          open={!!recertifyDetailsRequest}
+          onOpenChange={(open) => !open && setRecertifyDetailsRequest(null)}
+          showRecertifyActions={true}
+          onRecertify={(requestId, remarks) => {
+            recertifyActions.recertify.mutate({ requestId, remarks });
+            setRecertifyDetailsRequest(null);
+          }}
+          onDecline={(requestId, remarks) => {
+            recertifyActions.decline.mutate({ requestId, remarks });
+            setRecertifyDetailsRequest(null);
+          }}
+          isRecertifying={recertifyActions.recertify.isPending}
+          isDeclining={recertifyActions.decline.isPending}
+        />
       </div>
     </AppLayout>
   );

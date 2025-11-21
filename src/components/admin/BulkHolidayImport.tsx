@@ -21,7 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Card, CardContent } from '@/components/ui/card';
 import { Upload, FileDown, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import type { HolidayImportRow, BulkImportResult } from '@/types/holiday-overrides';
+import type { HolidayImportRow, BulkImportResult, HolidayOverrideType } from '@/types/holiday-overrides';
 import { holidayOverrideService } from '@/services/HolidayOverrideService';
 
 interface BulkHolidayImportProps {

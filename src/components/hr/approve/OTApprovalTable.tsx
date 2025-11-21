@@ -50,6 +50,7 @@ export function OTApprovalTable({ requests, isLoading }: OTApprovalTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Ticket #</TableHead>
               <TableHead>Employee</TableHead>
               <TableHead>OT Date</TableHead>
               <TableHead>Day Type</TableHead>
@@ -63,6 +64,11 @@ export function OTApprovalTable({ requests, isLoading }: OTApprovalTableProps) {
             {requests.map((request) => (
               <TableRow key={request.id}>
                 <TableCell>
+                  <span className="font-mono text-sm font-medium text-primary">
+                    {request.ticket_number}
+                  </span>
+                </TableCell>
+                <TableCell>
                   <div>
                     <div className="font-medium">{request.employee_id}</div>
                   </div>
@@ -72,7 +78,7 @@ export function OTApprovalTable({ requests, isLoading }: OTApprovalTableProps) {
                 <TableCell>{formatHours(request.total_hours)} hrs</TableCell>
                 <TableCell>{formatCurrency(request.ot_amount || 0)}</TableCell>
                 <TableCell>
-                  <StatusBadge status={request.status} />
+                  <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
                 </TableCell>
                 <TableCell>
                   <Button

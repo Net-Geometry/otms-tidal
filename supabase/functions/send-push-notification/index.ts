@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Send Push Notification Edge Function
  *
@@ -10,8 +11,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.77.0'
-// Using npm:web-push-deno-edge which is a maintained Deno-compatible version
-import * as webpush from 'npm:web-push@3.6.7'
+import webpush from 'https://esm.sh/web-push@3.6.7'
 import type {
   NotificationPayload,
   PushResult,
@@ -408,7 +408,7 @@ async function sendToSubscription(
   console.log('[Push] Sending to endpoint:', subscription.endpoint.substring(0, 50) + '...')
 
   try {
-    // Send notification via npm:web-push (Deno will handle Node compatibility)
+    // Send notification via npm:web-push
     await webpush.sendNotification(
       pushSubscription,
       JSON.stringify(notificationOptions)

@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface InviteEmployeeData {
-  email: string;
+  email: string | null;
   full_name: string;
   employee_id: string;
   ic_no: string | null;
@@ -13,9 +13,6 @@ interface InviteEmployeeData {
   department_id: string;
   company_id: string;
   basic_salary: number;
-  epf_no: string | null;
-  socso_no: string | null;
-  income_tax_no: string | null;
   employment_type: string;
   joining_date: string;
   work_location: string;
@@ -41,7 +38,7 @@ export function useInviteEmployee() {
       queryClient.invalidateQueries({ queryKey: ['hr-employees'] });
       toast({
         title: '✅ Employee Added Successfully!',
-        description: 'Temporary Password: Temp@12345 — Please share this password with the new employee. They must change it on first login.',
+        description: 'Employee can log in using their Employee ID with temporary password: Temp@12345',
         duration: 10000,
       });
     },
@@ -50,9 +47,30 @@ export function useInviteEmployee() {
       
       let errorMessage = 'Failed to add employee';
       
-      // Handle edge function errors
+      // Try to extract the actual error message from the edge function response
       if (error.message) {
-        errorMessage = error.message;
+        // Check if the message contains a JSON error object at the end
+        const jsonMatch = error.message.match(/\{.*"error".*\}$/);
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            errorMessage = parsed.error || errorMessage;
+          } catch {
+            // If JSON parsing fails, use the original message
+            errorMessage = error.message;
+          }
+        } else {
+          // Use the message directly if no JSON found
+          errorMessage = error.message;
+        }
+      }
+      
+      // Fallback to error object properties
+      if (error.error) {
+        errorMessage = error.error;
+      }
+      if (error.details) {
+        errorMessage = error.details;
       }
       
       toast({

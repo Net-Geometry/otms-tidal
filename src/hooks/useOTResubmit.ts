@@ -69,7 +69,7 @@ export function useOTResubmit() {
           reason: data.reason,
           attachment_urls: data.attachment_urls,
           status: 'pending_verification'
-        })
+        } as any)
         .select()
         .single();
 

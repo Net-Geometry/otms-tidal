@@ -51,11 +51,14 @@ export function useDeleteEmployee() {
 
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['hr-employees'] });
+      const wasDeactivated = data?.wasDeactivated === true;
       toast({
         title: 'Success',
-        description: 'Employee deleted successfully',
+        description: wasDeactivated 
+          ? 'Employee deactivated successfully' 
+          : 'Employee deleted successfully',
       });
     },
     onError: (error: Error) => {

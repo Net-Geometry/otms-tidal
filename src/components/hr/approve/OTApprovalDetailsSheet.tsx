@@ -1,6 +1,9 @@
 import { format } from 'date-fns';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useState } from 'react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { OTRequest } from '@/types/otms';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -10,10 +13,40 @@ interface OTApprovalDetailsSheetProps {
   request: OTRequest | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  showRecertifyActions?: boolean;
+  onRecertify?: (requestId: string, remarks: string) => void;
+  onDecline?: (requestId: string, remarks: string) => void;
+  isRecertifying?: boolean;
+  isDeclining?: boolean;
 }
 
-export function OTApprovalDetailsSheet({ request, open, onOpenChange }: OTApprovalDetailsSheetProps) {
+export function OTApprovalDetailsSheet({ 
+  request, 
+  open, 
+  onOpenChange,
+  showRecertifyActions = false,
+  onRecertify,
+  onDecline,
+  isRecertifying = false,
+  isDeclining = false,
+}: OTApprovalDetailsSheetProps) {
+  const [remarks, setRemarks] = useState('');
+  
   if (!request) return null;
+
+  const handleRecertify = () => {
+    if (onRecertify && request) {
+      onRecertify(request.id, remarks);
+      setRemarks('');
+    }
+  };
+
+  const handleDecline = () => {
+    if (onDecline && request) {
+      onDecline(request.id, remarks);
+      setRemarks('');
+    }
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -33,7 +66,7 @@ export function OTApprovalDetailsSheet({ request, open, onOpenChange }: OTApprov
               <div>
                 <Label className="text-muted-foreground">Status</Label>
                 <div className="mt-1">
-                  <StatusBadge status={request.status} />
+                  <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
                 </div>
               </div>
             </div>
@@ -121,7 +154,86 @@ export function OTApprovalDetailsSheet({ request, open, onOpenChange }: OTApprov
             </>
           )}
 
+          {/* Management Remarks */}
+          {request.management_remarks && (
+            <>
+              <Separator />
+              <div>
+                <Label className="text-muted-foreground">Management Remarks</Label>
+                <p className="mt-1">{request.management_remarks}</p>
+                {request.management_reviewed_at && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Reviewed on {format(new Date(request.management_reviewed_at), 'dd MMM yyyy HH:mm')}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Employee Info */}
+          {request.profiles && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h3 className="font-semibold">Employee Information</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Name</Label>
+                    <p>{request.profiles.full_name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Employee ID</Label>
+                    <p>{request.profiles.employee_id}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Department</Label>
+                    <p>{request.profiles.department?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Basic Salary</Label>
+                    <p>{formatCurrency(request.profiles.basic_salary || 0)}</p>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
         </div>
+
+        {showRecertifyActions && (
+          <>
+            <Separator className="my-4" />
+            <SheetFooter className="flex-col space-y-4 sm:space-y-0">
+              <div className="w-full space-y-2">
+                <Label htmlFor="recertify-remarks">Remarks (Optional)</Label>
+                <Textarea
+                  id="recertify-remarks"
+                  placeholder="Add any remarks or notes..."
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={3}
+                />
+              </div>
+              <div className="flex gap-2 w-full">
+                <Button
+                  onClick={handleDecline}
+                  variant="destructive"
+                  disabled={isRecertifying || isDeclining}
+                  className="flex-1"
+                >
+                  {isDeclining ? 'Declining...' : 'Decline'}
+                </Button>
+                <Button
+                  onClick={handleRecertify}
+                  disabled={isRecertifying || isDeclining}
+                  className="flex-1"
+                >
+                  {isRecertifying ? 'Recertifying...' : 'Recertify'}
+                </Button>
+              </div>
+            </SheetFooter>
+          </>
+        )}
       </SheetContent>
     </Sheet>
   );

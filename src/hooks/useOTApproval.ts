@@ -30,6 +30,31 @@ async function sendEmployeeNotification(requestId: string, notificationType: 'ap
   console.log('Employee notification sent:', response.data);
 }
 
+/**
+ * Send management notification via Edge Function
+ * Called when HR certifies an OT request to notify management users
+ */
+async function sendManagementNotification(requestId: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  if (!session) {
+    console.warn('No active session for sending management notification');
+    return;
+  }
+
+  const response = await supabase.functions.invoke('send-management-ot-notification', {
+    body: {
+      requestId
+    }
+  });
+
+  if (response.error) {
+    throw new Error(`Management notification error: ${response.error.message}`);
+  }
+
+  console.log('Management notification sent:', response.data);
+}
+
 type ApprovalRole = 'supervisor' | 'hr' | 'management';
 
 interface UseOTApprovalOptions {
@@ -59,6 +84,9 @@ function groupOTRequestsByEmployee(requests: any[]): GroupedOTRequest[] {
         request_ids: [],
         start_time: '',
         end_time: '',
+        ot_amount: 0, // Initialize to 0 - will sum proportional amounts from each session
+        orp: request.orp || 0,
+        hrp: request.hrp || 0,
       });
       
       // Add debug warning if profile data is missing
@@ -344,6 +372,15 @@ export function useOTApproval(options: UseOTApprovalOptions) {
         });
       });
 
+      // If HR is certifying, send notifications to management users
+      if (role === 'hr' && getApprovedStatus(role) === 'hr_certified') {
+        requestIds.forEach(requestId => {
+          sendManagementNotification(requestId).catch((notifError) => {
+            console.error('Failed to send management notification:', notifError);
+            // Don't throw - notification failure should not prevent approval
+          });
+        });
+      }
       // Return target status for use in onSuccess
       return { requestIds, targetStatus };
     },

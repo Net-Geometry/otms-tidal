@@ -21,8 +21,11 @@ export function OTDetailsSheet({ request, open, onOpenChange, onEdit }: OTDetail
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>OT Request Details</SheetTitle>
+        <SheetHeader className="space-y-3">
+          <div>
+            <div className="text-xs text-muted-foreground mb-1">Ticket Number</div>
+            <SheetTitle className="font-mono text-xl text-primary">{request.ticket_number}</SheetTitle>
+          </div>
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
@@ -30,7 +33,7 @@ export function OTDetailsSheet({ request, open, onOpenChange, onEdit }: OTDetail
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <p className="text-sm font-medium text-muted-foreground mb-2">Status</p>
-              <StatusBadge status={request.status} />
+              <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
             </div>
             
             {/* Edit button - only for pending_verification status */}

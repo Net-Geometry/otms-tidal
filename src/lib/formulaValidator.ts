@@ -80,7 +80,8 @@ export function validateFormulaSyntax(formula: string): FormulaValidationResult 
 export function evaluateFormula(
   formula: string,
   basicSalary: number,
-  hours: number
+  hours: number,
+  multiplier?: number
 ): FormulaEvaluationResult {
   const orp = basicSalary / 26;
   const hrp = orp / 8;
@@ -97,12 +98,22 @@ export function evaluateFormula(
       Basic: basicSalary,
     });
 
-    const breakdown = `Basic: RM ${basicSalary.toFixed(2)}\nORP: RM ${orp.toFixed(2)}\nHRP: RM ${hrp.toFixed(2)}\nHours: ${hours}\nOT Amount: RM ${otAmount.toFixed(2)}`;
+    // Apply multiplier if provided
+    const baseFormulaResult = otAmount;
+    const finalOTAmount = multiplier ? baseFormulaResult * multiplier : baseFormulaResult;
+    
+    let breakdown = `Basic: RM ${basicSalary.toFixed(2)}\nORP: RM ${orp.toFixed(2)}\nHRP: RM ${hrp.toFixed(2)}\nHours: ${hours}`;
+    
+    if (multiplier) {
+      breakdown += `\nFinal OT Amount: RM ${finalOTAmount.toFixed(2)}`;
+    } else {
+      breakdown += `\nOT Amount: RM ${finalOTAmount.toFixed(2)}`;
+    }
 
     return {
       orp,
       hrp,
-      otAmount,
+      otAmount: finalOTAmount,
       breakdown,
     };
   } catch (e: any) {

@@ -1,10 +1,28 @@
 export function exportToCSV(
   data: any[],
   filename: string,
-  headers: { key: string; label: string }[]
+  headers: { key: string; label: string }[],
+  metadata?: { reportName?: string; period?: string; generatedDate?: string }
 ) {
+  const rows: string[] = [];
+  
+  // Add metadata rows if provided
+  if (metadata) {
+    if (metadata.reportName) {
+      rows.push(`Report: ${metadata.reportName}`);
+    }
+    if (metadata.period) {
+      rows.push(`Period: ${metadata.period}`);
+    }
+    if (metadata.generatedDate) {
+      rows.push(`Generated: ${metadata.generatedDate}`);
+    }
+    rows.push(''); // Empty row separator
+  }
+  
   // Create CSV header row
   const headerRow = headers.map(h => h.label).join(',');
+  rows.push(headerRow);
   
   // Create CSV data rows
   const dataRows = data.map(row => 
@@ -20,7 +38,8 @@ export function exportToCSV(
     }).join(',')
   );
   
-  const csv = [headerRow, ...dataRows].join('\n');
+  rows.push(...dataRows);
+  const csv = rows.join('\n');
   
   // Create and trigger download
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

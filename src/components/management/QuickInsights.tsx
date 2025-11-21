@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Briefcase, User, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { formatCurrency } from '@/lib/otCalculations';
 
 interface Insight {
   title: string;
@@ -102,7 +103,7 @@ export function QuickInsights() {
           title: 'Highest OT Earner',
           value: topEarner?.name || 'N/A',
           icon: User,
-          trend: topEarner ? `RM ${topEarner.amount.toFixed(2)}` : 'N/A',
+          trend: topEarner ? formatCurrency(topEarner.amount) : 'N/A',
           trendUp: true,
           borderColor: 'border-l-[#10B981]',
         },

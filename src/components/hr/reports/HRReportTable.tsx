@@ -11,6 +11,8 @@ interface EmployeeOTSummary {
   employee_id: string;
   employee_no: string;
   employee_name: string;
+  company_name: string;
+  company_code: string;
   department: string;
   position: string;
   total_ot_hours: number;
@@ -140,6 +142,14 @@ export function HRReportTable({ data, isLoading, selectedMonth }: HRReportTableP
           amount: totalAmount,
           hours: totalHours,
         },
+        generatedDate: new Date().toLocaleString('en-GB', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }).replace(',', ''),
       });
 
       toast({
@@ -217,16 +227,22 @@ export function HRReportTable({ data, isLoading, selectedMonth }: HRReportTableP
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead 
-              className="cursor-pointer hover:bg-muted/50 font-semibold"
-              onClick={() => handleSort('employee_no')}
-            >
-              Employee No. <SortIcon column="employee_no" />
-            </TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-muted/50 font-semibold"
-              onClick={() => handleSort('employee_name')}
-            >
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50 font-semibold"
+                onClick={() => handleSort('employee_no')}
+              >
+                Employee No. <SortIcon column="employee_no" />
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50 font-semibold"
+                onClick={() => handleSort('company_name')}
+              >
+                Company <SortIcon column="company_name" />
+              </TableHead>
+              <TableHead 
+                className="cursor-pointer hover:bg-muted/50 font-semibold"
+                onClick={() => handleSort('employee_name')}
+              >
               Name <SortIcon column="employee_name" />
             </TableHead>
             <TableHead 
@@ -257,6 +273,12 @@ export function HRReportTable({ data, isLoading, selectedMonth }: HRReportTableP
             <TableRow key={`${row.employee_no}-${index}`}>
               <TableCell className="font-semibold">
                 {row.employee_no}
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col">
+                  <span className="font-medium">{row.company_name}</span>
+                  <span className="text-xs text-muted-foreground">{row.company_code}</span>
+                </div>
               </TableCell>
               <TableCell>{row.employee_name}</TableCell>
               <TableCell>{row.department}</TableCell>

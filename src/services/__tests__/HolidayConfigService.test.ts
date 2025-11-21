@@ -33,7 +33,7 @@ describe('HolidayConfigService', () => {
       const { supabase } = await import('@/integrations/supabase/client');
       (supabase.functions.invoke as any) = mockInvoke;
 
-      await service.refreshHolidaysForState('selangor');
+      await service.refreshHolidaysForState('SGR');
 
       expect(mockInvoke).toHaveBeenCalledTimes(2);
       expect(mockInvoke).toHaveBeenCalledWith('scrape-malaysia-holidays', {
@@ -52,7 +52,7 @@ describe('HolidayConfigService', () => {
       const { supabase } = await import('@/integrations/supabase/client');
       (supabase.functions.invoke as any) = mockInvoke;
 
-      await expect(service.refreshHolidaysForState('selangor')).rejects.toThrow();
+      await expect(service.refreshHolidaysForState('SGR')).rejects.toThrow();
     });
 
     it('should continue even if next year scraping fails', async () => {
@@ -62,7 +62,7 @@ describe('HolidayConfigService', () => {
       const { supabase } = await import('@/integrations/supabase/client');
       (supabase.functions.invoke as any) = mockInvoke;
 
-      await expect(service.refreshHolidaysForState('selangor')).resolves.not.toThrow();
+      await expect(service.refreshHolidaysForState('SGR')).resolves.not.toThrow();
     });
   });
 
@@ -85,7 +85,7 @@ describe('HolidayConfigService', () => {
       const { supabase } = await import('@/integrations/supabase/client');
       (supabase.from as any) = mockFrom;
 
-      const holidays = await service.getHolidaysForState('selangor', 2025);
+      const holidays = await service.getHolidaysForState('SGR', 2025);
 
       expect(holidays).toHaveLength(1);
       expect(mockFrom).toHaveBeenCalledWith('malaysian_holidays');
@@ -107,7 +107,7 @@ describe('HolidayConfigService', () => {
       const { supabase } = await import('@/integrations/supabase/client');
       (supabase.from as any) = mockFrom;
 
-      await expect(service.getHolidaysForState('selangor', 2025)).rejects.toThrow();
+      await expect(service.getHolidaysForState('SGR', 2025)).rejects.toThrow();
     });
   });
 
@@ -126,7 +126,7 @@ describe('HolidayConfigService', () => {
       const { supabase } = await import('@/integrations/supabase/client');
       (supabase.from as any) = mockFrom;
 
-      const hasData = await service.hasHolidayData('selangor', 2025);
+      const hasData = await service.hasHolidayData('SGR', 2025);
 
       expect(hasData).toBe(true);
     });
@@ -145,7 +145,7 @@ describe('HolidayConfigService', () => {
       const { supabase } = await import('@/integrations/supabase/client');
       (supabase.from as any) = mockFrom;
 
-      const hasData = await service.hasHolidayData('selangor', 2025);
+      const hasData = await service.hasHolidayData('SGR', 2025);
 
       expect(hasData).toBe(false);
     });

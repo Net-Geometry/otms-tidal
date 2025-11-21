@@ -118,6 +118,42 @@ export type Database = {
         }
         Relationships: []
       }
+      company_locations: {
+        Row: {
+          address: string | null
+          company_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          location_name: string
+          state_code: string
+          state_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          location_name: string
+          state_code: string
+          state_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          location_name?: string
+          state_code?: string
+          state_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       company_profile: {
         Row: {
           address: string
@@ -172,6 +208,57 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_calendar_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          calendar_id: string
+          created_at: string | null
+          employee_id: string
+          id: string
+          is_manual_override: boolean | null
+          notes: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          calendar_id: string
+          created_at?: string | null
+          employee_id: string
+          id?: string
+          is_manual_override?: boolean | null
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          calendar_id?: string
+          created_at?: string | null
+          employee_id?: string
+          id?: string
+          is_manual_override?: boolean | null
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_calendar_assignments_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "holiday_calendars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_calendar_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holiday_calendar_items: {
         Row: {
           calendar_id: string
@@ -216,6 +303,7 @@ export type Database = {
           id: string
           name: string
           state_code: string | null
+          state_codes: string[] | null
           total_holidays: number | null
           year: number
         }
@@ -227,6 +315,7 @@ export type Database = {
           id?: string
           name: string
           state_code?: string | null
+          state_codes?: string[] | null
           total_holidays?: number | null
           year: number
         }
@@ -238,6 +327,7 @@ export type Database = {
           id?: string
           name?: string
           state_code?: string | null
+          state_codes?: string[] | null
           total_holidays?: number | null
           year?: number
         }
@@ -554,6 +644,11 @@ export type Database = {
           parent_request_id: string | null
           reason: string
           rejection_stage: string | null
+          respective_supervisor_confirmed_at: string | null
+          respective_supervisor_denial_remarks: string | null
+          respective_supervisor_denied_at: string | null
+          respective_supervisor_id: string | null
+          respective_supervisor_remarks: string | null
           resubmission_count: number | null
           start_time: string
           status: Database["public"]["Enums"]["ot_status"] | null
@@ -589,6 +684,11 @@ export type Database = {
           parent_request_id?: string | null
           reason: string
           rejection_stage?: string | null
+          respective_supervisor_confirmed_at?: string | null
+          respective_supervisor_denial_remarks?: string | null
+          respective_supervisor_denied_at?: string | null
+          respective_supervisor_id?: string | null
+          respective_supervisor_remarks?: string | null
           resubmission_count?: number | null
           start_time: string
           status?: Database["public"]["Enums"]["ot_status"] | null
@@ -624,6 +724,11 @@ export type Database = {
           parent_request_id?: string | null
           reason?: string
           rejection_stage?: string | null
+          respective_supervisor_confirmed_at?: string | null
+          respective_supervisor_denial_remarks?: string | null
+          respective_supervisor_denied_at?: string | null
+          respective_supervisor_id?: string | null
+          respective_supervisor_remarks?: string | null
           resubmission_count?: number | null
           start_time?: string
           status?: Database["public"]["Enums"]["ot_status"] | null
@@ -664,6 +769,27 @@ export type Database = {
             columns: ["parent_request_id"]
             isOneToOne: false
             referencedRelation: "pending_confirmations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_parent_request_id_fkey"
+            columns: ["parent_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_respective_supervisor_confirmations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_parent_request_id_fkey"
+            columns: ["parent_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_supervisor_review"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_respective_supervisor_id_fkey"
+            columns: ["respective_supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -719,6 +845,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ot_resubmission_history_original_request_id_fkey"
+            columns: ["original_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_respective_supervisor_confirmations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_resubmission_history_original_request_id_fkey"
+            columns: ["original_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_supervisor_review"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ot_resubmission_history_resubmitted_request_id_fkey"
             columns: ["resubmitted_request_id"]
             isOneToOne: false
@@ -732,6 +872,20 @@ export type Database = {
             referencedRelation: "pending_confirmations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ot_resubmission_history_resubmitted_request_id_fkey"
+            columns: ["resubmitted_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_respective_supervisor_confirmations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_resubmission_history_resubmitted_request_id_fkey"
+            columns: ["resubmitted_request_id"]
+            isOneToOne: false
+            referencedRelation: "pending_supervisor_review"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ot_settings: {
@@ -739,6 +893,7 @@ export type Database = {
           active_calendar_id: string | null
           id: string
           max_daily_hours: number | null
+          ot_submission_cutoff_day: number | null
           rounding_rule: string | null
           salary_threshold: number | null
           submission_limit_days: number | null
@@ -749,6 +904,7 @@ export type Database = {
           active_calendar_id?: string | null
           id?: string
           max_daily_hours?: number | null
+          ot_submission_cutoff_day?: number | null
           rounding_rule?: string | null
           salary_threshold?: number | null
           submission_limit_days?: number | null
@@ -759,6 +915,7 @@ export type Database = {
           active_calendar_id?: string | null
           id?: string
           max_daily_hours?: number | null
+          ot_submission_cutoff_day?: number | null
           rounding_rule?: string | null
           salary_threshold?: number | null
           submission_limit_days?: number | null
@@ -1093,6 +1250,90 @@ export type Database = {
           },
         ]
       }
+      pending_respective_supervisor_confirmations: {
+        Row: {
+          created_at: string | null
+          employee_id: string | null
+          employee_name: string | null
+          id: string | null
+          ot_date: string | null
+          respective_supervisor_confirmed_at: string | null
+          respective_supervisor_denial_remarks: string | null
+          respective_supervisor_denied_at: string | null
+          respective_supervisor_id: string | null
+          respective_supervisor_name: string | null
+          respective_supervisor_remarks: string | null
+          status: Database["public"]["Enums"]["ot_status"] | null
+          supervisor_confirmation_at: string | null
+          supervisor_id: string | null
+          supervisor_name: string | null
+          supervisor_verified_at: string | null
+          total_hours: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_respective_supervisor_id_fkey"
+            columns: ["respective_supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_supervisor_review: {
+        Row: {
+          created_at: string | null
+          employee_id: string | null
+          employee_name: string | null
+          id: string | null
+          ot_date: string | null
+          respective_supervisor_denial_remarks: string | null
+          respective_supervisor_denied_at: string | null
+          respective_supervisor_id: string | null
+          respective_supervisor_name: string | null
+          status: Database["public"]["Enums"]["ot_status"] | null
+          supervisor_id: string | null
+          supervisor_verified_at: string | null
+          total_hours: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ot_requests_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_respective_supervisor_id_fkey"
+            columns: ["respective_supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ot_requests_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       calculate_daily_ot_distribution: {
@@ -1180,6 +1421,20 @@ export type Database = {
           multiplier: number
         }[]
       }
+      get_employee_calendar: {
+        Args: { _employee_id: string }
+        Returns: {
+          calendar_id: string
+          calendar_name: string
+          calendar_state_name: string
+          is_override: boolean
+          state_codes: string[]
+        }[]
+      }
+      get_state_from_location: {
+        Args: { _location_name: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1193,6 +1448,26 @@ export type Database = {
         Returns: string
       }
       mark_expired_tokens: { Args: never; Returns: undefined }
+      update_user_roles: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: {
+          error_message: string
+          success: boolean
+        }[]
+      }
+      validate_role_combination: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: {
+          error_message: string
+          is_valid: boolean
+        }[]
+      }
     }
     Enums: {
       app_role:
@@ -1203,6 +1478,9 @@ export type Database = {
         | "admin"
         | "management"
       day_type: "weekday" | "saturday" | "sunday" | "public_holiday"
+      notification_type:
+        | "ot_respective_supervisor_denied"
+        | "ot_request_respective_supervisor_confirmation"
       ot_status:
         | "pending_verification"
         | "verified"
@@ -1216,6 +1494,9 @@ export type Database = {
         | "management_approved"
         | "pending_supervisor_confirmation"
         | "supervisor_confirmed"
+        | "pending_respective_supervisor_confirmation"
+        | "respective_supervisor_confirmed"
+        | "pending_supervisor_review"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1345,6 +1626,10 @@ export const Constants = {
     Enums: {
       app_role: ["employee", "supervisor", "hr", "bod", "admin", "management"],
       day_type: ["weekday", "saturday", "sunday", "public_holiday"],
+      notification_type: [
+        "ot_respective_supervisor_denied",
+        "ot_request_respective_supervisor_confirmation",
+      ],
       ot_status: [
         "pending_verification",
         "verified",
@@ -1358,6 +1643,9 @@ export const Constants = {
         "management_approved",
         "pending_supervisor_confirmation",
         "supervisor_confirmed",
+        "pending_respective_supervisor_confirmation",
+        "respective_supervisor_confirmed",
+        "pending_supervisor_review",
       ],
     },
   },

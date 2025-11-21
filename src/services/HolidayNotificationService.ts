@@ -224,9 +224,9 @@ export class HolidayNotificationService {
     try {
       // Check if user has disabled all notifications
       const { data, error } = await supabase
-        .from('notification_preferences')
-        .select('all_disabled')
-        .eq('user_id', userId)
+        .from('profiles')
+        .select('notification_preferences')
+        .eq('id', userId)
         .maybeSingle();
 
       if (error) {
@@ -235,7 +235,8 @@ export class HolidayNotificationService {
       }
 
       // If no preferences exist or all_disabled is false, send notifications
-      return !data?.all_disabled;
+      const prefs = data?.notification_preferences as any;
+      return !prefs?.all_disabled;
     } catch (error) {
       console.error('Error checking notification preferences:', error);
       return true; // Default to sending on error

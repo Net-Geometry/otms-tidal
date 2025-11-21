@@ -19,7 +19,7 @@ export default function SubmitOT() {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('employee_id, full_name, require_ot_attachment')
+        .select('employee_id, full_name')
         .eq('id', user.id)
         .single();
       

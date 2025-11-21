@@ -6,6 +6,7 @@ export type DayType = 'weekday' | 'saturday' | 'sunday' | 'public_holiday';
 
 export interface OTRequest {
   id: string;
+  ticket_number: string;
   employee_id: string;
   ot_date: string;
   start_time: string;

@@ -23,7 +23,10 @@ import { useDepartments } from '@/hooks/hr/useDepartments';
 import { useEmployees } from '@/hooks/hr/useEmployees';
 import { usePositions } from '@/hooks/hr/usePositions';
 import { useCompanies } from '@/hooks/hr/useCompanies';
+import { useResetEmployeePassword } from '@/hooks/hr/useResetEmployeePassword';
+import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/otCalculations';
+import { KeyRound, AlertTriangle } from 'lucide-react';
 import { RoleSelector } from '@/components/RoleSelector';
 import { CalendarAssignmentSelector } from '@/components/hr/CalendarAssignmentSelector';
 import { StateSelector } from '@/components/hr/StateSelector';
@@ -48,11 +51,15 @@ export function EmployeeDetailsSheet({
   const [formData, setFormData] = useState<Partial<Profile>>({});
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
 
+  const { hasRole } = useAuth();
   const updateEmployee = useUpdateEmployee();
+  const resetPassword = useResetEmployeePassword();
   const { data: companies } = useCompanies();
   const { data: departments } = useDepartments();
   const { data: employees = [] } = useEmployees();
   const { data: positions = [], isLoading: isLoadingPositions } = usePositions(formData.department_id || undefined);
+  
+  const isAdmin = hasRole('admin');
 
   useEffect(() => {
     setMode(initialMode);
@@ -96,6 +103,13 @@ export function EmployeeDetailsSheet({
     setMode('view');
   };
 
+  const handleResetPassword = () => {
+    resetPassword.mutate({
+      employeeId: employee.id,
+      email: employee.email,
+    });
+  };
+
   const isEditing = mode === 'edit';
 
   return (
@@ -112,11 +126,28 @@ export function EmployeeDetailsSheet({
           <div className="grid grid-cols-2 gap-4">
             {/* Row 1: Employee No + Full Name */}
             <div className="grid gap-2">
-              <Label>Employee No</Label>
-              {/* Employee ID is ALWAYS read-only - set by HR during creation */}
-              <div className="font-mono text-sm font-semibold bg-muted/50 p-2 rounded">
-                {employee.employee_id}
-              </div>
+              <Label htmlFor="employee_id">Employee No</Label>
+              {isEditing && isAdmin ? (
+                <div className="space-y-2">
+                  <Input
+                    id="employee_id"
+                    value={formData.employee_id || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, employee_id: e.target.value })
+                    }
+                    placeholder="Enter Employee No"
+                    className="font-mono"
+                  />
+                  <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-500">
+                    <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span>Admin only: Changing Employee ID may affect payroll and historical records. Use with caution.</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="font-mono text-sm font-semibold bg-muted/50 p-2 rounded">
+                  {employee.employee_id}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2">
@@ -332,56 +363,7 @@ export function EmployeeDetailsSheet({
               )}
             </div>
 
-            {/* Row 6: EPF No + SOCSO No */}
-            <div className="grid gap-2">
-              <Label htmlFor="epf_no">EPF No</Label>
-              {isEditing ? (
-                <Input
-                  id="epf_no"
-                  value={formData.epf_no || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, epf_no: e.target.value })
-                  }
-                  placeholder="Enter EPF No"
-                />
-              ) : (
-                <div className="text-sm">{employee.epf_no || '-'}</div>
-              )}
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="socso_no">SOCSO No</Label>
-              {isEditing ? (
-                <Input
-                  id="socso_no"
-                  value={formData.socso_no || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, socso_no: e.target.value })
-                  }
-                  placeholder="Enter SOCSO No"
-                />
-              ) : (
-                <div className="text-sm">{employee.socso_no || '-'}</div>
-              )}
-            </div>
-
-            {/* Row 7: Income Tax No + Joining Date */}
-            <div className="grid gap-2">
-              <Label htmlFor="income_tax_no">Income Tax No</Label>
-              {isEditing ? (
-                <Input
-                  id="income_tax_no"
-                  value={formData.income_tax_no || ''}
-                  onChange={(e) =>
-                    setFormData({ ...formData, income_tax_no: e.target.value })
-                  }
-                  placeholder="Enter Income Tax No"
-                />
-              ) : (
-                <div className="text-sm">{employee.income_tax_no || '-'}</div>
-              )}
-            </div>
-
+            {/* Row 6: Joining Date + Work Location */}
             <div className="grid gap-2">
               <Label htmlFor="joining_date">Joining Date</Label>
               {isEditing ? (
@@ -582,7 +564,18 @@ export function EmployeeDetailsSheet({
                 </Button>
               </>
             ) : (
-              <Button onClick={() => setMode('edit')}>Edit</Button>
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={handleResetPassword}
+                  disabled={resetPassword.isPending}
+                  className="gap-2"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  {resetPassword.isPending ? 'Sending...' : 'Reset Password'}
+                </Button>
+                <Button onClick={() => setMode('edit')}>Edit</Button>
+              </>
             )}
           </div>
         </div>

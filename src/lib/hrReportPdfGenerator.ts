@@ -10,23 +10,30 @@ interface HRReportData {
     logoUrl?: string;
   };
   period: string;
+  generatedDate: string;
   summary: {
-    pendingReview: number;
     totalHours: number;
     totalCost: number;
     totalEmployees: number;
     totalCompanies: number;
   };
-  employees: Array<{
-    employee_no: string;
-    employee_name: string;
-    department: string;
-    position: string;
-    company_id: string;
-    company_name: string;
-    company_code: string;
-    total_ot_hours: number;
-    amount: number;
+  companyGroups: Array<{
+    companyId: string;
+    companyName: string;
+    companyCode: string;
+    employees: Array<{
+      employee_no: string;
+      employee_name: string;
+      department: string;
+      position: string;
+      total_ot_hours: number;
+      amount: number;
+    }>;
+    stats: {
+      totalEmployees: number;
+      totalHours: number;
+      totalCost: number;
+    };
   }>;
 }
 
@@ -60,31 +67,34 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
   let yPos = margin;
 
   // ===== HEADER SECTION =====
-  // Company logo or placeholder
+  // Company logo or placeholder - centered
   const logoSize = 25;
+  const headerContentWidth = logoSize + 10 + 120; // logo + gap + text area
+  const headerStartX = (pageWidth - headerContentWidth) / 2;
+  
   if (data.companyInfo.logoUrl) {
     const logoData = await loadImageFromUrl(data.companyInfo.logoUrl);
     if (logoData) {
-      doc.addImage(logoData, 'PNG', margin, yPos, logoSize, logoSize);
+      doc.addImage(logoData, 'PNG', headerStartX, yPos, logoSize, logoSize);
     } else {
-      drawLogoPlaceholder(doc, margin, yPos, logoSize, data.companyInfo.name);
+      drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.companyInfo.name);
     }
   } else {
-    drawLogoPlaceholder(doc, margin, yPos, logoSize, data.companyInfo.name);
+    drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.companyInfo.name);
   }
 
   // Company info
   doc.setFontSize(16);
   doc.setTextColor(...textDark);
   doc.setFont('helvetica', 'bold');
-  doc.text(data.companyInfo.name, margin + logoSize + 10, yPos + 8);
+  doc.text(data.companyInfo.name, headerStartX + logoSize + 10, yPos + 8);
 
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...textLight);
-  doc.text(`Reg No: ${data.companyInfo.registrationNo}`, margin + logoSize + 10, yPos + 14);
-  doc.text(data.companyInfo.address, margin + logoSize + 10, yPos + 19);
-  doc.text(`Tel: ${data.companyInfo.phone}`, margin + logoSize + 10, yPos + 24);
+  doc.text(`Reg No: ${data.companyInfo.registrationNo}`, headerStartX + logoSize + 10, yPos + 14);
+  doc.text(data.companyInfo.address, headerStartX + logoSize + 10, yPos + 19);
+  doc.text(`Tel: ${data.companyInfo.phone}`, headerStartX + logoSize + 10, yPos + 24);
 
   yPos += logoSize + 15;
 
@@ -95,7 +105,7 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(255, 255, 255);
-  doc.text('OVERTIME SUMMARY REPORT', margin + 5, yPos + 8);
+  doc.text('OVERTIME SUMMARY REPORT', pageWidth / 2, yPos + 8, { align: 'center' });
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -106,43 +116,46 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
   yPos += 20;
 
   // ===== SUMMARY STATISTICS =====
-  const boxWidth = (pageWidth - 2 * margin - 10) / 2;
+  const boxWidth = 75;
+  const boxGap = 10;
+  const totalBoxesWidth = (boxWidth * 2) + boxGap;
+  const boxesStartX = (pageWidth - totalBoxesWidth) / 2;
   const boxHeight = 25;
 
   // Total OT Hours box
   doc.setFillColor(245, 245, 245);
-  doc.roundedRect(margin, yPos, boxWidth, boxHeight, 3, 3, 'F');
+  doc.roundedRect(boxesStartX, yPos, boxWidth, boxHeight, 3, 3, 'F');
   doc.setDrawColor(...primaryColor);
   doc.setLineWidth(0.5);
-  doc.roundedRect(margin, yPos, boxWidth, boxHeight, 3, 3, 'S');
+  doc.roundedRect(boxesStartX, yPos, boxWidth, boxHeight, 3, 3, 'S');
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...textLight);
-  doc.text('Total OT Hours', margin + boxWidth / 2, yPos + 8, { align: 'center' });
+  doc.text('Total OT Hours', boxesStartX + boxWidth / 2, yPos + 8, { align: 'center' });
 
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...primaryColor);
-  doc.text(data.summary.totalHours.toFixed(2), margin + boxWidth / 2, yPos + 18, { align: 'center' });
+  doc.text(data.summary.totalHours.toFixed(2), boxesStartX + boxWidth / 2, yPos + 18, { align: 'center' });
 
   // Total OT Cost box
   doc.setFillColor(245, 245, 245);
-  doc.roundedRect(margin + boxWidth + 10, yPos, boxWidth, boxHeight, 3, 3, 'F');
+  doc.roundedRect(boxesStartX + boxWidth + boxGap, yPos, boxWidth, boxHeight, 3, 3, 'F');
   doc.setDrawColor(...primaryColor);
   doc.setLineWidth(0.5);
-  doc.roundedRect(margin + boxWidth + 10, yPos, boxWidth, boxHeight, 3, 3, 'S');
+  doc.roundedRect(boxesStartX + boxWidth + boxGap, yPos, boxWidth, boxHeight, 3, 3, 'S');
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...textLight);
-  doc.text('Total OT Cost', margin + boxWidth + 10 + boxWidth / 2, yPos + 8, { align: 'center' });
+  doc.text('Total OT Cost', boxesStartX + boxWidth + boxGap + boxWidth / 2, yPos + 8, { align: 'center' });
 
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...primaryColor);
   doc.text(`RM ${data.summary.totalCost.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
-    margin + boxWidth + 10 + boxWidth / 2, yPos + 18, { align: 'center' });
+    boxesStartX + boxWidth + boxGap + boxWidth / 2, yPos + 18, { align: 'center' });
 
   yPos += boxHeight + 5;
 
@@ -150,7 +163,7 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...textLight);
-  doc.text(`Total Employees: ${data.summary.totalEmployees} | Companies: ${data.summary.totalCompanies} | Pending Review: ${data.summary.pendingReview}`, 
+  doc.text(`Total Employees: ${data.summary.totalEmployees} | Companies: ${data.summary.totalCompanies}`, 
     pageWidth / 2, yPos + 5, { align: 'center' });
 
   yPos += 15;
@@ -159,45 +172,31 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...textDark);
-  doc.text('Employee Overtime Details', margin, yPos);
+  doc.text('Employee Overtime Details by Company', pageWidth / 2, yPos, { align: 'center' });
 
   yPos += 8;
 
-  // Group employees by company
-  const employeesByCompany = new Map<string, typeof data.employees>();
-  data.employees.forEach(emp => {
-    const companyKey = emp.company_id;
-    if (!employeesByCompany.has(companyKey)) {
-      employeesByCompany.set(companyKey, []);
-    }
-    employeesByCompany.get(companyKey)!.push(emp);
-  });
-
-  // Sort companies by name
-  const sortedCompanies = Array.from(employeesByCompany.entries())
-    .sort((a, b) => a[1][0].company_name.localeCompare(b[1][0].company_name));
-
   // For each company, create a section
-  sortedCompanies.forEach(([companyId, companyEmployees], index) => {
-    const companyName = companyEmployees[0].company_name;
-    const companyCode = companyEmployees[0].company_code;
-    
-    // Company header with subtle background
+  const tableWidth = 185; // Sum of column widths
+  const tableStartX = (pageWidth - tableWidth) / 2;
+  
+  data.companyGroups.forEach((company, index) => {
+    // Company header with subtle background - centered
     doc.setFillColor(240, 247, 255); // Light blue background
-    doc.roundedRect(margin, yPos - 2, pageWidth - 2 * margin, 10, 2, 2, 'F');
+    doc.roundedRect(tableStartX, yPos - 2, tableWidth, 10, 2, 2, 'F');
     
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...primaryColor);
-    doc.text(`${companyName} (${companyCode})`, margin + 5, yPos + 5);
+    doc.text(`${company.companyName} (${company.companyCode})`, pageWidth / 2, yPos + 5, { align: 'center' });
     
     yPos += 13;
     
-    // Company employee table
+    // Company employee table - centered
     autoTable(doc, {
       startY: yPos,
       head: [['Employee No', 'Name', 'Department', 'Position', 'OT Hours', 'Amount (RM)']],
-      body: companyEmployees.map(emp => [
+      body: company.employees.map(emp => [
         emp.employee_no,
         emp.employee_name,
         emp.department,
@@ -228,25 +227,21 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
         4: { cellWidth: 20, halign: 'right' },
         5: { cellWidth: 30, halign: 'right' }
       },
-      margin: { left: margin, right: margin },
+      margin: { left: tableStartX, right: pageWidth - tableStartX - tableWidth },
     });
     
-    // Calculate company subtotals
-    const companyTotalHours = companyEmployees.reduce((sum, e) => sum + e.total_ot_hours, 0);
-    const companyTotalCost = companyEmployees.reduce((sum, e) => sum + e.amount, 0);
-    
-    // Display subtotal row
+    // Display subtotal row - centered
     yPos = (doc as any).lastAutoTable.finalY + 3;
     
     doc.setFillColor(245, 245, 245);
-    doc.rect(margin, yPos, pageWidth - 2 * margin, 8, 'F');
+    doc.rect(tableStartX, yPos, tableWidth, 8, 'F');
     
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...textDark);
     doc.text(
-      `${companyName} Subtotal: ${companyTotalHours.toFixed(2)} hours | RM ${companyTotalCost.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      pageWidth - margin - 5,
+      `${company.companyName} Subtotal: ${company.stats.totalHours.toFixed(2)} hours | RM ${company.stats.totalCost.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      tableStartX + tableWidth - 5,
       yPos + 5,
       { align: 'right' }
     );
@@ -257,8 +252,13 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
   // ===== FOOTER =====
   const finalY = (doc as any).lastAutoTable.finalY || yPos + 50;
   doc.setFontSize(8);
-  doc.setFont('helvetica', 'italic');
+  doc.setFont('helvetica', 'normal');
   doc.setTextColor(...textLight);
+  
+  // Generated date on left
+  doc.text(`Generated: ${data.generatedDate}`, margin, finalY + 15);
+  
+  // Computer-generated message centered
   doc.text('This is a computer-generated report. No signature is required.', 
     pageWidth / 2, finalY + 15, { align: 'center' });
 

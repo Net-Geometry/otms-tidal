@@ -31,7 +31,7 @@ export function FormulaCard({ formula, onEdit, onDelete, onDuplicate }: FormulaC
   };
 
   const buildFormulaExpression = () => {
-    return `(${formula.base_formula}) × ${formula.multiplier} × Hours`;
+    return `(${formula.base_formula}) × ${formula.multiplier}`;
   };
 
   return (

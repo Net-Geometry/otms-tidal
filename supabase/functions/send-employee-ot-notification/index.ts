@@ -300,7 +300,7 @@ function buildNotificationPayload(
   approverName: string
 ): Record<string, unknown> {
   const formattedDate = formatDate(otRequest.ot_date)
-  const targetUrl = `/employee/requests/${otRequest.id}`
+  const targetUrl = `/ot/history?request=${otRequest.id}`
 
   if (notificationType === 'approved') {
     // Approval notification (AC 1-4)

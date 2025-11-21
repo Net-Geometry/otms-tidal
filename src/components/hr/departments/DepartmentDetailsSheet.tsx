@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Building2, Users, Briefcase } from 'lucide-react';
+import { Plus, Building2, Users, Briefcase, Pencil } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -21,12 +21,14 @@ interface DepartmentDetailsSheetProps {
   department: DepartmentWithCount | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEdit?: (department: DepartmentWithCount) => void;
 }
 
 export function DepartmentDetailsSheet({
   department,
   open,
   onOpenChange,
+  onEdit,
 }: DepartmentDetailsSheetProps) {
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const { data: positions } = usePositions(department?.id);
@@ -53,7 +55,19 @@ export function DepartmentDetailsSheet({
             {/* Department Info Card */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Department Information</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Department Information</CardTitle>
+                  {onEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEdit(department)}
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">

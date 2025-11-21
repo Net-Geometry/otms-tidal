@@ -183,6 +183,7 @@ export function OTApprovalTable({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Ticket #</TableHead>
               <TableHead>Employee Name</TableHead>
               <TableHead>Employee ID</TableHead>
               <TableHead>Date</TableHead>
@@ -209,6 +210,11 @@ export function OTApprovalTable({
                   }`}
                   onClick={() => setSelectedRequest(request)}
                 >
+                  <TableCell>
+                    <span className="font-mono text-sm font-medium text-primary">
+                      {request.ticket_number}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <div 
                       className="font-semibold cursor-pointer hover:underline"
@@ -246,7 +252,7 @@ export function OTApprovalTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <StatusBadge status={request.status} />
+                      <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
                       {request.threshold_violations && Object.keys(request.threshold_violations).length > 0 && (
                         <Badge variant="destructive" className="text-xs">
                           Violation

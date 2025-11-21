@@ -142,11 +142,11 @@ export function useOTSubmit() {
 
       return otRequest;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ot-requests'] });
       toast({
         title: 'Success',
-        description: 'OT request submitted successfully',
+        description: `OT request ${data.ticket_number} submitted successfully`,
       });
     },
     onError: (error: Error) => {

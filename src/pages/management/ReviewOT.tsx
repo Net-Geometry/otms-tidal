@@ -4,11 +4,13 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, DollarSign, Clock, AlertTriangle, FileCheck, Download, FileText, Filter } from 'lucide-react';
+import { Search, DollarSign, Clock, Building2, Users, Download, FileText, Filter } from 'lucide-react';
 import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { ManagementReportTable } from '@/components/management/ManagementReportTable';
+import { CompanyReportCard } from '@/components/reports/CompanyReportCard';
 import { useManagementReportData } from '@/hooks/useManagementReportData';
 import { exportToCSV } from '@/lib/exportUtils';
+import { groupByCompany, calculateOverallStats } from '@/lib/companyReportUtils';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -17,7 +19,8 @@ import { supabase } from '@/integrations/supabase/client';
 
 export default function ReviewOT() {
   const [searchQuery, setSearchQuery] = useState('');
-
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  
   // Filter state
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
@@ -33,22 +36,60 @@ export default function ReviewOT() {
   const { data, isLoading } = useManagementReportData(filterDate);
 
   const aggregatedData = data?.aggregated || [];
-  const stats = data?.stats || {
-    pendingReview: 0,
-    totalHours: 0,
-    totalCost: 0
-  };
+
+  // Extract unique companies for filter
+  const uniqueCompanies = useMemo(() => {
+    const companies = new Map<string, { name: string; code: string }>();
+    aggregatedData.forEach(item => {
+      if (!companies.has(item.company_id)) {
+        companies.set(item.company_id, {
+          name: item.company_name,
+          code: item.company_code
+        });
+      }
+    });
+    return Array.from(companies.entries()).map(([id, info]) => ({
+      id,
+      name: info.name,
+      code: info.code
+    })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [aggregatedData]);
 
   const filteredData = aggregatedData.filter(item => {
-    if (!searchQuery) return true;
+    // Company filter
+    const matchesCompany = selectedCompany === 'all' || item.company_id === selectedCompany;
+    
+    // Search filter
+    if (!searchQuery) return matchesCompany;
+    
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       item.employee_no.toLowerCase().includes(query) ||
       item.employee_name.toLowerCase().includes(query) ||
       item.department.toLowerCase().includes(query) ||
-      item.position.toLowerCase().includes(query)
+      item.position.toLowerCase().includes(query) ||
+      item.company_name.toLowerCase().includes(query) ||
+      item.company_code.toLowerCase().includes(query)
     );
+    
+    return matchesCompany && matchesSearch;
   });
+
+  const companyGroups = useMemo(() => groupByCompany(filteredData), [filteredData]);
+  
+  const filteredStats = useMemo(() => {
+    const uniqueCompanies = new Set(filteredData.map(item => item.company_id)).size;
+    const totalEmployees = filteredData.length;
+    const totalHours = filteredData.reduce((sum, item) => sum + item.total_ot_hours, 0);
+    const totalCost = filteredData.reduce((sum, item) => sum + item.amount, 0);
+    
+    return {
+      totalCompanies: uniqueCompanies,
+      totalEmployees,
+      totalHours,
+      totalCost
+    };
+  }, [filteredData]);
 
   const handleExportCSV = () => {
     if (filteredData.length === 0) {
@@ -61,6 +102,8 @@ export default function ReviewOT() {
     }
 
     const headers = [
+      { key: 'company_name', label: 'Company' },
+      { key: 'company_code', label: 'Company Code' },
       { key: 'employee_no', label: 'Employee No.' },
       { key: 'employee_name', label: 'Name' },
       { key: 'department', label: 'Department' },
@@ -78,8 +121,17 @@ export default function ReviewOT() {
     }));
 
     const monthStr = format(filterDate, 'MMM_yyyy');
-    exportToCSV(formattedData, `Management_OT_Report_${monthStr}`, headers);
-
+    exportToCSV(
+      formattedData, 
+      `Management_OT_Report_${monthStr}`, 
+      headers,
+      {
+        reportName: 'Management Overtime Report',
+        period: format(filterDate, 'MMMM yyyy'),
+        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm')
+      }
+    );
+    
     toast({
       title: 'Report exported',
       description: 'Excel file has been downloaded successfully.'
@@ -124,17 +176,24 @@ export default function ReviewOT() {
         },
         generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
         statistics: {
-          totalEmployees: filteredData.length,
-          totalHours: stats.totalHours,
-          totalCost: stats.totalCost
+          totalEmployees: filteredStats.totalEmployees,
+          totalHours: filteredStats.totalHours,
+          totalCost: filteredStats.totalCost,
+          totalCompanies: companyGroups.length
         },
-        employees: filteredData.map(emp => ({
-          employeeNo: emp.employee_no,
-          name: emp.employee_name,
-          department: emp.department,
-          position: emp.position,
-          otHours: emp.total_ot_hours,
-          otAmount: emp.monthly_total
+        companyGroups: companyGroups.map(group => ({
+          companyId: group.companyId,
+          companyName: group.companyName,
+          companyCode: group.companyCode,
+          employees: group.employees.map(emp => ({
+            employeeNo: emp.employee_no,
+            name: emp.employee_name,
+            department: emp.department,
+            position: emp.position,
+            otHours: emp.total_ot_hours,
+            otAmount: emp.monthly_total
+          })),
+          stats: group.stats
         }))
       };
 
@@ -162,24 +221,34 @@ export default function ReviewOT() {
           <p className="text-muted-foreground">Filter and export monthly overtime summaries by department and employee.</p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <EnhancedDashboardCard
-            title="Pending Review"
-            value={stats.pendingReview}
-            icon={FileCheck}
+            title="Total Companies"
+            value={filteredStats.totalCompanies}
+            icon={Building2}
             variant="primary"
+            subtitle="Companies in system"
+          />
+          <EnhancedDashboardCard
+            title="Total Employees"
+            value={filteredStats.totalEmployees}
+            icon={Users}
+            variant="info"
+            subtitle="Employees with OT this month"
           />
           <EnhancedDashboardCard
             title="Total OT Hours"
-            value={formatHours(stats.totalHours)}
+            value={formatHours(filteredStats.totalHours)}
             icon={Clock}
             variant="info"
+            subtitle="Total approved hours this month"
           />
           <EnhancedDashboardCard
             title="Total OT Cost"
-            value={formatCurrency(stats.totalCost)}
+            value={formatCurrency(filteredStats.totalCost)}
             icon={DollarSign}
             variant="success"
+            subtitle="Total RM paid for overtime this month"
           />
         </div>
 
@@ -187,10 +256,10 @@ export default function ReviewOT() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <h2 className="text-lg font-semibold">Monthly OT Summary Report</h2>
-
-              <div className="flex items-center gap-3">
+              
+              <div className="flex flex-wrap items-center gap-3">
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger className="w-[180px] border-input bg-background focus:border-ring focus:ring-ring">
+                  <SelectTrigger className="w-[140px] border-input bg-background focus:border-ring focus:ring-ring">
                     <SelectValue placeholder="Select Month" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover z-50 border shadow-lg">
@@ -210,7 +279,7 @@ export default function ReviewOT() {
                 </Select>
 
                 <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger className="w-[120px] border-input bg-background focus:border-ring focus:ring-ring">
+                  <SelectTrigger className="w-[100px] border-input bg-background focus:border-ring focus:ring-ring">
                     <SelectValue placeholder="Select Year" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover z-50 border shadow-lg">
@@ -222,6 +291,20 @@ export default function ReviewOT() {
                         </SelectItem>
                       );
                     })}
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                  <SelectTrigger className="w-[240px] border-input bg-background focus:border-ring focus:ring-ring">
+                    <SelectValue placeholder="All Companies" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50 border shadow-lg">
+                    <SelectItem value="all">All Companies</SelectItem>
+                    {uniqueCompanies.map(company => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name} ({company.code})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
 
@@ -268,11 +351,20 @@ export default function ReviewOT() {
               </div>
             </div>
 
-          <ManagementReportTable
-            data={filteredData}
-            isLoading={isLoading}
-            selectedMonth={filterDate}
-          />
+
+            <div className="space-y-4">
+              <ManagementReportTable 
+                data={filteredData}
+                isLoading={isLoading}
+                selectedMonth={filterDate}
+              />
+              
+              {filteredData.length === 0 && !isLoading && (
+                <div className="text-center py-12 text-muted-foreground">
+                  No overtime data found for the selected filters.
+                </div>
+              )}
+            </div>
           </div>
         </Card>
       </div>

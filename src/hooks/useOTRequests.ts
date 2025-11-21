@@ -3,9 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { OTRequest } from '@/types/otms';
 
 interface UseOTRequestsOptions {
-  status?: string;
+  status?: string | string[];
   startDate?: string;
   endDate?: string;
+  ticketNumber?: string;
 }
 
 export function useOTRequests(options: UseOTRequestsOptions = {}) {
@@ -27,8 +28,12 @@ export function useOTRequests(options: UseOTRequestsOptions = {}) {
         .eq('employee_id', user.id)
         .order('ot_date', { ascending: false });
 
-      if (options.status && options.status !== 'all') {
-        query = query.eq('status', options.status as any);
+      if (options.status) {
+        if (Array.isArray(options.status) && options.status.length > 0) {
+          query = query.in('status', options.status as any);
+        } else if (typeof options.status === 'string' && options.status !== 'all') {
+          query = query.eq('status', options.status as any);
+        }
       }
 
       if (options.startDate) {
@@ -37,6 +42,10 @@ export function useOTRequests(options: UseOTRequestsOptions = {}) {
 
       if (options.endDate) {
         query = query.lte('ot_date', options.endDate);
+      }
+
+      if (options.ticketNumber) {
+        query = query.ilike('ticket_number', `%${options.ticketNumber}%`);
       }
 
       const { data, error } = await query;

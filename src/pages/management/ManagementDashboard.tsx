@@ -10,6 +10,7 @@ import { QuickInsights } from '@/components/management/QuickInsights';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, DollarSign, Clock, TrendingUp } from 'lucide-react';
+import { formatCurrency } from '@/lib/otCalculations';
 
 export default function ManagementDashboard() {
   const { user } = useAuth();
@@ -140,7 +141,7 @@ export default function ManagementDashboard() {
               <EnhancedDashboardCard
                 icon={DollarSign}
                 title="Total Expenditure"
-                value={`RM ${stats.totalExpenditure.toFixed(2)}`}
+                value={formatCurrency(stats.totalExpenditure)}
                 subtitle="OT payments this month"
                 variant="primary"
               />

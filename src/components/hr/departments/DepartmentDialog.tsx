@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -60,6 +61,20 @@ export function DepartmentDialog({ open, onOpenChange, department }: DepartmentD
     },
   });
 
+  useEffect(() => {
+    if (open && department) {
+      form.reset({
+        code: department.code,
+        name: department.name,
+      });
+    } else if (open && !department) {
+      form.reset({
+        code: '',
+        name: '',
+      });
+    }
+  }, [department, open, form]);
+
   const onSubmit = async (data: DepartmentFormValues) => {
     if (department) {
       await updateDepartment.mutateAsync({
@@ -86,7 +101,9 @@ export function DepartmentDialog({ open, onOpenChange, department }: DepartmentD
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{department ? 'Edit Department' : 'Create Department'}</DialogTitle>
+          <DialogTitle>
+            {department ? 'Edit Department' : 'Create Department'}
+          </DialogTitle>
           <DialogDescription>
             {department
               ? 'Update the department information below.'

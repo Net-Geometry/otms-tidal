@@ -13,6 +13,8 @@ import { format, startOfMonth, endOfMonth } from 'date-fns';
 interface EmployeeOTSummary {
   employee_no: string;
   employee_name: string;
+  company_name: string;
+  company_code: string;
   department: string;
   position: string;
   total_ot_hours: number;
@@ -111,7 +113,8 @@ export function ManagementReportTable({ data, isLoading, selectedMonth }: Manage
         overtime: {
           amount: totalAmount,
           hours: totalHours
-        }
+        },
+        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm')
       };
 
       // Generate PDF
@@ -200,7 +203,17 @@ export function ManagementReportTable({ data, isLoading, selectedMonth }: Manage
                 </span>
               </div>
               
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="flex items-center justify-between mt-2 pb-2 border-b">
+                <div className="flex items-center space-x-2">
+                  <Building className="h-4 w-4 text-purple-600" />
+                  <div>
+                    <div className="text-sm font-medium">{row.company_name}</div>
+                    <div className="text-xs text-muted-foreground">{row.company_code}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm mt-2">
                 <div className="flex items-center space-x-2">
                   <Building className="h-4 w-4 text-gray-500" />
                   <span>{row.department}</span>
@@ -280,10 +293,15 @@ export function ManagementReportTable({ data, isLoading, selectedMonth }: Manage
         {sortedData.map((row, index) => (
           <Card key={`${row.employee_no}-${index}`} className="p-3">
             <CardContent className="p-0">
-              <div className="grid grid-cols-4 gap-3 items-center text-sm">
+              <div className="grid grid-cols-5 gap-3 items-center text-sm">
                 <div>
                   <div className="font-semibold">{row.employee_name}</div>
                   <div className="text-xs text-muted-foreground">{row.employee_no}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Company</div>
+                  <div className="truncate">{row.company_name}</div>
+                  <div className="text-xs text-muted-foreground">{row.company_code}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Dept</div>
@@ -346,6 +364,12 @@ export function ManagementReportTable({ data, isLoading, selectedMonth }: Manage
             </TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-muted/50 font-semibold"
+              onClick={() => handleSort('company_name')}
+            >
+              Company <SortIcon column="company_name" />
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer hover:bg-muted/50 font-semibold"
               onClick={() => handleSort('department')}
             >
               Department <SortIcon column="department" />
@@ -374,6 +398,12 @@ export function ManagementReportTable({ data, isLoading, selectedMonth }: Manage
                 {row.employee_no}
               </TableCell>
               <TableCell>{row.employee_name}</TableCell>
+              <TableCell>
+                <div className="flex flex-col">
+                  <span className="font-medium">{row.company_name}</span>
+                  <span className="text-xs text-muted-foreground">{row.company_code}</span>
+                </div>
+              </TableCell>
               <TableCell>{row.department}</TableCell>
               <TableCell>{row.position}</TableCell>
               <TableCell className="font-semibold text-primary">
@@ -400,7 +430,7 @@ export function ManagementReportTable({ data, isLoading, selectedMonth }: Manage
         </TableBody>
         <TableFooter>
           <TableRow className="bg-muted/50">
-            <TableCell colSpan={4} className="font-semibold">
+            <TableCell colSpan={5} className="font-semibold">
               Total (All Employees)
             </TableCell>
             <TableCell className="font-bold text-primary">

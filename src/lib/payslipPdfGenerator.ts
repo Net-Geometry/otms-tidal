@@ -24,6 +24,7 @@ export interface PayslipData {
     amount: number;
     hours: number;
   };
+  generatedDate: string;
 }
 
 async function loadImageFromUrl(url: string): Promise<string | null> {
@@ -214,9 +215,14 @@ export async function generatePayslipPDF(data: PayslipData): Promise<void> {
 
   // ===== FOOTER =====
   const footerY = 280; // Fixed position near bottom
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grayColor);
+  
+  // Generated date on left
+  doc.text(`Generated: ${data.generatedDate}`, leftMargin, footerY);
+  
+  // Computer-generated message centered
   const footerText = 'This is a computer-generated payslip.';
   doc.text(footerText, pageWidth / 2, footerY, { align: 'center' });
 
