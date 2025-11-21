@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { OTTrendChart } from '@/components/hr/charts/OTTrendChart';
 import { OTCostChart } from '@/components/management/charts/OTCostChart';
@@ -113,13 +114,10 @@ export default function ManagementDashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold">Management Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            {fullName ? `Welcome back, ${fullName}!` : 'Welcome back!'} Here's your executive overview.
-          </p>
-        </div>
+      <PageLayout
+        title="Management Dashboard"
+        description={fullName ? `Welcome back, ${fullName}! Here's your executive overview.` : "Welcome back! Here's your executive overview."}
+      >
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {loading ? (
@@ -177,7 +175,7 @@ export default function ManagementDashboard() {
         <div>
           <QuickInsights />
         </div>
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

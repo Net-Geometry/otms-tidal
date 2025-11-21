@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile, useIsTablet, useDeviceType } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MobileStatsList } from '@/components/ui/mobile-stats-list';
 import { CheckCircle, Clock, XCircle } from 'lucide-react';
 
 interface StatusData {
@@ -46,13 +47,13 @@ export function EmployeeOTStatusChart() {
       return;
     }
 
-    const approvedCount = requests?.filter(r => 
+    const approvedCount = requests?.filter(r =>
       r.status === 'hr_certified' || r.status === 'management_approved' || r.status === 'supervisor_verified'
     ).length || 0;
-    const pendingCount = requests?.filter(r => 
+    const pendingCount = requests?.filter(r =>
       r.status === 'pending_verification'
     ).length || 0;
-    const rejectedCount = requests?.filter(r => 
+    const rejectedCount = requests?.filter(r =>
       r.status === 'rejected'
     ).length || 0;
 
@@ -104,26 +105,16 @@ export function EmployeeOTStatusChart() {
     };
 
     return (
-      <Card className="shadow-md rounded-xl">
-        <CardHeader>
-          <CardTitle className="text-lg">Request Status</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {data.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center gap-3">
-                  {getIcon(item.name)}
-                  <span className="font-medium">{item.name}</span>
-                </div>
-                <span className="text-lg font-bold" style={{ color: item.color }}>
-                  {item.value}
-                </span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <MobileStatsList
+        title="Request Status"
+        items={data.map((item, index) => ({
+          id: index,
+          label: item.name,
+          value: item.value,
+          icon: getIcon(item.name),
+          color: item.color
+        }))}
+      />
     );
   }
 
@@ -150,7 +141,7 @@ export function EmployeeOTStatusChart() {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip 
+              <Tooltip
                 formatter={(value: number, name: string) => [
                   `${value} requests`,
                   name
@@ -167,8 +158,8 @@ export function EmployeeOTStatusChart() {
           <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
             {data.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
-                <div 
-                  className="w-3 h-3 rounded-full" 
+                <div
+                  className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: item.color }}
                 />
                 <span className="text-muted-foreground">{item.name}:</span>
@@ -202,15 +193,15 @@ export function EmployeeOTStatusChart() {
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip 
-              contentStyle={{ 
+            <Tooltip
+              contentStyle={{
                 backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px'
               }}
             />
-            <Legend 
-              verticalAlign="bottom" 
+            <Legend
+              verticalAlign="bottom"
               height={36}
               iconType="circle"
             />

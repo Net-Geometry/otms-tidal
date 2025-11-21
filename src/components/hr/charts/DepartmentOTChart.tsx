@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile, useIsTablet, useDeviceType } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MobileStatsList } from '@/components/ui/mobile-stats-list';
 import { Building2 } from 'lucide-react';
 
 interface DepartmentData {
@@ -123,49 +124,23 @@ export function DepartmentOTChart() {
     const totalHours = data.reduce((sum, item) => sum + item.hours, 0);
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Department OT Breakdown</CardTitle>
-          <CardDescription>This month's distribution</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {sortedData.map((item, index) => {
-              const percentage = totalHours > 0 ? (item.hours / totalHours * 100) : 0;
-              return (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-3 w-3 text-muted-foreground" />
-                      <span className="text-sm font-medium">{item.department}</span>
-                    </div>
-                    <span className="text-sm font-bold" style={{ color: item.fill }}>
-                      {item.hours}h
-                    </span>
-                  </div>
-                  <div className="w-full bg-muted/30 rounded-full h-2">
-                    <div 
-                      className="h-2 rounded-full transition-all duration-300"
-                      style={{ 
-                        width: `${percentage}%`,
-                        backgroundColor: item.fill
-                      }}
-                    />
-                  </div>
-                  <div className="text-xs text-muted-foreground text-right">
-                    {percentage.toFixed(1)}%
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-4 pt-4 border-t text-center">
-            <span className="text-sm text-muted-foreground">
-              Total: <span className="font-semibold text-foreground">{totalHours.toFixed(1)}h</span>
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      <MobileStatsList
+        title="Department OT Breakdown"
+        description="This month's distribution"
+        items={sortedData.map((item, index) => {
+          const percentage = totalHours > 0 ? (item.hours / totalHours * 100) : 0;
+          return {
+            id: index,
+            label: item.department,
+            value: `${item.hours}h`,
+            subValue: `${percentage.toFixed(1)}%`,
+            color: item.fill,
+            icon: <Building2 className="h-3 w-3" />
+          };
+        })}
+        totalLabel="Total"
+        totalValue={`${totalHours.toFixed(1)}h`}
+      />
     );
   }
 
@@ -201,8 +176,8 @@ export function DepartmentOTChart() {
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
             {data.map((item, index) => (
               <div key={index} className="flex items-center gap-2">
-                <div 
-                  className="w-3 h-3 rounded-full" 
+                <div
+                  className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: item.fill }}
                 />
                 <span className="truncate">{item.department}: {item.hours}h</span>

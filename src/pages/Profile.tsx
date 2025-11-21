@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks/useAuth';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,19 +38,11 @@ export default function Profile() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-6xl">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => navigate(-1)}
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-        <h1 className="text-3xl font-bold">My Profile</h1>
-        <p className="text-muted-foreground mt-1">View your account information</p>
-      </div>
+    <PageLayout
+      title="My Profile"
+      description="View your account information"
+      onBack={() => navigate(-1)}
+    >
 
       <div className="grid gap-6 md:grid-cols-2">
         {/* Personal Information */}
@@ -209,6 +202,6 @@ export default function Profile() {
         {/* Inventory Room Access QR Code */}
         <InventoryQRCodeCard profile={profile} />
       </div>
-    </div>
+    </PageLayout>
   );
 }

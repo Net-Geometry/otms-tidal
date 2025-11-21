@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MobileStatsList } from '@/components/ui/mobile-stats-list';
 import { CheckCircle, Clock } from 'lucide-react';
 
 interface ChartData {
@@ -38,11 +39,11 @@ export function OTVerificationBreakdownChart() {
       .eq('supervisor_id', user.id)
       .gte('created_at', startOfMonth.toISOString());
 
-    const verified = otRequests?.filter(req => 
+    const verified = otRequests?.filter(req =>
       req.status === 'supervisor_verified' || req.status === 'hr_certified' || req.status === 'management_approved'
     ).length || 0;
 
-    const pending = otRequests?.filter(req => 
+    const pending = otRequests?.filter(req =>
       req.status === 'pending_verification'
     ).length || 0;
 
@@ -79,32 +80,28 @@ export function OTVerificationBreakdownChart() {
       </CardHeader>
       <CardContent>
         {isMobile ? (
-          <div className="space-y-3">
-            {data.map((item, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div 
-                    className="w-4 h-4 rounded-full" 
-                    style={{ backgroundColor: item.fill }}
-                  ></div>
-                  <div className="flex items-center space-x-2">
-                    {item.name === 'Approved' ? (
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-orange-600" />
-                    )}
-                    <span className="font-medium text-sm">{item.name}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold">{item.value}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {total > 0 ? ((item.value / total) * 100).toFixed(1) : 0}%
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          (() => {
+            const total = data.reduce((sum, item) => sum + item.value, 0);
+
+            return (
+              <MobileStatsList
+                title="Verification Status"
+                items={data.map((item, index) => {
+                  const percentage = total > 0 ? (item.value / total) * 100 : 0;
+                  return {
+                    id: index,
+                    label: item.name,
+                    value: item.value.toString(),
+                    subValue: `${percentage.toFixed(1)}%`,
+                    color: item.fill, // Use item.fill as color
+                    icon: item.name === 'Verified' ? <CheckCircle className="h-4 w-4" /> : <Clock className="h-4 w-4" />
+                  };
+                })}
+                totalLabel="Total Requests"
+                totalValue={total.toString()}
+              />
+            );
+          })()
         ) : (
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
@@ -121,13 +118,13 @@ export function OTVerificationBreakdownChart() {
                   <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
               </Pie>
-              <Tooltip 
+              <Tooltip
                 formatter={(value: number) => [
                   `${value} requests (${total > 0 ? ((value / total) * 100).toFixed(1) : 0}%)`,
                   ''
                 ]}
               />
-              <Legend 
+              <Legend
                 verticalAlign="bottom"
                 height={36}
                 formatter={(value) => <span className="text-sm">{value}</span>}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { DashboardCard } from '@/components/DashboardCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,7 +38,7 @@ export default function AdminDashboard() {
       .select('full_name')
       .eq('id', user.id)
       .single();
-    
+
     if (data) setFullName(data.full_name);
   };
 
@@ -65,7 +66,7 @@ export default function AdminDashboard() {
 
     const totalOTHours = otRequests?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
     const totalExpenditure = otRequests?.reduce((sum, req) => sum + (req.ot_amount || 0), 0) || 0;
-    const pendingRequests = otRequests?.filter(req => 
+    const pendingRequests = otRequests?.filter(req =>
       req.status === 'pending_verification' || req.status === 'supervisor_verified'
     ).length || 0;
 
@@ -82,28 +83,26 @@ export default function AdminDashboard() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            {fullName ? `Welcome back, ${fullName}!` : 'Welcome back!'} Complete system overview and administration.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <Button onClick={() => navigate('/hr/settings')} className="gap-2">
-            <Settings className="h-4 w-4" />
-            Manage Settings
-          </Button>
-          <Button onClick={() => navigate('/hr/employees')} variant="outline" className="gap-2">
-            <Users className="h-4 w-4" />
-            Manage Users
-          </Button>
-          <Button onClick={() => navigate('/hr/ot-reports')} variant="outline" className="gap-2">
-            <FileText className="h-4 w-4" />
-            View All Data
-          </Button>
-        </div>
+      <PageLayout
+        title="Admin Dashboard"
+        description={fullName ? `Welcome back, ${fullName}! Complete system overview and administration.` : 'Welcome back! Complete system overview and administration.'}
+        actions={
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={() => navigate('/hr/settings')} className="gap-2">
+              <Settings className="h-4 w-4" />
+              Manage Settings
+            </Button>
+            <Button onClick={() => navigate('/hr/employees')} variant="outline" className="gap-2">
+              <Users className="h-4 w-4" />
+              Manage Users
+            </Button>
+            <Button onClick={() => navigate('/hr/ot-reports')} variant="outline" className="gap-2">
+              <FileText className="h-4 w-4" />
+              View All Data
+            </Button>
+          </div>
+        }
+      >
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {loading ? (
@@ -148,7 +147,7 @@ export default function AdminDashboard() {
             </>
           )}
         </div>
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }
