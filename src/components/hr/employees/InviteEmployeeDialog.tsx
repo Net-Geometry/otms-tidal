@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,12 +48,30 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
   const form = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
     defaultValues: {
-      role: 'employee',
+      employee_id: '',
+      full_name: '',
+      email: '',
+      ic_no: '',
+      phone_no: '',
+      company_id: '',
+      department_id: '',
+      position_id: '',
+      basic_salary: undefined,
       employment_type: 'Permanent',
+      joining_date: '',
+      work_location: '',
       supervisor_id: '',
+      role: 'employee',
       is_ot_eligible: true,
     },
   });
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      form.reset();
+    }
+  }, [open, form]);
 
   // Watch department_id to filter positions
   const selectedDepartmentId = form.watch('department_id');
