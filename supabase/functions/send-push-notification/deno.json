@@ -1,5 +1,7 @@
 {
-  "imports": {
-    "@negrel/webpush": "jsr:@negrel/webpush"
-  }
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.unstable"],
+    "checkJs": false
+  },
+  "nodeModulesDir": false
 }
