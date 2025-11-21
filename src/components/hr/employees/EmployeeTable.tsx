@@ -45,7 +45,9 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
       employee.employee_id.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === 'all' || 
-      employee.status?.toLowerCase() === statusFilter.toLowerCase();
+      (statusFilter === 'active'
+        ? ['active', 'pending_setup'].includes((employee.status || '').toLowerCase())
+        : (employee.status || '').toLowerCase() === statusFilter.toLowerCase());
 
     return matchesSearch && matchesStatus;
   });
@@ -148,12 +150,14 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                   className={
                     employee.status === 'active' 
                       ? 'bg-green-100 text-green-700 hover:bg-green-100' 
+                      : employee.status === 'pending_setup'
+                      ? 'bg-blue-100 text-blue-700 hover:bg-blue-100'
                       : employee.status === 'pending'
                       ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-100'
                   }
                 >
-                  {employee.status}
+                  {employee.status === 'pending_setup' ? 'Pending Setup' : employee.status}
                 </Badge>
               </TableCell>
               <TableCell>
