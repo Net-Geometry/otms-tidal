@@ -75,23 +75,64 @@ serve(async (req) => {
       throw new Error(`Employee No ${employee_id} already exists. Please use a unique Employee No.`);
     }
 
-    // VALIDATION: Check if email already exists in profiles BEFORE creating auth user
-    // Only check if it's a real email (not placeholder)
-    if (email && email.trim() !== '' && !email.includes('@internal.company')) {
-      const { data: emailProfile, error: emailCheckError } = await supabaseAdmin
+  // VALIDATION: Check if email already exists in profiles BEFORE creating auth user
+  // Only check if it's a real email (not placeholder)
+  if (email && email.trim() !== '' && !email.includes('@internal.company')) {
+    const { data: emailProfile, error: emailCheckError } = await supabaseAdmin
+      .from('profiles')
+      .select('employee_id, full_name, status')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (emailCheckError && emailCheckError.code !== 'PGRST116') {
+      throw emailCheckError;
+    }
+
+    if (emailProfile) {
+      throw new Error(`This email is already used by Employee No ${emailProfile.employee_id} (${emailProfile.full_name}). Please use a different email or update that employee's record instead.`);
+    }
+  }
+
+  // ORPHANED USER DETECTION: Check for auth users without profiles
+  // This handles cases where employee deletion failed to remove the auth user
+  const { data: authUsersData, error: listUsersError } = await supabaseAdmin.auth.admin.listUsers();
+  
+  if (listUsersError) {
+    console.error('Error listing users:', listUsersError);
+  } else {
+    const existingAuthUser = authUsersData?.users?.find(u => u.email === effectiveEmail);
+    
+    if (existingAuthUser) {
+      console.log('Found existing auth user for email:', effectiveEmail, 'ID:', existingAuthUser.id);
+      
+      // Check if this auth user has a corresponding profile
+      const { data: orphanProfile, error: orphanCheckError } = await supabaseAdmin
         .from('profiles')
-        .select('employee_id, full_name, status')
-        .eq('email', email)
+        .select('id')
+        .eq('id', existingAuthUser.id)
         .maybeSingle();
-
-      if (emailCheckError && emailCheckError.code !== 'PGRST116') {
-        throw emailCheckError;
+      
+      if (orphanCheckError && orphanCheckError.code !== 'PGRST116') {
+        throw orphanCheckError;
       }
-
-      if (emailProfile) {
-        throw new Error(`This email is already used by Employee No ${emailProfile.employee_id} (${emailProfile.full_name}). Please use a different email or update that employee's record instead.`);
+      
+      if (!orphanProfile) {
+        // Orphaned auth user found - safe to clean up
+        console.log('Found orphaned auth user (no profile), cleaning up:', existingAuthUser.id);
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id);
+        
+        if (deleteError) {
+          console.error('Failed to delete orphaned auth user:', deleteError);
+          throw new Error('Failed to clean up orphaned user account. Please contact system administrator.');
+        }
+        
+        console.log('Successfully deleted orphaned auth user, proceeding with new employee creation');
+      } else {
+        // Real conflict - auth user has an active profile
+        throw new Error(`This email is already in use by an active employee. Please use a different email.`);
       }
     }
+  }
 
     // Create auth user with temporary default password
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
