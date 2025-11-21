@@ -14,7 +14,7 @@ import { usePositions } from '@/hooks/hr/usePositions';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 
 const inviteSchema = z.object({
-  email: z.string().trim().email('Invalid email address'),
+  email: z.string().trim().email('Invalid email address').optional().or(z.literal('')),
   full_name: z.string().trim().min(1, 'Full name is required').max(100),
   employee_id: z.string().trim().min(1, 'Employee No is required').max(50),
   ic_no: z.string().trim().max(50).optional(),
@@ -70,7 +70,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
     const positionTitle = selectedPosition?.title || '';
 
     inviteEmployee({
-      email: data.email,
+      email: data.email || null,
       full_name: data.full_name,
       employee_id: data.employee_id,
       ic_no: data.ic_no || null,
@@ -155,7 +155,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email *</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="e.g. employee@company.com" {...field} />
                     </FormControl>
