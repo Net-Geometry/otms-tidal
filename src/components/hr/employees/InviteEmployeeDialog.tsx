@@ -363,7 +363,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                     </FormControl>
                     <SelectContent>
                       {employees
-                        .filter(emp => emp.user_roles?.some(r => ['supervisor', 'hr', 'admin'].includes(r.role)))
+                        .filter(emp => emp.user_roles?.some(r => ['supervisor', 'hr', 'management', 'admin'].includes(r.role)))
                         .map((emp) => (
                           <SelectItem key={emp.id} value={emp.id}>
                             {emp.full_name} ({emp.employee_id})
