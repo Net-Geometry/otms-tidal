@@ -173,36 +173,36 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-5">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 sm:space-y-5">
         {/* Employee Information Card */}
-        <Card className="bg-card p-4 rounded-lg border">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-card p-3 sm:p-4 rounded-lg border">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label className="block text-sm font-medium text-foreground mb-2 sm:mb-1">
                 Employee ID
               </label>
               <Input
                 type="text"
                 value={employeeId}
                 readOnly
-                className="bg-muted"
+                className="bg-muted h-10 sm:h-9 text-base sm:text-sm"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
+              <label className="block text-sm font-medium text-foreground mb-2 sm:mb-1">
                 Full Name
               </label>
               <Input
                 type="text"
                 value={fullName}
                 readOnly
-                className="bg-muted"
+                className="bg-muted h-10 sm:h-9 text-base sm:text-sm"
               />
             </div>
           </div>
         </Card>
 
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4">
           <FormField
             control={form.control}
             name="ot_date"
@@ -260,7 +260,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           <FormField
             control={form.control}
             name="start_time"
@@ -296,14 +296,14 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           />
         </div>
 
-        <Card className="p-4 bg-muted/50">
-          <div className="flex items-center justify-between">
+        <Card className="p-3 sm:p-4 bg-muted/50">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <p className="text-sm font-medium">Total Hours</p>
-              <p className="text-2xl font-bold">{totalHours.toFixed(1)} hrs</p>
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Hours</p>
+              <p className="text-2xl sm:text-3xl font-bold text-primary">{totalHours.toFixed(1)} hrs</p>
             </div>
-            <div>
-              <p className="text-sm font-medium mb-2">Day Type</p>
+            <div className="flex flex-col items-start sm:items-end">
+              <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Day Type</p>
               <Badge className={getDayTypeColor(dayType)}>
                 {getDayTypeLabel(dayType)}
               </Badge>
@@ -319,7 +319,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormLabel>Reason Category *</FormLabel>
               <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full h-10 sm:h-9 text-base sm:text-sm">
                     <SelectValue placeholder="Select a reason category" />
                   </SelectTrigger>
                 </FormControl>
@@ -346,7 +346,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormControl>
                 <Textarea
                   placeholder="Please provide a detailed reason for overtime (minimum 10 characters)"
-                  className="min-h-[100px] resize-none"
+                  className="min-h-[100px] sm:min-h-[120px] resize-none text-base sm:text-sm"
                   {...field}
                 />
               </FormControl>
@@ -369,6 +369,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                   <Input
                     type="text"
                     placeholder="Enter your own reason"
+                    className="h-10 sm:h-9 text-base sm:text-sm"
                     {...field}
                   />
                 </FormControl>
@@ -386,7 +387,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               <FormLabel>Instructed by Supervisor (Optional)</FormLabel>
               <Select onValueChange={field.onChange} value={field.value || ''}>
                 <FormControl>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-full h-10 sm:h-9 text-base sm:text-sm">
                     <SelectValue placeholder="Select if another supervisor instructed this OT" />
                   </SelectTrigger>
                 </FormControl>
@@ -399,7 +400,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 If a different supervisor instructed you to work overtime, select them here. They will be asked to confirm before your direct supervisor approves.
               </p>
               <FormMessage />
@@ -432,11 +433,11 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           )}
         />
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:gap-3 pt-2 sm:pt-4">
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-primary text-white hover:bg-primary/90"
+            className="w-full h-11 sm:h-10 bg-primary text-white hover:bg-primary/90 text-base sm:text-sm font-medium"
           >
             {isSubmitting ? 'Submitting...' : 'Submit OT Request'}
           </Button>
@@ -444,7 +445,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
             type="button"
             variant="secondary"
             onClick={onCancel}
-            className="w-full"
+            className="w-full h-11 sm:h-10 text-base sm:text-sm font-medium"
           >
             Cancel
           </Button>

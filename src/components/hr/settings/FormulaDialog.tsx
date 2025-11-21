@@ -174,10 +174,10 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Rate Formula' : 'Add Rate Formula'}</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl">{isEditing ? 'Edit Rate Formula' : 'Add Rate Formula'}</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm">
             {isEditing
               ? 'Update the rate formula details below.'
               : 'Create a new rate formula for OT calculations.'}
@@ -185,18 +185,22 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               <FormField
                 control={form.control}
                 name="formula_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Formula Name *</FormLabel>
+                    <FormLabel className="text-xs sm:text-sm">Formula Name *</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Standard Weekday OT" {...field} />
+                      <Input
+                        placeholder="e.g., Standard Weekday OT"
+                        className="h-10 sm:h-9 text-base sm:text-sm"
+                        {...field}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -206,10 +210,10 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
                 name="day_type"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Day Type *</FormLabel>
+                    <FormLabel className="text-xs sm:text-sm">Day Type *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-10 sm:h-9 text-base sm:text-sm">
                           <SelectValue placeholder="Select day type" />
                         </SelectTrigger>
                       </FormControl>
@@ -220,7 +224,7 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
                         <SelectItem value="public_holiday">Public Holiday</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -230,11 +234,17 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
                 name="multiplier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Multiplier *</FormLabel>
+                    <FormLabel className="text-xs sm:text-sm">Multiplier *</FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.1" placeholder="1.5" {...field} />
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="1.5"
+                        className="h-10 sm:h-9 text-base sm:text-sm"
+                        {...field}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -244,11 +254,15 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
                 name="effective_from"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Effective From *</FormLabel>
+                    <FormLabel className="text-xs sm:text-sm">Effective From *</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input
+                        type="date"
+                        className="h-10 sm:h-9 text-base sm:text-sm"
+                        {...field}
+                      />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -278,10 +292,11 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
                 name="orp_definition"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>ORP (Ordinary Rate of Pay) Definition *</FormLabel>
+                    <FormLabel className="text-xs sm:text-sm">ORP (Ordinary Rate of Pay) Definition *</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="e.g., Basic / 26 / 8"
+                        className="h-10 sm:h-9 text-base sm:text-sm"
                         {...field}
                       />
                     </FormControl>
@@ -289,7 +304,7 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
                       Define how ORP is calculated. Default: (Basic / 26 / 8)
                       <br />Common variations: Basic / 26, Basic / 22
                     </FormDescription>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -300,10 +315,11 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
                 name="hrp_definition"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>HRP (Hourly Rate of Pay) Definition *</FormLabel>
+                    <FormLabel className="text-xs sm:text-sm">HRP (Hourly Rate of Pay) Definition *</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="e.g., ORP / 8 or Basic / 26 / 8"
+                        className="h-10 sm:h-9 text-base sm:text-sm"
                         {...field}
                       />
                     </FormControl>
@@ -311,7 +327,7 @@ export function FormulaDialog({ open, onOpenChange, formula, onSuccess }: Formul
                       Define how HRP is calculated. Can reference ORP.
                       <br />Common options: ORP / 8, Basic / 26 / 8, (Basic / 26) / 8
                     </FormDescription>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Button } from '@/components/ui/button';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
 import { ArrowUpDown, ArrowUp, ArrowDown, FileText } from 'lucide-react';
@@ -223,107 +224,152 @@ export function HRReportTable({ data, isLoading, selectedMonth }: HRReportTableP
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/50 font-semibold"
-                onClick={() => handleSort('employee_no')}
-              >
-                Employee No. <SortIcon column="employee_no" />
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/50 font-semibold"
-                onClick={() => handleSort('company_name')}
-              >
-                Company <SortIcon column="company_name" />
-              </TableHead>
-              <TableHead 
-                className="cursor-pointer hover:bg-muted/50 font-semibold"
-                onClick={() => handleSort('employee_name')}
-              >
-              Name <SortIcon column="employee_name" />
-            </TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-muted/50 font-semibold"
-              onClick={() => handleSort('department')}
+    <ResponsiveTable
+      cardConfig={{
+        data: sortedData,
+        emptyMessage: 'No overtime data for the selected period',
+        render: (row) => ({
+          title: row.employee_name,
+          subtitle: row.employee_no,
+          fields: [
+            {
+              label: 'Company',
+              value: `${row.company_name} (${row.company_code})`
+            },
+            {
+              label: 'Department',
+              value: row.department
+            },
+            {
+              label: 'OT Hours',
+              value: `${formatHours(row.total_ot_hours)} hrs`,
+              variant: 'highlight'
+            },
+            {
+              label: 'Amount',
+              value: formatCurrency(row.amount),
+              variant: 'highlight'
+            }
+          ],
+          actions: (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDownloadOTSlip(row.employee_id, row.employee_no);
+              }}
+              disabled={downloadingIds.has(row.employee_id)}
+              className="h-9 w-9"
             >
-              Department <SortIcon column="department" />
-            </TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-muted/50 font-semibold"
-              onClick={() => handleSort('position')}
-            >
-              Position <SortIcon column="position" />
-            </TableHead>
-            <TableHead 
-              className="cursor-pointer hover:bg-muted/50 font-semibold"
-              onClick={() => handleSort('total_ot_hours')}
-            >
-              Total OT Hours <SortIcon column="total_ot_hours" />
-            </TableHead>
-            <TableHead className="text-right font-semibold">Amount (RM)</TableHead>
-            <TableHead className="text-right font-semibold">Monthly Total (RM)</TableHead>
-            <TableHead className="text-right font-semibold">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedData.map((row, index) => (
-            <TableRow key={`${row.employee_no}-${index}`}>
-              <TableCell className="font-semibold">
-                {row.employee_no}
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-col">
-                  <span className="font-medium">{row.company_name}</span>
-                  <span className="text-xs text-muted-foreground">{row.company_code}</span>
-                </div>
-              </TableCell>
-              <TableCell>{row.employee_name}</TableCell>
-              <TableCell>{row.department}</TableCell>
-              <TableCell>{row.position}</TableCell>
-              <TableCell className="font-semibold text-primary">
-                {formatHours(row.total_ot_hours)}
-              </TableCell>
-              <TableCell className="text-right">
-                {formatCurrency(row.amount)}
-              </TableCell>
-              <TableCell className="text-right font-semibold">
-                {formatCurrency(row.monthly_total)}
-              </TableCell>
-              <TableCell className="text-right">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleDownloadOTSlip(row.employee_id, row.employee_no)}
-                  disabled={downloadingIds.has(row.employee_id)}
+              <FileText className="h-4 w-4" />
+            </Button>
+          )
+        })
+      }}
+    >
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 font-semibold"
+                  onClick={() => handleSort('employee_no')}
                 >
-                  <FileText className="h-4 w-4 mr-2" />
-                  {downloadingIds.has(row.employee_id) ? 'Generating...' : 'OT Slip'}
-                </Button>
-              </TableCell>
+                  Employee No. <SortIcon column="employee_no" />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 font-semibold"
+                  onClick={() => handleSort('company_name')}
+                >
+                  Company <SortIcon column="company_name" />
+                </TableHead>
+                <TableHead
+                  className="cursor-pointer hover:bg-muted/50 font-semibold"
+                  onClick={() => handleSort('employee_name')}
+                >
+                Name <SortIcon column="employee_name" />
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 font-semibold"
+                onClick={() => handleSort('department')}
+              >
+                Department <SortIcon column="department" />
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 font-semibold"
+                onClick={() => handleSort('position')}
+              >
+                Position <SortIcon column="position" />
+              </TableHead>
+              <TableHead
+                className="cursor-pointer hover:bg-muted/50 font-semibold"
+                onClick={() => handleSort('total_ot_hours')}
+              >
+                Total OT Hours <SortIcon column="total_ot_hours" />
+              </TableHead>
+              <TableHead className="text-right font-semibold">Amount (RM)</TableHead>
+              <TableHead className="text-right font-semibold">Monthly Total (RM)</TableHead>
+              <TableHead className="text-right font-semibold">Actions</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-        <TableFooter>
-          <TableRow className="bg-muted/50">
-            <TableCell colSpan={5} className="font-semibold">
-              Total (All Employees)
-            </TableCell>
-            <TableCell className="font-bold text-primary">
-              {formatHours(totalHours)} hrs
-            </TableCell>
-            <TableCell className="text-right font-bold text-primary">
-              {formatCurrency(totalCost)}
-            </TableCell>
-            <TableCell className="text-right font-bold text-primary">
-              {formatCurrency(totalCost)}
-            </TableCell>
-            <TableCell></TableCell>
-          </TableRow>
-        </TableFooter>
-      </Table>
-    </div>
+          </TableHeader>
+          <TableBody>
+            {sortedData.map((row, index) => (
+              <TableRow key={`${row.employee_no}-${index}`}>
+                <TableCell className="font-semibold">
+                  {row.employee_no}
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{row.company_name}</span>
+                    <span className="text-xs text-muted-foreground">{row.company_code}</span>
+                  </div>
+                </TableCell>
+                <TableCell>{row.employee_name}</TableCell>
+                <TableCell>{row.department}</TableCell>
+                <TableCell>{row.position}</TableCell>
+                <TableCell className="font-semibold text-primary">
+                  {formatHours(row.total_ot_hours)}
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(row.amount)}
+                </TableCell>
+                <TableCell className="text-right font-semibold">
+                  {formatCurrency(row.monthly_total)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownloadOTSlip(row.employee_id, row.employee_no)}
+                    disabled={downloadingIds.has(row.employee_id)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    {downloadingIds.has(row.employee_id) ? 'Generating...' : 'OT Slip'}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+          <TableFooter>
+            <TableRow className="bg-muted/50">
+              <TableCell colSpan={5} className="font-semibold">
+                Total (All Employees)
+              </TableCell>
+              <TableCell className="font-bold text-primary">
+                {formatHours(totalHours)} hrs
+              </TableCell>
+              <TableCell className="text-right font-bold text-primary">
+                {formatCurrency(totalCost)}
+              </TableCell>
+              <TableCell className="text-right font-bold text-primary">
+                {formatCurrency(totalCost)}
+              </TableCell>
+              <TableCell></TableCell>
+            </TableRow>
+          </TableFooter>
+        </Table>
+      </div>
+    </ResponsiveTable>
   );
 }
