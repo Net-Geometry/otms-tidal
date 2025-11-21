@@ -36,7 +36,18 @@ serve(async (req) => {
       is_ot_eligible = true
     } = await req.json();
 
-    console.log('Inviting employee:', { email, full_name, employee_id, role });
+    // Generate placeholder email if not provided
+    const effectiveEmail = email && email.trim() !== '' 
+      ? email 
+      : `${employee_id}@internal.company`;
+
+    console.log('Inviting employee:', { 
+      email: effectiveEmail, 
+      providedEmail: email,
+      full_name, 
+      employee_id, 
+      role 
+    });
 
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -51,7 +62,7 @@ serve(async (req) => {
 
     // Create auth user with temporary default password
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: effectiveEmail,
       email_confirm: true,
       password: 'Temp@12345',
       user_metadata: {
@@ -71,7 +82,7 @@ serve(async (req) => {
         id: authData.user.id,
         employee_id,
         full_name,
-        email,
+        email: email || effectiveEmail,
         ic_no,
         phone_no,
         position,
@@ -111,7 +122,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Employee added. Temporary password: Temp@12345. User must change password on first login.',
+        message: 'Employee added. They can log in using Employee ID with temporary password: Temp@12345',
         user_id: authData.user.id,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

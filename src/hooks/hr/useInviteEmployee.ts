@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 interface InviteEmployeeData {
-  email: string;
+  email: string | null;
   full_name: string;
   employee_id: string;
   ic_no: string | null;
@@ -38,7 +38,7 @@ export function useInviteEmployee() {
       queryClient.invalidateQueries({ queryKey: ['hr-employees'] });
       toast({
         title: '✅ Employee Added Successfully!',
-        description: 'Temporary Password: Temp@12345 — Please share this password with the new employee. They must change it on first login.',
+        description: 'Employee can log in using their Employee ID with temporary password: Temp@12345',
         duration: 10000,
       });
     },
