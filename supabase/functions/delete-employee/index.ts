@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
         if (rolesErr) console.warn('Soft delete: remove roles failed:', rolesErr)
 
         return new Response(
-          JSON.stringify({ message: 'User deactivated (auth deletion failed)' }),
+          JSON.stringify({ message: 'Employee deactivated successfully', wasDeactivated: true }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       } catch (softErr) {
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
 
     console.log('Employee deleted successfully:', employeeId)
     return new Response(
-      JSON.stringify({ message: 'Employee deleted successfully' }),
+      JSON.stringify({ message: 'Employee deleted successfully', wasDeactivated: false }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
