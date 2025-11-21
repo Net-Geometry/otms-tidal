@@ -60,6 +60,32 @@ serve(async (req) => {
       }
     );
 
+    // VALIDATION: Check if employee_id already exists BEFORE creating auth user
+    const { data: existingProfile, error: profileCheckError } = await supabaseAdmin
+      .from('profiles')
+      .select('employee_id')
+      .eq('employee_id', employee_id)
+      .maybeSingle();
+
+    if (profileCheckError && profileCheckError.code !== 'PGRST116') {
+      throw profileCheckError;
+    }
+
+    if (existingProfile) {
+      throw new Error(`Employee No ${employee_id} already exists. Please use a unique Employee No.`);
+    }
+
+    // VALIDATION: Check if email already exists BEFORE creating auth user
+    // Only check if it's a real email (not placeholder)
+    if (email && email.trim() !== '' && !email.includes('@internal.company')) {
+      const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+      const emailExists = existingUser?.users?.some(u => u.email?.toLowerCase() === email.toLowerCase());
+      
+      if (emailExists) {
+        throw new Error(`Email ${email} is already registered. Please use a different email.`);
+      }
+    }
+
     // Create auth user with temporary default password
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: effectiveEmail,
