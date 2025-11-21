@@ -37,7 +37,7 @@ serve(async (req) => {
       const { data: employee, error: employeeError } = await supabaseAdmin
         .from('profiles')
         .select('supervisor_id')
-        .eq('employee_id', employeeId)
+        .eq('id', employeeId)
         .single();
 
       if (employeeError && employeeError.code !== 'PGRST116') {
