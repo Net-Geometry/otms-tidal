@@ -118,6 +118,42 @@ export type Database = {
         }
         Relationships: []
       }
+      company_locations: {
+        Row: {
+          address: string | null
+          company_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          location_name: string
+          state_code: string
+          state_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          location_name: string
+          state_code: string
+          state_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          company_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          location_name?: string
+          state_code?: string
+          state_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       company_profile: {
         Row: {
           address: string
@@ -172,6 +208,57 @@ export type Database = {
         }
         Relationships: []
       }
+      employee_calendar_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          calendar_id: string
+          created_at: string | null
+          employee_id: string
+          id: string
+          is_manual_override: boolean | null
+          notes: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          calendar_id: string
+          created_at?: string | null
+          employee_id: string
+          id?: string
+          is_manual_override?: boolean | null
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          calendar_id?: string
+          created_at?: string | null
+          employee_id?: string
+          id?: string
+          is_manual_override?: boolean | null
+          notes?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_calendar_assignments_calendar_id_fkey"
+            columns: ["calendar_id"]
+            isOneToOne: false
+            referencedRelation: "holiday_calendars"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_calendar_assignments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holiday_calendar_items: {
         Row: {
           calendar_id: string
@@ -216,6 +303,7 @@ export type Database = {
           id: string
           name: string
           state_code: string | null
+          state_codes: string[] | null
           total_holidays: number | null
           year: number
         }
@@ -227,6 +315,7 @@ export type Database = {
           id?: string
           name: string
           state_code?: string | null
+          state_codes?: string[] | null
           total_holidays?: number | null
           year: number
         }
@@ -238,6 +327,7 @@ export type Database = {
           id?: string
           name?: string
           state_code?: string | null
+          state_codes?: string[] | null
           total_holidays?: number | null
           year?: number
         }
@@ -803,6 +893,7 @@ export type Database = {
           active_calendar_id: string | null
           id: string
           max_daily_hours: number | null
+          ot_submission_cutoff_day: number | null
           rounding_rule: string | null
           salary_threshold: number | null
           submission_limit_days: number | null
@@ -813,6 +904,7 @@ export type Database = {
           active_calendar_id?: string | null
           id?: string
           max_daily_hours?: number | null
+          ot_submission_cutoff_day?: number | null
           rounding_rule?: string | null
           salary_threshold?: number | null
           submission_limit_days?: number | null
@@ -823,6 +915,7 @@ export type Database = {
           active_calendar_id?: string | null
           id?: string
           max_daily_hours?: number | null
+          ot_submission_cutoff_day?: number | null
           rounding_rule?: string | null
           salary_threshold?: number | null
           submission_limit_days?: number | null
@@ -1328,6 +1421,20 @@ export type Database = {
           multiplier: number
         }[]
       }
+      get_employee_calendar: {
+        Args: { _employee_id: string }
+        Returns: {
+          calendar_id: string
+          calendar_name: string
+          calendar_state_name: string
+          is_override: boolean
+          state_codes: string[]
+        }[]
+      }
+      get_state_from_location: {
+        Args: { _location_name: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1341,6 +1448,26 @@ export type Database = {
         Returns: string
       }
       mark_expired_tokens: { Args: never; Returns: undefined }
+      update_user_roles: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: {
+          error_message: string
+          success: boolean
+        }[]
+      }
+      validate_role_combination: {
+        Args: {
+          _roles: Database["public"]["Enums"]["app_role"][]
+          _user_id: string
+        }
+        Returns: {
+          error_message: string
+          is_valid: boolean
+        }[]
+      }
     }
     Enums: {
       app_role:
