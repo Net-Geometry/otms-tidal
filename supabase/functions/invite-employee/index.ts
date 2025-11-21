@@ -75,17 +75,6 @@ serve(async (req) => {
       throw new Error(`Employee No ${employee_id} already exists. Please use a unique Employee No.`);
     }
 
-    // VALIDATION: Check if email already exists BEFORE creating auth user
-    // Only check if it's a real email (not placeholder)
-    if (email && email.trim() !== '' && !email.includes('@internal.company')) {
-      const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
-      const emailExists = existingUser?.users?.some(u => u.email?.toLowerCase() === email.toLowerCase());
-      
-      if (emailExists) {
-        throw new Error(`Email ${email} is already registered. Please use a different email.`);
-      }
-    }
-
     // Create auth user with temporary default password
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: effectiveEmail,
@@ -97,11 +86,17 @@ serve(async (req) => {
       }
     });
 
-    if (authError) throw authError;
+    if (authError) {
+      // Check if it's a duplicate email error
+      if (authError.message?.includes('already registered') || authError.message?.includes('email_exists')) {
+        throw new Error(`Email ${effectiveEmail} is already registered. Please use a different email.`);
+      }
+      throw authError;
+    }
 
     console.log('Auth user created:', authData.user.id);
 
-    // Create profile
+    // Create profile - if this fails, we need to clean up the auth user
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert({
@@ -129,11 +124,16 @@ serve(async (req) => {
         status: 'pending_setup',
       });
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      // Clean up the auth user we just created
+      console.error('Profile creation failed, cleaning up auth user:', profileError);
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      throw profileError;
+    }
 
     console.log('Profile created');
 
-    // Create user role
+    // Create user role - if this fails, clean up both auth user and profile
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
       .insert({
@@ -141,7 +141,13 @@ serve(async (req) => {
         role: role,
       });
 
-    if (roleError) throw roleError;
+    if (roleError) {
+      // Clean up profile and auth user
+      console.error('Role creation failed, cleaning up:', roleError);
+      await supabaseAdmin.from('profiles').delete().eq('id', authData.user.id);
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      throw roleError;
+    }
 
     console.log('Role assigned');
 
@@ -160,8 +166,8 @@ serve(async (req) => {
     let errorMessage = 'Unknown error occurred';
     
     // Check for duplicate email (auth error)
-    if (error?.message?.includes('already registered')) {
-      errorMessage = 'This email address is already registered';
+    if (error?.message?.includes('already registered') || error?.message?.includes('email_exists') || error?.message?.includes('Email') && error?.message?.includes('already registered')) {
+      errorMessage = error.message || 'This email address is already registered';
     }
     // Check for duplicate employee_id (unique constraint violation)
     else if (error?.code === '23505' && error?.message?.includes('employee_id')) {
