@@ -24,8 +24,9 @@ import { useEmployees } from '@/hooks/hr/useEmployees';
 import { usePositions } from '@/hooks/hr/usePositions';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useResetEmployeePassword } from '@/hooks/hr/useResetEmployeePassword';
+import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/otCalculations';
-import { KeyRound } from 'lucide-react';
+import { KeyRound, AlertTriangle } from 'lucide-react';
 
 interface EmployeeDetailsSheetProps {
   employee: Profile | null;
@@ -48,12 +49,15 @@ export function EmployeeDetailsSheet({
   const [formData, setFormData] = useState<Partial<Profile>>({});
   const [selectedRole, setSelectedRole] = useState<AppRole>('employee');
 
+  const { hasRole } = useAuth();
   const updateEmployee = useUpdateEmployee();
   const resetPassword = useResetEmployeePassword();
   const { data: companies } = useCompanies();
   const { data: departments } = useDepartments();
   const { data: employees = [] } = useEmployees();
   const { data: positions = [], isLoading: isLoadingPositions } = usePositions(formData.department_id || undefined);
+  
+  const isAdmin = hasRole('admin');
 
   useEffect(() => {
     setMode(initialMode);
@@ -120,11 +124,28 @@ export function EmployeeDetailsSheet({
           <div className="grid grid-cols-2 gap-4">
             {/* Row 1: Employee No + Full Name */}
             <div className="grid gap-2">
-              <Label>Employee No</Label>
-              {/* Employee ID is ALWAYS read-only - set by HR during creation */}
-              <div className="font-mono text-sm font-semibold bg-muted/50 p-2 rounded">
-                {employee.employee_id}
-              </div>
+              <Label htmlFor="employee_id">Employee No</Label>
+              {isEditing && isAdmin ? (
+                <div className="space-y-2">
+                  <Input
+                    id="employee_id"
+                    value={formData.employee_id || ''}
+                    onChange={(e) =>
+                      setFormData({ ...formData, employee_id: e.target.value })
+                    }
+                    placeholder="Enter Employee No"
+                    className="font-mono"
+                  />
+                  <div className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-500">
+                    <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span>Admin only: Changing Employee ID may affect payroll and historical records. Use with caution.</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="font-mono text-sm font-semibold bg-muted/50 p-2 rounded">
+                  {employee.employee_id}
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2">
