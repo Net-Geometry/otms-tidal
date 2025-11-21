@@ -17,8 +17,8 @@ import { calculateTotalHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otC
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 
-// Create schema factory that accepts requireAttachment parameter
-const createOTFormSchema = (requireAttachment: boolean) => z.object({
+// Fixed schema with optional attachments for all employees
+const OTFormSchema = z.object({
   ot_date: z.date({
     required_error: 'OT date is required',
   }),
@@ -27,16 +27,13 @@ const createOTFormSchema = (requireAttachment: boolean) => z.object({
   reason: z.string()
     .min(10, 'Reason must be at least 10 characters')
     .max(500, 'Reason cannot exceed 500 characters'),
-  attachment_urls: requireAttachment 
-    ? z.array(z.string().url('Invalid file URL'))
-        .min(1, 'At least one attachment is required')
-        .max(5, 'Maximum 5 attachments allowed')
-    : z.array(z.string().url('Invalid file URL'))
-        .max(5, 'Maximum 5 attachments allowed')
-        .optional(),
+  attachment_urls: z.array(z.string().url('Invalid file URL'))
+    .max(5, 'Maximum 5 attachments allowed')
+    .optional()
+    .default([]),
 });
 
-type OTFormValues = z.infer<ReturnType<typeof createOTFormSchema>>;
+type OTFormValues = z.infer<typeof OTFormSchema>;
 
 interface OTFormProps {
   onSubmit: (data: any) => void;
@@ -45,15 +42,14 @@ interface OTFormProps {
   fullName: string;
   onCancel: () => void;
   defaultValues?: Partial<OTFormValues>;
-  requireAttachment?: boolean;
 }
 
-export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel, defaultValues, requireAttachment = false }: OTFormProps) {
+export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel, defaultValues }: OTFormProps) {
   const [totalHours, setTotalHours] = useState<number>(0);
   const [dayType, setDayType] = useState<string>('weekday');
 
   const form = useForm<OTFormValues>({
-    resolver: zodResolver(createOTFormSchema(requireAttachment)),
+    resolver: zodResolver(OTFormSchema),
     defaultValues: defaultValues || {
       reason: '',
       attachment_urls: [],
@@ -253,7 +249,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
            render={({ field }) => (
              <FormItem>
                <FormLabel>
-                 Attachments {requireAttachment ? '*' : '(Optional)'}
+                 Attachments (Optional)
                </FormLabel>
                <FormControl>
                  <FileUpload
