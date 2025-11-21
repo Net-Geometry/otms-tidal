@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.activate-account]
 verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = true

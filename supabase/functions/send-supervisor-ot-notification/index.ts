@@ -287,11 +287,12 @@ async function identifySupervisors(
   // Deduplicate by user_id (a supervisor may have multiple subscriptions/devices)
   const uniqueSupervisors = new Map<string, SupervisorInfo>()
 
-  supervisorsWithSubs.forEach((record: { user_id: string; profiles: { full_name: string } }) => {
+  supervisorsWithSubs.forEach((record: { user_id: string; profiles: { id: string; full_name: string }[] | { id: string; full_name: string } }) => {
     if (!uniqueSupervisors.has(record.user_id)) {
+      const profile = Array.isArray(record.profiles) ? record.profiles[0] : record.profiles
       uniqueSupervisors.set(record.user_id, {
         id: record.user_id,
-        fullName: record.profiles.full_name
+        fullName: profile.full_name
       })
     }
   })
