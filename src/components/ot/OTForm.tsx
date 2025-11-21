@@ -50,13 +50,6 @@ const OTFormSchema = z.object({
     .max(100, 'Reason cannot exceed 100 characters')
     .optional(),
   respective_supervisor_id: z.string().uuid().optional().or(z.literal('none')),
-  attachment_urls: requireAttachment
-    ? z.array(z.string().url('Invalid file URL'))
-        .min(1, 'At least one attachment is required')
-        .max(5, 'Maximum 5 attachments allowed')
-    : z.array(z.string().url('Invalid file URL'))
-        .max(5, 'Maximum 5 attachments allowed')
-        .optional(),
 }).refine((data) => {
   if (data.reason_dropdown === 'Other') {
     return data.reason_other && data.reason_other.trim().length >= 20;

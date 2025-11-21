@@ -5,8 +5,8 @@ export interface EmployeeCalendarAssignment {
   calendar_id: string;
   calendar_name: string;
   is_override: boolean;
-  applicable_locations: string[] | null;
-  description_location: string | null;
+  state_codes: string[];
+  calendar_state_name: string;
 }
 
 // Query keys
@@ -53,18 +53,11 @@ export function useCalendarsByLocation(location?: string) {
   return useQuery({
     queryKey: [...calendarAssignmentKeys.all, 'by-location', location],
     queryFn: async () => {
-      let query = supabase
+      const { data, error} = await supabase
         .from('holiday_calendars')
-        .select('id, name, year, applicable_locations, description_location')
+        .select('id, name, year, state_codes')
         .eq('year', new Date().getFullYear())
         .order('name', { ascending: true });
-
-      // Filter by location if provided
-      if (location) {
-        query = query.contains('applicable_locations', [location]);
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -85,7 +78,7 @@ export function useAllCalendars() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('holiday_calendars')
-        .select('id, name, year, applicable_locations, description_location')
+        .select('id, name, year, state_codes')
         .eq('year', new Date().getFullYear())
         .order('name', { ascending: true });
 

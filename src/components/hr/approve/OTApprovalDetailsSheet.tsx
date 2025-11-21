@@ -187,7 +187,7 @@ export function OTApprovalDetailsSheet({
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Department</Label>
-                    <p>{request.profiles.department?.name || 'N/A'}</p>
+                    <p>{request.profiles.departments?.name || 'N/A'}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Basic Salary</Label>
