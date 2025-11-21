@@ -9,6 +9,7 @@ import { RootRedirect } from "./components/RootRedirect";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeProvider } from "./components/theme-provider";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
+import { HTTPSWarning } from "./components/pwa/HTTPSWarning";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { createQueryClient } from "./lib/queryClient";
@@ -62,6 +63,7 @@ const App = () => (
   <ErrorBoundary>
     <ThemeProvider defaultTheme="system" storageKey="ot-scribe-theme">
       <QueryClientProvider client={queryClient}>
+        <HTTPSWarning />
         <BrowserRouter>
           <AuthProvider>
             <ActiveRoleProvider>

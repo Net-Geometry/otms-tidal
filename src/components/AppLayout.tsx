@@ -39,7 +39,6 @@ import {
 } from '@/components/ui/breadcrumb';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { InstallBanner } from '@/components/pwa/InstallBanner';
 import { DashboardSwitcher } from '@/components/DashboardSwitcher';
 import { 
   LayoutDashboard, 
@@ -311,7 +310,6 @@ export function AppLayout({ children }: AppLayoutProps) {
             flex-1 overflow-auto
             ${deviceType === 'mobile' ? 'p-4' : deviceType === 'tablet' ? 'p-5' : 'p-6'}
           `}>
-            <InstallBanner />
             {children}
           </main>
         </div>

@@ -50,13 +50,7 @@ const OTFormSchema = z.object({
     .max(100, 'Reason cannot exceed 100 characters')
     .optional(),
   respective_supervisor_id: z.string().uuid().optional().or(z.literal('none')),
-  attachment_urls: requireAttachment
-    ? z.array(z.string().url('Invalid file URL'))
-        .min(1, 'At least one attachment is required')
-        .max(5, 'Maximum 5 attachments allowed')
-    : z.array(z.string().url('Invalid file URL'))
-        .max(5, 'Maximum 5 attachments allowed')
-        .optional(),
+
 }).refine((data) => {
   if (data.reason_dropdown === 'Other') {
     return data.reason_other && data.reason_other.trim().length >= 20;
@@ -319,6 +313,32 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
         <FormField
           control={form.control}
+          name="reason_dropdown"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Reason Category *</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || ''}>
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a reason category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="System maintenance">System maintenance</SelectItem>
+                  <SelectItem value="Project deadline">Project deadline</SelectItem>
+                  <SelectItem value="Unexpected breakdown">Unexpected breakdown</SelectItem>
+                  <SelectItem value="Client support">Client support</SelectItem>
+                  <SelectItem value="Staff shortage">Staff shortage</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
           name="reason"
           render={({ field }) => (
             <FormItem>
@@ -387,35 +407,35 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           )}
         />
 
-         <FormField
-           control={form.control}
-           name="attachment_urls"
-           render={({ field }) => (
-             <FormItem>
-               <FormLabel>
-                 Attachments (Optional)
-               </FormLabel>
-               <FormControl>
-                 <FileUpload
-                   onUploadComplete={(urls) => field.onChange(urls)}
-                   onRemove={(index) => {
-                     const newUrls = [...(field.value || [])];
-                     newUrls.splice(index, 1);
-                     field.onChange(newUrls);
-                   }}
-                   currentFiles={field.value || []}
-                   maxFiles={5}
-                 />
-               </FormControl>
-               <FormMessage />
-             </FormItem>
-           )}
-         />
+        <FormField
+          control={form.control}
+          name="attachment_urls"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>
+                Attachments (Optional)
+              </FormLabel>
+              <FormControl>
+                <FileUpload
+                  onUploadComplete={(urls) => field.onChange(urls)}
+                  onRemove={(index) => {
+                    const newUrls = [...(field.value || [])];
+                    newUrls.splice(index, 1);
+                    field.onChange(newUrls);
+                  }}
+                  currentFiles={field.value || []}
+                  maxFiles={5}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex flex-col gap-3">
-          <Button 
-            type="submit" 
-            disabled={isSubmitting} 
+          <Button
+            type="submit"
+            disabled={isSubmitting}
             className="w-full bg-primary text-white hover:bg-primary/90"
           >
             {isSubmitting ? 'Submitting...' : 'Submit OT Request'}

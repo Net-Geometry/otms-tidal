@@ -69,7 +69,6 @@ export default function SubmitOT() {
                 employeeId={profile?.employee_id || ''}
                 fullName={profile?.full_name || ''}
                 onCancel={handleCancel}
-                requireAttachment={profile?.require_ot_attachment ?? false}
               />
             </CardContent>
           </Card>
