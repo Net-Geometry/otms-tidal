@@ -36,7 +36,7 @@ export function FallbackInstaller() {
       </div>
 
       <p className="text-xs text-gray-600">
-        You can still use OTMS normally in your browser, but PWA features like offline access and app icon won't be available.
+        You can still use OTMS normally in your browser, but PWA app features like home screen shortcuts won't be available.
       </p>
     </div>
   );

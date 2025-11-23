@@ -44,7 +44,7 @@ export function FirefoxInstaller() {
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
         <p className="font-semibold mb-1">💡 Pro Tip</p>
         <p>
-          For the best PWA experience including full offline support and app-like behavior, consider using Chrome, Edge, or Safari on iOS.
+          For the best PWA experience and app-like behavior, consider using Chrome, Edge, or Safari on iOS.
         </p>
       </div>
     </div>

@@ -38,7 +38,7 @@ export function HTTPSWarning() {
       <AlertTitle className="text-amber-900">HTTPS Required for PWA</AlertTitle>
       <AlertDescription className="text-amber-800 text-sm">
         <p className="mb-2">
-          The application is not served over HTTPS. PWA installation and offline functionality require a secure HTTPS connection.
+          The application is not served over HTTPS. PWA installation requires a secure HTTPS connection.
         </p>
         <p className="text-xs">
           Please ensure your server is configured to use HTTPS in production.

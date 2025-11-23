@@ -6,7 +6,7 @@ import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { useAuth } from '@/hooks/useAuth';
 import { usePWABannerTiming } from '@/hooks/usePWABannerTiming';
 import { AndroidChromeInstaller } from '@/components/pwa/AndroidChromeInstaller';
-import { iOSInstaller } from '@/components/pwa/iOSInstaller';
+import { IOSInstaller } from '@/components/pwa/iOSInstaller';
 import { FirefoxInstaller } from '@/components/pwa/FirefoxInstaller';
 import { FallbackInstaller } from '@/components/pwa/FallbackInstaller';
 import { logPWAEvent } from '@/lib/pwaAnalytics';
@@ -127,7 +127,7 @@ export function PWAInstallBanner() {
   // Helper function to render appropriate installation instructions
   const renderInstructions = () => {
     if (deviceInfo.isIOS) {
-      return <iOSInstaller />;
+      return <IOSInstaller />;
     } else if (deviceInfo.isChrome || deviceInfo.isEdge) {
       // Chrome and Edge have full PWA support on both Android and Desktop
       return <AndroidChromeInstaller />;
@@ -148,7 +148,7 @@ export function PWAInstallBanner() {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-green-900">App Installed Successfully!</h3>
-            <p className="text-xs text-green-700 mt-1">OTMS is ready to use offline.</p>
+            <p className="text-xs text-green-700 mt-1">OTMS is ready to use with quick app access.</p>
           </div>
         </div>
       </Card>
@@ -177,7 +177,7 @@ export function PWAInstallBanner() {
             <p className="text-xs text-muted-foreground mt-1">
               {expandedInstructions
                 ? `Installation guide for ${deviceInfo.browserName}`
-                : 'Get quick access and work offline.'
+                : 'Get quick access with app icon on your home screen.'
               }
             </p>
           </div>
