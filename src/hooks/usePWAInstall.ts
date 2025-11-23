@@ -57,6 +57,16 @@ export interface UsePWAInstallReturn {
 }
 
 /**
+ * Global reference to the most recent beforeinstallprompt event
+ * This is set in main.tsx and accessed here
+ */
+declare global {
+  interface Window {
+    __pwaPromptEvent?: BeforeInstallPromptEvent | null;
+  }
+}
+
+/**
  * Detect device and browser type
  * Uses user agent parsing and modern APIs
  */
@@ -120,103 +130,79 @@ export const usePWAInstall = (): UsePWAInstallReturn => {
 
   useEffect(() => {
     // Check if already installed (standalone mode)
-    // Supports both standard display-mode media query and iOS-specific navigator.standalone
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
       (window.navigator as any).standalone === true;
 
     setIsInstalled(isStandalone);
 
-    // Log initial PWA state
+    // Check if event was already captured in main.tsx
+    if (window.__pwaPromptEvent) {
+      setPromptEvent(window.__pwaPromptEvent);
+      console.log('[PWA Install] Hook initialized with cached event');
+    }
+
+    // Also listen for the event in case it fires after hook mounts
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      const event = e as BeforeInstallPromptEvent;
+      console.log('[PWA Install] beforeinstallprompt event received');
+      setPromptEvent(event);
+      window.__pwaPromptEvent = event;
+    };
+
+    // Listen for appinstalled event
+    const handleAppInstalled = () => {
+      console.log('[PWA Install] App successfully installed!');
+      setIsInstalled(true);
+      setPromptEvent(null);
+      window.__pwaPromptEvent = null;
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
     console.log('[PWA Install] Hook initialized:', {
       isStandalone,
       beforeInstallPromptSupported: 'BeforeInstallPromptEvent' in window,
       userAgent: navigator.userAgent.substring(0, 80),
     });
 
-    // Listen for beforeinstallprompt event (Chrome, Edge)
-    const handleBeforeInstallPrompt = (e: Event) => {
-      // Prevent browser's default install prompt from showing automatically
-      e.preventDefault();
-      // Store event reference for later use (when user clicks install button)
-      console.log('[PWA Install] beforeinstallprompt event received and stored');
-      setPromptEvent(e as BeforeInstallPromptEvent);
-    };
-
-    // Listen for appinstalled event (fires after successful installation)
-    const handleAppInstalled = () => {
-      console.log('[PWA Install] App successfully installed!');
-      setIsInstalled(true);
-      // Clear prompt event since app is now installed
-      setPromptEvent(null);
-    };
-
-    // Register event listeners
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    window.addEventListener('appinstalled', handleAppInstalled);
-
-    // Log when listeners are attached
-    console.log('[PWA Install] Event listeners attached');
-
-    // Cleanup: Remove event listeners on component unmount to prevent memory leaks
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, []); // Empty dependency array: run once on mount
+  }, []);
 
-  /**
-   * Trigger the browser's native install prompt
-   * Only works if beforeinstallprompt event was received and stored
-   *
-   * If the event is not available (some browsers/platforms don't fire it),
-   * we fall back to providing instructions
-   */
   const promptInstall = async () => {
     if (!promptEvent) {
-      console.warn('[usePWAInstall] Install prompt event not available. This is normal on some Linux/Chrome configurations.');
-      console.info('[usePWAInstall] The app is installable via Chrome\'s address bar. Look for the install icon/button next to the URL.');
-
-      // On some platforms (especially Linux), Chrome doesn't fire beforeinstallprompt
-      // but still allows installation via the address bar UI
-      // Throw an error to trigger the fallback (show instructions)
+      console.warn('[usePWAInstall] Install prompt event not available. Use browser\'s address bar install button.');
       throw new Error('beforeinstallprompt event not available. Use browser\'s address bar install button.');
     }
 
     try {
-      // Show native install prompt
       await promptEvent.prompt();
-
-      // Wait for user's choice
       const choice = await promptEvent.userChoice;
 
       if (choice.outcome === 'accepted') {
         console.log('[usePWAInstall] User accepted install prompt');
-        // Clear prompt event since it's been used
         setPromptEvent(null);
+        window.__pwaPromptEvent = null;
       } else {
         console.log('[usePWAInstall] User dismissed install prompt');
       }
     } catch (error) {
       console.error('[usePWAInstall] Error triggering install prompt', error);
+      throw error;
     }
   };
 
-  // Detect device info once
   const deviceInfo = detectDeviceInfo();
-
-  // Determine if app is installable:
-  // Only show Install button when we've actually received the beforeinstallprompt event
-  // This prevents showing a non-functional button on platforms where the event doesn't fire (e.g., Linux Chrome)
-  // On those platforms, the Instructions button guides users to the browser's native install UI
   const isInstallable = !!promptEvent && !isInstalled;
 
   return {
-    // App can be installed (Install button shown) only if we received the beforeinstallprompt event
     isInstallable,
     isInstalled,
-    // Browser supports PWA install if BeforeInstallPromptEvent exists or app is already installed
-    // Note: Safari doesn't support BeforeInstallPromptEvent but can still install PWAs
     isSupported: 'BeforeInstallPromptEvent' in window || isInstalled,
     promptInstall,
     deviceInfo,
