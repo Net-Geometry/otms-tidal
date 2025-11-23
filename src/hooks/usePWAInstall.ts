@@ -200,10 +200,20 @@ export const usePWAInstall = (): UsePWAInstallReturn => {
   const deviceInfo = detectDeviceInfo();
   const isInstallable = !!promptEvent && !isInstalled;
 
+  // Determine if browser supports PWA installation in ANY form
+  // - Desktop browsers: check for BeforeInstallPromptEvent
+  // - Mobile browsers: always true (Android has beforeinstallprompt, iOS has manual instructions)
+  // - Already installed: true (can show install success state)
+  // This ensures banner shows on all platforms with appropriate fallback UI
+  const isSupported =
+    'BeforeInstallPromptEvent' in window ||  // Chrome/Edge desktop & Android
+    isInstalled ||                            // Already installed anywhere
+    deviceInfo.isMobile;                      // Mobile: always support (iOS manual, Android native)
+
   return {
     isInstallable,
     isInstalled,
-    isSupported: 'BeforeInstallPromptEvent' in window || isInstalled,
+    isSupported,
     promptInstall,
     deviceInfo,
   };

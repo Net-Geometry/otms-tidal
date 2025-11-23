@@ -81,9 +81,12 @@ export function PWAInstallBanner() {
 
   // Check if banner should be shown
   // Must be done AFTER all hooks are called
+  // Show for: authenticated user, not installed, not dismissed, supported browser, after user interaction
   const shouldDisplay = user && !isInstalled && !isDismissed && isSupported && shouldShowBanner;
 
   // Early return after all hooks have been called
+  // Note: shouldDisplay requires shouldShowBanner which waits for user interaction before showing
+  // On desktop it shows after click/scroll, on mobile after any interaction (tap/scroll)
   if (!shouldDisplay) {
     return null;
   }
