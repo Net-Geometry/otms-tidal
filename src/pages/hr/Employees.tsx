@@ -17,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function Employees() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('active');
+  const [statusFilter, setStatusFilter] = useState('all');
   const { data: employees, isLoading } = useEmployees();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -114,13 +114,13 @@ export default function Employees() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="pending_password">Pending Password</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>

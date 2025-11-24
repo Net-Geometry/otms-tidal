@@ -7,11 +7,17 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { TEMP_PASSWORD, PASSWORD_REQUIREMENTS } from '@/constants/auth';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second between retries
 
 export default function SetupPassword() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -37,20 +43,47 @@ export default function SetupPassword() {
     checkStatus();
   }, [user, navigate]);
 
+  // Verify profile status was actually updated
+  const verifyProfileUpdate = async (maxAttempts = 5): Promise<boolean> => {
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise(resolve => setTimeout(resolve, 200 * (i + 1))); // Progressive delay
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('id', user!.id)
+        .single();
+
+      if (error) {
+        console.error(`Verification attempt ${i + 1} failed:`, error);
+        continue;
+      }
+
+      if (profile?.status === 'active') {
+        return true;
+      }
+    }
+    return false;
+  };
+
   const handleSetupPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
 
     if (newPassword !== confirmPassword) {
+      setError('Passwords do not match');
       toast.error('Passwords do not match');
       return;
     }
 
-    if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters');
+    if (newPassword.length < PASSWORD_REQUIREMENTS.minLength) {
+      setError(`Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters`);
+      toast.error(`Password must be at least ${PASSWORD_REQUIREMENTS.minLength} characters`);
       return;
     }
 
-    if (newPassword === 'Temp@12345') {
+    if (newPassword === TEMP_PASSWORD) {
+      setError('You cannot use the temporary password as your new password');
       toast.error('You cannot use the temporary password as your new password');
       return;
     }
@@ -66,29 +99,50 @@ export default function SetupPassword() {
       if (updateError) throw updateError;
 
       // Update profile status to active
-      const { error: profileError } = await supabase
+      const { error: profileError, data } = await supabase
         .from('profiles')
         .update({ status: 'active' })
-        .eq('id', user!.id);
+        .eq('id', user!.id)
+        .select();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        throw new Error(`Failed to update account status: ${profileError.message}`);
+      }
 
-      // Wait for database update to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Verify the update actually succeeded (catch silent RLS policy failures)
+      if (!data || data.length === 0) {
+        throw new Error('Profile update returned no data. Verifying changes...');
+      }
+
+      // Verify the profile status was actually updated in the database
+      const updateVerified = await verifyProfileUpdate();
+      if (!updateVerified) {
+        throw new Error('Profile status update could not be verified. Please try again.');
+      }
 
       toast.success('Password successfully set. Please log in with your new password.');
-      
+
       // Sign out the user
       await supabase.auth.signOut();
-      
+
       setTimeout(() => {
         navigate('/auth');
       }, 1500);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to set password');
+      console.error('Password setup error:', error);
+      const errorMessage = error.message || 'Failed to set password';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    setRetryCount(prev => prev + 1);
+    setError(null);
+    setNewPassword('');
+    setConfirmPassword('');
   };
 
   return (
@@ -102,6 +156,17 @@ export default function SetupPassword() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSetupPassword} className="space-y-4">
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-md p-3 text-sm text-destructive">
+                <p className="font-medium">Error: {error}</p>
+                {retryCount < MAX_RETRIES && (
+                  <p className="text-xs mt-1 text-destructive/80">
+                    Attempt {retryCount + 1} of {MAX_RETRIES}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email (Read-only)</Label>
               <Input
@@ -140,9 +205,28 @@ export default function SetupPassword() {
                 disabled={loading}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Setting Password...' : 'Save Password'}
-            </Button>
+
+            <div className="flex gap-2">
+              <Button type="submit" className="flex-1" disabled={loading || retryCount >= MAX_RETRIES}>
+                {loading ? 'Setting Password...' : 'Save Password'}
+              </Button>
+              {error && retryCount < MAX_RETRIES && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleRetry}
+                  disabled={loading}
+                >
+                  Retry
+                </Button>
+              )}
+            </div>
+
+            {retryCount >= MAX_RETRIES && error && (
+              <p className="text-xs text-center text-destructive">
+                Maximum retry attempts reached. Please contact your administrator.
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>

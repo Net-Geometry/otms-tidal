@@ -21,6 +21,7 @@ import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
 import SetupPassword from "./pages/SetupPassword";
 import ChangePassword from "./pages/ChangePassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 
@@ -76,6 +77,7 @@ const App = () => (
                 <Route path="/set-password" element={<SetPassword />} />
                 <Route path="/setup-password" element={<SetupPassword />} />
                 <Route path="/change-password" element={<ChangePassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/unauthorized" element={<Unauthorized />} />
                 
                 {/* Role-specific dashboards */}

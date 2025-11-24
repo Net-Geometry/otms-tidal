@@ -45,10 +45,15 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
       employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.employee_id.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' || 
+    const matchesStatus = statusFilter === 'all' ||
       (statusFilter === 'active'
         ? ['active', 'pending_setup'].includes((employee.status || '').toLowerCase())
         : (employee.status || '').toLowerCase() === statusFilter.toLowerCase());
+
+    // Handle pending_password as an alias for pending_setup
+    if (statusFilter === 'pending_password' && (employee.status === 'pending_setup' || employee.status === 'pending_password')) {
+      return matchesSearch;
+    }
 
     return matchesSearch && matchesStatus;
   });
@@ -103,7 +108,13 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
               },
               {
                 label: 'Status',
-                value: employee.status === 'pending_setup' ? 'Pending Setup' : employee.status,
+                value: employee.status === 'pending_setup' || employee.status === 'pending_password'
+                  ? 'Pending Password'
+                  : employee.status === 'inactive'
+                  ? 'Inactive'
+                  : employee.status === 'active'
+                  ? 'Active'
+                  : employee.status,
                 variant: 'badge'
               },
               {
@@ -154,7 +165,7 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                {(employee.status === 'pending' || employee.status === 'inactive') && (
+                {(employee.status === 'pending' || employee.status === 'inactive' || employee.status === 'pending_password' || employee.status === 'pending_setup') && (
                   <Button
                     size="icon"
                     variant="ghost"
@@ -248,14 +259,20 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                       className={
                         employee.status === 'active'
                           ? 'bg-green-100 text-green-700 hover:bg-green-100'
-                          : employee.status === 'pending_setup'
-                          ? 'bg-blue-100 text-blue-700 hover:bg-blue-100'
+                          : employee.status === 'pending_setup' || employee.status === 'pending_password'
+                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-900 dark:text-orange-200'
                           : employee.status === 'pending'
                           ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200'
                           : 'bg-muted text-muted-foreground hover:bg-muted'
                       }
                     >
-                      {employee.status === 'pending_setup' ? 'Pending Setup' : employee.status}
+                      {employee.status === 'pending_setup' || employee.status === 'pending_password'
+                        ? 'Pending Password'
+                        : employee.status === 'inactive'
+                        ? 'Inactive'
+                        : employee.status === 'active'
+                        ? 'Active'
+                        : employee.status}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -298,7 +315,7 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      {(employee.status === 'pending' || employee.status === 'inactive') && (
+                      {(employee.status === 'pending' || employee.status === 'inactive' || employee.status === 'pending_password' || employee.status === 'pending_setup') && (
                         <Button
                           size="sm"
                           variant="outline"
