@@ -22,7 +22,6 @@ const AVAILABLE_ROLES: { value: AppRole; label: string; description: string }[] 
   { value: 'supervisor', label: 'Supervisor', description: 'Can verify OT requests' },
   { value: 'hr', label: 'HR Manager', description: 'Can approve OT and manage system' },
   { value: 'management', label: 'Management', description: 'Can review OT reports' },
-  { value: 'bod', label: 'Board of Directors', description: 'Can view OT requests' },
   { value: 'admin', label: 'Admin', description: 'Full system access' },
 ];
 
@@ -85,7 +84,6 @@ export function RoleSelector({
       supervisor: 'bg-green-100 text-green-800',
       hr: 'bg-purple-100 text-purple-800',
       management: 'bg-orange-100 text-orange-800',
-      bod: 'bg-red-100 text-red-800',
       admin: 'bg-gray-800 text-white',
     };
     return colors[role] || 'bg-gray-100 text-gray-800';

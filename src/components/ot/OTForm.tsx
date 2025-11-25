@@ -50,7 +50,6 @@ const OTFormSchema = z.object({
     .max(100, 'Reason cannot exceed 100 characters')
     .optional(),
   respective_supervisor_id: z.string().uuid().optional().or(z.literal('none')),
-
 }).refine((data) => {
   if (data.reason_dropdown === 'Other') {
     return data.reason_other && data.reason_other.trim().length >= 20;

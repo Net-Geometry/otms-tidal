@@ -12,10 +12,11 @@ export function usePendingRecertifications() {
         .select(`
           *,
           profiles!ot_requests_employee_id_fkey(
+            id,
             employee_id,
             full_name,
             basic_salary,
-            department:departments(name)
+            departments(name)
           )
         `)
         .eq('status', 'pending_hr_recertification')
@@ -39,7 +40,7 @@ export function useRecertifyOTActions() {
       const { error } = await supabase
         .from('ot_requests')
         .update({
-          status: 'pending_management_approval',
+          status: 'management_approved',
           hr_id: user.id,
           hr_approved_at: new Date().toISOString(),
           hr_remarks: remarks,
