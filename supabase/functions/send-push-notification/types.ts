@@ -40,7 +40,7 @@ export interface PushResult {
 }
 
 /**
- * Push subscription record from database
+ * Push subscription record from database (Web Push API)
  */
 export interface PushSubscriptionRecord {
   id: string;
@@ -48,6 +48,20 @@ export interface PushSubscriptionRecord {
   endpoint: string;
   p256dh_key: string;
   auth_key: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * FCM subscription record from database (Firebase Cloud Messaging)
+ */
+export interface FCMSubscriptionRecord {
+  id: string;
+  user_id: string;
+  fcm_token: string;
+  device_name?: string;
+  device_type?: string;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;

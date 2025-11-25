@@ -1,9 +1,9 @@
 // @ts-nocheck
 /**
- * Send Push Notification Edge Function
+ * Send Push Notification Edge Function (FCM)
  *
- * Backend service for sending push notifications to subscribed users.
- * Handles multi-device support, subscription cleanup, and VAPID authentication.
+ * Backend service for sending push notifications to subscribed users via Firebase Cloud Messaging.
+ * Handles multi-device support, subscription cleanup, and FCM authentication.
  *
  * @endpoint POST /functions/v1/send-push-notification
  * @payload {NotificationPayload} user_id, title, body, icon, data
@@ -11,12 +11,12 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.77.0'
-import webpush from 'https://esm.sh/web-push@3.6.7'
+import { initializeApp, cert } from 'npm:firebase-admin@12.0.0/app'
+import { getMessaging } from 'npm:firebase-admin@12.0.0/messaging'
 import type {
   NotificationPayload,
   PushResult,
-  PushSubscriptionRecord,
-  WebPushSubscription,
+  FCMSubscriptionRecord,
   ErrorResponse,
   NotificationPreferences
 } from './types.ts'
@@ -27,6 +27,42 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-requested-with',
   'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
   'Access-Control-Max-Age': '86400',
+}
+
+// Firebase Admin SDK singleton
+let firebaseApp: any = null
+
+function initializeFirebase() {
+  if (firebaseApp) return firebaseApp
+
+  const projectId = Deno.env.get('FIREBASE_PROJECT_ID')
+  const privateKey = Deno.env.get('FIREBASE_PRIVATE_KEY')
+  const clientEmail = Deno.env.get('FIREBASE_CLIENT_EMAIL')
+  const storageBucket = Deno.env.get('FIREBASE_STORAGE_BUCKET')
+
+  if (!projectId || !privateKey || !clientEmail) {
+    throw new Error('Firebase credentials not configured in environment variables')
+  }
+
+  const serviceAccount = {
+    type: 'service_account',
+    project_id: projectId,
+    private_key_id: 'key-id',
+    private_key: privateKey,
+    client_email: clientEmail,
+    client_id: 'client-id',
+    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+    token_uri: 'https://oauth2.googleapis.com/token',
+    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${clientEmail}`
+  }
+
+  firebaseApp = initializeApp({
+    credential: cert(serviceAccount as any),
+    projectId
+  })
+
+  return firebaseApp
 }
 
 Deno.serve(async (req) => {
@@ -163,30 +199,14 @@ function sanitizePayload(payload: NotificationPayload): NotificationPayload {
 }
 
 /**
- * Sends push notification to all active subscriptions for a user
+ * Sends push notification to all active subscriptions for a user via FCM
  */
 async function sendPushNotification(payload: NotificationPayload): Promise<PushResult> {
-  // Get VAPID configuration from environment
-  const vapidSubject = Deno.env.get('VAPID_SUBJECT') || 'mailto:admin@otms.com'
-  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
-  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
+  // Initialize Firebase Admin SDK
+  const app = initializeFirebase()
+  const messaging = getMessaging(app)
 
-  if (!vapidPublicKey || !vapidPrivateKey) {
-    throw new Error('VAPID keys not configured in environment variables')
-  }
-
-  console.log('[Push] VAPID configured:', {
-    subject: vapidSubject,
-    hasPublicKey: !!vapidPublicKey,
-    hasPrivateKey: !!vapidPrivateKey
-  })
-
-  // Configure VAPID with web-push library
-  webpush.setVapidDetails(
-    vapidSubject,
-    vapidPublicKey,
-    vapidPrivateKey
-  )
+  console.log('[Push] Firebase initialized for project')
 
   // Create Supabase client with service role (bypasses RLS)
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -211,11 +231,11 @@ async function sendPushNotification(payload: NotificationPayload): Promise<PushR
     }
   }
 
-  // Query all active subscriptions for the user
-  console.log(`[Push] Querying subscriptions for user: ${payload.user_id}`)
+  // Query all active FCM subscriptions for the user
+  console.log(`[Push] Querying FCM subscriptions for user: ${payload.user_id}`)
 
   const { data: subscriptions, error: queryError } = await supabase
-    .from('push_subscriptions')
+    .from('push_subscriptions_fcm')
     .select('*')
     .eq('user_id', payload.user_id)
     .eq('is_active', true)
@@ -227,7 +247,7 @@ async function sendPushNotification(payload: NotificationPayload): Promise<PushR
 
   // Handle no active subscriptions
   if (!subscriptions || subscriptions.length === 0) {
-    console.log(`[Push] No active subscriptions found for user: ${payload.user_id}`)
+    console.log(`[Push] No active FCM subscriptions found for user: ${payload.user_id}`)
     return {
       success: 0,
       failed: 0,
@@ -236,12 +256,12 @@ async function sendPushNotification(payload: NotificationPayload): Promise<PushR
     }
   }
 
-  console.log(`[Push] Found ${subscriptions.length} active subscription(s)`)
+  console.log(`[Push] Found ${subscriptions.length} active FCM subscription(s)`)
 
   // Send notifications to all subscriptions in parallel
   const results = await Promise.allSettled(
-    subscriptions.map((sub: PushSubscriptionRecord) =>
-      sendToSubscription(sub, payload)
+    subscriptions.map((sub: FCMSubscriptionRecord) =>
+      sendToSubscriptionFCM(sub, payload, messaging, supabase)
     )
   )
 
@@ -255,35 +275,35 @@ async function sendPushNotification(payload: NotificationPayload): Promise<PushR
 
     if (result.status === 'fulfilled') {
       successCount++
-      console.log(`[Push] ✓ Sent to subscription ${subscription.id}`)
+      console.log(`[Push] ✓ Sent to FCM token ${subscription.id}`)
     } else {
       failedCount++
       const error = result.reason
 
-      // Check if subscription expired (HTTP 410 Gone)
-      if (error?.statusCode === 410 || error?.code === 410) {
+      // Check if token is invalid/expired
+      if (isExpiredToken(error)) {
         expiredIds.push(subscription.id)
-        console.log(`[Push] ✗ Subscription ${subscription.id} expired (410)`)
+        console.log(`[Push] ✗ FCM token ${subscription.id} expired or invalid`)
       } else {
-        console.error(`[Push] ✗ Failed to send to subscription ${subscription.id}:`, error)
+        console.error(`[Push] ✗ Failed to send to FCM token ${subscription.id}:`, error)
       }
     }
   })
 
-  // Clean up expired subscriptions
+  // Clean up expired/invalid tokens
   if (expiredIds.length > 0) {
-    console.log(`[Push] Removing ${expiredIds.length} expired subscription(s)`)
+    console.log(`[Push] Removing ${expiredIds.length} expired/invalid token(s)`)
 
     const { error: deleteError } = await supabase
-      .from('push_subscriptions')
+      .from('push_subscriptions_fcm')
       .delete()
       .in('id', expiredIds)
 
     if (deleteError) {
-      console.error('[Push] Failed to delete expired subscriptions:', deleteError)
+      console.error('[Push] Failed to delete expired tokens:', deleteError)
       // Don't throw - continue with result reporting
     } else {
-      console.log(`[Push] ✓ Cleaned up ${expiredIds.length} expired subscription(s)`)
+      console.log(`[Push] ✓ Cleaned up ${expiredIds.length} expired token(s)`)
     }
   }
 
@@ -295,6 +315,22 @@ async function sendPushNotification(payload: NotificationPayload): Promise<PushR
 
   console.log(`[Push] Final result:`, result)
   return result
+}
+
+/**
+ * Checks if an error indicates an expired or invalid FCM token
+ */
+function isExpiredToken(error: any): boolean {
+  const errorCode = error?.code || error?.errorCode || ''
+  const message = error?.message || ''
+
+  return (
+    errorCode === 'messaging/registration-token-not-registered' ||
+    errorCode === 'messaging/mismatched-credential' ||
+    errorCode === 'messaging/invalid-registration-token' ||
+    message.includes('registration token') ||
+    message.includes('invalid token')
+  )
 }
 
 /**
@@ -374,49 +410,62 @@ async function shouldSendNotification(
 }
 
 /**
- * Sends notification to a single subscription
+ * Sends notification to a single FCM subscription
  */
-async function sendToSubscription(
-  subscription: PushSubscriptionRecord,
-  payload: NotificationPayload
+async function sendToSubscriptionFCM(
+  subscription: FCMSubscriptionRecord,
+  payload: NotificationPayload,
+  messaging: any,
+  supabase: any
 ): Promise<void> {
-  // Convert database subscription to web-push format
-  const pushSubscription: WebPushSubscription = {
-    endpoint: subscription.endpoint,
-    keys: {
-      p256dh: subscription.p256dh_key,
-      auth: subscription.auth_key
+  // Build FCM message
+  const message = {
+    notification: {
+      title: payload.title,
+      body: payload.body,
+      imageUrl: payload.icon || '/icons/icon-192x192.png'
+    },
+    webpush: {
+      notification: {
+        title: payload.title,
+        body: payload.body,
+        icon: payload.icon || '/icons/icon-192x192.png',
+        badge: payload.badge || '/icons/badge-72x72.png',
+        actions: [
+          { action: 'view', title: 'View' },
+          { action: 'dismiss', title: 'Dismiss' }
+        ],
+        tag: 'otms-notification',
+        requireInteraction: false,
+        vibrate: [200, 100, 200]
+      },
+      data: payload.data ? {
+        targetUrl: payload.data.targetUrl || '/',
+        ...payload.data
+      } : {
+        targetUrl: '/'
+      }
+    },
+    data: payload.data ? {
+      targetUrl: payload.data.targetUrl || '/',
+      ...payload.data
+    } : {
+      targetUrl: '/'
     }
   }
 
-  // Build notification options
-  const notificationOptions = {
-    title: payload.title,
-    body: payload.body,
-    icon: payload.icon || '/icons/icon-192x192.png',
-    badge: payload.badge || '/icons/badge-72x72.png',
-    data: payload.data || { targetUrl: '/' },
-    actions: [
-      { action: 'view', title: 'View' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ],
-    tag: 'otms-notification',
-    requireInteraction: false,
-    vibrate: [200, 100, 200]
-  }
-
-  console.log('[Push] Sending to endpoint:', subscription.endpoint.substring(0, 50) + '...')
+  console.log('[Push] Sending to FCM token:', subscription.fcm_token.substring(0, 50) + '...')
 
   try {
-    // Send notification via npm:web-push
-    await webpush.sendNotification(
-      pushSubscription,
-      JSON.stringify(notificationOptions)
-    )
+    // Send message via Firebase Cloud Messaging
+    const response = await messaging.send({
+      token: subscription.fcm_token,
+      ...message
+    })
 
-    console.log('[Push] Notification sent successfully to subscription:', subscription.id)
+    console.log('[Push] FCM message sent successfully to token:', subscription.id, 'Response:', response)
   } catch (error) {
-    console.error('[Push] Error sending to subscription:', subscription.id, error)
+    console.error('[Push] Error sending to FCM token:', subscription.id, error)
     throw error // Re-throw to be caught by Promise.allSettled
   }
 }

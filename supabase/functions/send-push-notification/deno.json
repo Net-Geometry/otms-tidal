@@ -3,5 +3,8 @@
     "lib": ["deno.window", "deno.unstable"],
     "checkJs": false
   },
-  "nodeModulesDir": false
+  "nodeModulesDir": true,
+  "imports": {
+    "firebase-admin/": "npm:firebase-admin@12.0.0/"
+  }
 }

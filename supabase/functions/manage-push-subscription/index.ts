@@ -1,16 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.77.0'
 
 // TypeScript interfaces
-interface PushSubscriptionRequest {
+interface FCMSubscriptionRequest {
   action: 'subscribe' | 'unsubscribe';
-  subscription?: {
-    endpoint: string;
-    keys: {
-      p256dh: string;
-      auth: string;
-    };
-  };
-  endpoint?: string; // For unsubscribe
+  fcm_token?: string;
+  device_name?: string;
+  device_type?: string;
 }
 
 interface PushSubscriptionResponse {
@@ -62,46 +57,48 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const requestData: PushSubscriptionRequest = await req.json()
+    const requestData: FCMSubscriptionRequest = await req.json()
 
     if (requestData.action === 'subscribe') {
-      // Subscribe action
-      if (!requestData.subscription) {
+      // Subscribe action - register FCM token
+      if (!requestData.fcm_token) {
         return new Response(
-          JSON.stringify({ success: false, message: 'Missing subscription object' }),
+          JSON.stringify({ success: false, message: 'Missing FCM token' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      const { endpoint, keys } = requestData.subscription
+      const fcmToken = requestData.fcm_token
+      const deviceName = requestData.device_name || `Device ${new Date().toLocaleDateString()}`
+      const deviceType = requestData.device_type || 'web'
 
-      // Validate subscription structure
-      if (!endpoint || !keys || !keys.p256dh || !keys.auth) {
+      // Validate token format (basic check - FCM tokens are typically 150+ characters)
+      if (fcmToken.length < 50) {
         return new Response(
-          JSON.stringify({ success: false, message: 'Invalid subscription object structure' }),
+          JSON.stringify({ success: false, message: 'Invalid FCM token format' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Upsert subscription (insert or update if exists)
+      // Upsert FCM subscription
       const { data, error } = await supabase
-        .from('push_subscriptions')
+        .from('push_subscriptions_fcm')
         .upsert({
           user_id: user.id,
-          endpoint,
-          p256dh_key: keys.p256dh,
-          auth_key: keys.auth,
+          fcm_token,
+          device_name,
+          device_type,
           is_active: true
         }, {
-          onConflict: 'user_id,endpoint'
+          onConflict: 'user_id,fcm_token'
         })
         .select('id')
         .single()
 
       if (error) {
-        console.error('Subscription insert error:', error)
+        console.error('FCM subscription insert error:', error)
         return new Response(
-          JSON.stringify({ success: false, message: 'Failed to save subscription' }),
+          JSON.stringify({ success: false, message: 'Failed to save FCM subscription' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
@@ -109,37 +106,37 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           success: true,
-          message: 'Subscription saved',
+          message: 'FCM subscription registered',
           subscriptionId: data.id
         } as PushSubscriptionResponse),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
 
     } else if (requestData.action === 'unsubscribe') {
-      // Unsubscribe action
-      if (!requestData.endpoint) {
+      // Unsubscribe action - remove FCM token
+      if (!requestData.fcm_token) {
         return new Response(
-          JSON.stringify({ success: false, message: 'Missing endpoint' }),
+          JSON.stringify({ success: false, message: 'Missing FCM token' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
       const { error } = await supabase
-        .from('push_subscriptions')
+        .from('push_subscriptions_fcm')
         .delete()
         .eq('user_id', user.id)
-        .eq('endpoint', requestData.endpoint)
+        .eq('fcm_token', requestData.fcm_token)
 
       if (error) {
-        console.error('Subscription delete error:', error)
+        console.error('FCM subscription delete error:', error)
         return new Response(
-          JSON.stringify({ success: false, message: 'Failed to delete subscription' }),
+          JSON.stringify({ success: false, message: 'Failed to delete FCM subscription' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: 'Subscription removed' } as PushSubscriptionResponse),
+        JSON.stringify({ success: true, message: 'FCM subscription removed' } as PushSubscriptionResponse),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
 
