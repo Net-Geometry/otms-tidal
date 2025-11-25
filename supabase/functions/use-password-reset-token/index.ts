@@ -78,6 +78,19 @@ serve(async (req) => {
       throw new Error('Employee not found');
     }
 
+    // Verify that the auth user exists in auth.users table
+    const { data: { users }, error: authListError } = await supabaseAdmin.auth.admin.listUsers();
+    if (authListError || !users) {
+      console.error('Error retrieving auth users:', authListError);
+      throw new Error('Failed to verify user authentication status');
+    }
+
+    const authUserExists = users.some(u => u.id === employee.id);
+    if (!authUserExists) {
+      console.error('Auth user not found for employee:', employee.id);
+      throw new Error('User does not exist in authentication system. Please contact your administrator.');
+    }
+
     // Update the user's password using the id as user_id
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       employee.id,

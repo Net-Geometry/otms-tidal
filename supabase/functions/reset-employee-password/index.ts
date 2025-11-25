@@ -55,13 +55,11 @@ serve(async (req) => {
     }
 
     // Get request body
-    const { employee_id, email } = await req.json();
+    const { employee_id } = await req.json();
 
-    if (!employee_id || !email) {
-      throw new Error('Employee ID and email are required');
+    if (!employee_id) {
+      throw new Error('Employee ID is required');
     }
-
-    console.log('Admin password reset requested for:', email, 'by:', user.email);
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(
@@ -78,7 +76,7 @@ serve(async (req) => {
     // Get employee details
     const { data: employee } = await supabaseAdmin
       .from('profiles')
-      .select('full_name, email')
+      .select('full_name')
       .eq('id', employee_id)
       .single();
 
@@ -86,21 +84,44 @@ serve(async (req) => {
       throw new Error('Employee not found');
     }
 
-    // Generate password recovery link
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'recovery',
-      email: email,
-      options: {
-        redirectTo: `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com')}/change-password`
-      }
-    });
+    // Get the auth user's email directly from auth.users
+    const { data: { users }, error: authLookupError } = await supabaseAdmin.auth.admin.listUsers();
 
-    if (linkError) {
-      console.error('Error generating recovery link:', linkError);
-      throw linkError;
+    if (authLookupError || !users) {
+      throw new Error('Failed to retrieve user information');
     }
 
-    console.log('Password reset email sent via Supabase to:', email);
+    const authUser = users.find(u => u.id === employee_id);
+    if (!authUser || !authUser.email) {
+      throw new Error('User with this ID not found in authentication system');
+    }
+
+    console.log('Admin password reset requested for:', authUser.email, 'by:', user.email);
+
+    // Generate a random reset token (6-8 character alphanumeric code for user-friendly sharing)
+    const resetToken = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    // Calculate expiration time (48 hours from now as per the use-password-reset-token function)
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+
+    // Create a password reset token record
+    const { error: insertError } = await supabaseAdmin
+      .from('password_reset_tokens')
+      .insert({
+        employee_id: employee_id,
+        token: resetToken,
+        reset_by_hr_id: user.id,
+        expires_at: expiresAt,
+        status: 'pending',
+        created_by_role: roles?.[0]?.role || 'admin'
+      });
+
+    if (insertError) {
+      console.error('Error creating reset token:', insertError);
+      throw insertError;
+    }
+
+    console.log('Password reset token created for employee:', employee_id);
 
     // Log the action for audit purposes
     await supabaseAdmin
@@ -112,9 +133,10 @@ serve(async (req) => {
       });
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Password reset email sent successfully'
+      JSON.stringify({
+        resetCode: resetToken,
+        expiresAt: expiresAt,
+        message: 'Password reset code generated successfully'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
