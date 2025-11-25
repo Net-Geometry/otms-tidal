@@ -4,6 +4,17 @@ import App from "./App.tsx";
 import "./index.css";
 import { registerSW } from 'virtual:pwa-register';
 
+/**
+ * Attach beforeinstallprompt listener BEFORE rendering the app
+ * This is critical - the event fires very early, and we must be listening
+ * before React components mount, or we'll miss it
+ */
+window.addEventListener('beforeinstallprompt', (e: Event) => {
+  e.preventDefault();
+  console.log('[Main] beforeinstallprompt event captured at app startup');
+  (window as any).__pwaPromptEvent = e;
+});
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />

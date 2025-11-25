@@ -9,6 +9,7 @@ import { RootRedirect } from "./components/RootRedirect";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeProvider } from "./components/theme-provider";
 import { PWAInstallBanner } from "./components/PWAInstallBanner";
+import { HTTPSWarning } from "./components/pwa/HTTPSWarning";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { createQueryClient } from "./lib/queryClient";
@@ -20,6 +21,7 @@ import Auth from "./pages/Auth";
 import SetPassword from "./pages/SetPassword";
 import SetupPassword from "./pages/SetupPassword";
 import ChangePassword from "./pages/ChangePassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import Unauthorized from "./pages/Unauthorized";
 
@@ -62,6 +64,7 @@ const App = () => (
   <ErrorBoundary>
     <ThemeProvider defaultTheme="system" storageKey="ot-scribe-theme">
       <QueryClientProvider client={queryClient}>
+        <HTTPSWarning />
         <BrowserRouter>
           <AuthProvider>
             <ActiveRoleProvider>
@@ -74,6 +77,7 @@ const App = () => (
                 <Route path="/set-password" element={<SetPassword />} />
                 <Route path="/setup-password" element={<SetupPassword />} />
                 <Route path="/change-password" element={<ChangePassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/unauthorized" element={<Unauthorized />} />
                 
                 {/* Role-specific dashboards */}

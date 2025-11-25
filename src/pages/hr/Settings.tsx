@@ -5,7 +5,6 @@ import { EligibilityRulesTab } from '@/components/hr/settings/EligibilityRulesTa
 import { ThresholdsTab } from '@/components/hr/settings/ThresholdsTab';
 import { FormulasTab } from '@/components/hr/settings/FormulasTab';
 import { CompanyProfileTab } from '@/components/hr/settings/CompanyProfileTab';
-import { HolidayConfigTab } from '@/components/hr/settings/HolidayConfigTab';
 
 export default function Settings() {
   return (
@@ -18,11 +17,10 @@ export default function Settings() {
 
         <Card className="p-6">
           <Tabs defaultValue="eligibility" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="eligibility">Eligibility</TabsTrigger>
               <TabsTrigger value="thresholds">Thresholds</TabsTrigger>
               <TabsTrigger value="formulas">Formulas</TabsTrigger>
-              <TabsTrigger value="holidays">Holidays</TabsTrigger>
               <TabsTrigger value="company">Company</TabsTrigger>
             </TabsList>
 
@@ -36,10 +34,6 @@ export default function Settings() {
 
             <TabsContent value="formulas" className="mt-6">
               <FormulasTab />
-            </TabsContent>
-
-            <TabsContent value="holidays" className="mt-6">
-              <HolidayConfigTab />
             </TabsContent>
 
             <TabsContent value="company" className="mt-6">

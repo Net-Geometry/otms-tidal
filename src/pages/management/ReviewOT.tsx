@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,7 +21,7 @@ import { supabase } from '@/integrations/supabase/client';
 export default function ReviewOT() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
-  
+
   // Filter state
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
@@ -58,10 +59,10 @@ export default function ReviewOT() {
   const filteredData = aggregatedData.filter(item => {
     // Company filter
     const matchesCompany = selectedCompany === 'all' || item.company_id === selectedCompany;
-    
+
     // Search filter
     if (!searchQuery) return matchesCompany;
-    
+
     const query = searchQuery.toLowerCase();
     const matchesSearch = (
       item.employee_no.toLowerCase().includes(query) ||
@@ -71,18 +72,18 @@ export default function ReviewOT() {
       item.company_name.toLowerCase().includes(query) ||
       item.company_code.toLowerCase().includes(query)
     );
-    
+
     return matchesCompany && matchesSearch;
   });
 
   const companyGroups = useMemo(() => groupByCompany(filteredData), [filteredData]);
-  
+
   const filteredStats = useMemo(() => {
     const uniqueCompanies = new Set(filteredData.map(item => item.company_id)).size;
     const totalEmployees = filteredData.length;
     const totalHours = filteredData.reduce((sum, item) => sum + item.total_ot_hours, 0);
     const totalCost = filteredData.reduce((sum, item) => sum + item.amount, 0);
-    
+
     return {
       totalCompanies: uniqueCompanies,
       totalEmployees,
@@ -122,8 +123,8 @@ export default function ReviewOT() {
 
     const monthStr = format(filterDate, 'MMM_yyyy');
     exportToCSV(
-      formattedData, 
-      `Management_OT_Report_${monthStr}`, 
+      formattedData,
+      `Management_OT_Report_${monthStr}`,
       headers,
       {
         reportName: 'Management Overtime Report',
@@ -131,7 +132,7 @@ export default function ReviewOT() {
         generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm')
       }
     );
-    
+
     toast({
       title: 'Report exported',
       description: 'Excel file has been downloaded successfully.'
@@ -215,11 +216,10 @@ export default function ReviewOT() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Management Report</h1>
-          <p className="text-muted-foreground">Filter and export monthly overtime summaries by department and employee.</p>
-        </div>
+      <PageLayout
+        title="Management Report"
+        description="Filter and export monthly overtime summaries by department and employee."
+      >
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <EnhancedDashboardCard
@@ -256,7 +256,7 @@ export default function ReviewOT() {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <h2 className="text-lg font-semibold">Monthly OT Summary Report</h2>
-              
+
               <div className="flex flex-wrap items-center gap-3">
                 <Select value={selectedMonth} onValueChange={setSelectedMonth}>
                   <SelectTrigger className="w-[140px] border-input bg-background focus:border-ring focus:ring-ring">
@@ -353,12 +353,12 @@ export default function ReviewOT() {
 
 
             <div className="space-y-4">
-              <ManagementReportTable 
+              <ManagementReportTable
                 data={filteredData}
                 isLoading={isLoading}
                 selectedMonth={filterDate}
               />
-              
+
               {filteredData.length === 0 && !isLoading && (
                 <div className="text-center py-12 text-muted-foreground">
                   No overtime data found for the selected filters.
@@ -367,7 +367,7 @@ export default function ReviewOT() {
             </div>
           </div>
         </Card>
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

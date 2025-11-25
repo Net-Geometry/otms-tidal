@@ -42,8 +42,8 @@ export const PWAInstallSection = () => {
    * Allows user to see the install banner again
    */
   const handleResetBannerDismissal = () => {
-    localStorage.removeItem('pwa-banner-dismissed');
-    localStorage.removeItem('pwa-banner-dismissed-date');
+    localStorage.removeItem('pwa-install-banner-dismissed');
+    localStorage.removeItem('pwa-install-banner-dismissed-date');
     toast.success('Install banner will appear again on page refresh');
   };
 
@@ -54,7 +54,7 @@ export const PWAInstallSection = () => {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   // Check if user has dismissed the banner
-  const isBannerDismissed = localStorage.getItem('pwa-banner-dismissed') === 'true';
+  const isBannerDismissed = localStorage.getItem('pwa-install-banner-dismissed') === 'true';
 
   return (
     <Card>

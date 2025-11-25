@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { OTApprovalTable } from '@/components/approvals/OTApprovalTable';
@@ -33,11 +34,11 @@ export default function ApproveOT() {
   const [recertifyAction, setRecertifyAction] = useState<'recertify' | 'decline' | null>(null);
   const [recertifyRemarks, setRecertifyRemarks] = useState('');
   const [recertifyDialogOpen, setRecertifyDialogOpen] = useState(false);
-  
-  const { 
-    requests, 
-    isLoading, 
-    approveRequest: approveRequestMutation, 
+
+  const {
+    requests,
+    isLoading,
+    approveRequest: approveRequestMutation,
     rejectRequest: rejectRequestMutation,
     isApproving,
     isRejecting
@@ -66,7 +67,7 @@ export default function ApproveOT() {
           .select('status')
           .eq('id', requestId)
           .maybeSingle();
-        
+
         if (data) {
           const statusToTab: Record<string, string> = {
             'supervisor_verified': 'supervisor_verified',
@@ -74,12 +75,12 @@ export default function ApproveOT() {
             'rejected': 'rejected',
             'pending_hr_recertification': 'pending_hr_recertification',
           };
-          
+
           const tab = statusToTab[data.status] || 'all';
           setActiveTab(tab);
         }
       };
-      
+
       fetchRequestStatus();
     }
   }, [searchParams]);
@@ -127,11 +128,10 @@ export default function ApproveOT() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Certify OT Requests</h1>
-          <p className="text-muted-foreground">Certify overtime requests that have been verified by supervisors</p>
-        </div>
+      <PageLayout
+        title="Certify OT Requests"
+        description="Certify overtime requests that have been verified by supervisors"
+      >
 
         <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="supervisor_verified">
           <TabsList>
@@ -187,7 +187,7 @@ export default function ApproveOT() {
                           const department = profile?.departments;
                           const sessions = request.ot_sessions || [];
                           return (
-                            <TableRow 
+                            <TableRow
                               key={request.id}
                               className="hover:bg-muted/50 transition-colors cursor-pointer"
                               onClick={() => setRecertifyDetailsRequest(request)}
@@ -198,17 +198,17 @@ export default function ApproveOT() {
                               </TableCell>
                               <TableCell className="text-muted-foreground">{profile?.employee_id}</TableCell>
                               <TableCell>{format(new Date(request.ot_date), 'dd MMM yyyy')}</TableCell>
-                <TableCell>
-                  <div className="text-sm">
-                    {request.start_time && request.end_time ? (
-                      <span>
-                        {format(new Date(`2000-01-01T${request.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${request.end_time}`), 'h:mm a')} ({request.total_hours}h)
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">{request.total_hours}h total</span>
-                    )}
-                  </div>
-                </TableCell>
+                              <TableCell>
+                                <div className="text-sm">
+                                  {request.start_time && request.end_time ? (
+                                    <span>
+                                      {format(new Date(`2000-01-01T${request.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${request.end_time}`), 'h:mm a')} ({request.total_hours}h)
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">{request.total_hours}h total</span>
+                                  )}
+                                </div>
+                              </TableCell>
                               <TableCell className="font-medium">{request.total_hours}h</TableCell>
                               <TableCell>
                                 <div className="text-sm max-w-xs">
@@ -260,8 +260,8 @@ export default function ApproveOT() {
                     />
                   </div>
 
-                  <OTApprovalTable 
-                    requests={filteredRequests} 
+                  <OTApprovalTable
+                    requests={filteredRequests}
                     isLoading={isLoading}
                     role="hr"
                     approveRequest={handleApprove}
@@ -284,7 +284,7 @@ export default function ApproveOT() {
                 {recertifyAction === 'recertify' ? 'Recertify OT Request' : 'Decline OT Request'}
               </DialogTitle>
               <DialogDescription>
-                {recertifyAction === 'recertify' 
+                {recertifyAction === 'recertify'
                   ? 'You are recertifying this request to send it back to Management for review. Please provide your justification.'
                   : 'You are declining this request to send it back to the employee for corrections. Please explain what needs to be fixed.'}
               </DialogDescription>
@@ -303,7 +303,7 @@ export default function ApproveOT() {
                   <Label htmlFor="recertify-remarks">Your Remarks *</Label>
                   <Textarea
                     id="recertify-remarks"
-                    placeholder={recertifyAction === 'recertify' 
+                    placeholder={recertifyAction === 'recertify'
                       ? 'Explain why this should be recertified...'
                       : 'Explain what the employee needs to correct...'}
                     value={recertifyRemarks}
@@ -345,7 +345,7 @@ export default function ApproveOT() {
           isRecertifying={recertifyActions.recertify.isPending}
           isDeclining={recertifyActions.decline.isPending}
         />
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

@@ -6,6 +6,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +33,7 @@ import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useResetEmployeePassword } from '@/hooks/hr/useResetEmployeePassword';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/otCalculations';
-import { KeyRound, AlertTriangle } from 'lucide-react';
+import { KeyRound, AlertTriangle, Copy, Check } from 'lucide-react';
 import { RoleSelector } from '@/components/RoleSelector';
 import { CalendarAssignmentSelector } from '@/components/hr/CalendarAssignmentSelector';
 import { StateSelector } from '@/components/hr/StateSelector';
@@ -50,6 +57,9 @@ export function EmployeeDetailsSheet({
   const [mode, setMode] = useState<'view' | 'edit'>(initialMode);
   const [formData, setFormData] = useState<Partial<Profile>>({});
   const [selectedRoles, setSelectedRoles] = useState<AppRole[]>([]);
+  const [showResetCodeDialog, setShowResetCodeDialog] = useState(false);
+  const [resetCodeData, setResetCodeData] = useState<{ code: string; expiresAt: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const { hasRole } = useAuth();
   const updateEmployee = useUpdateEmployee();
@@ -58,7 +68,7 @@ export function EmployeeDetailsSheet({
   const { data: departments } = useDepartments();
   const { data: employees = [] } = useEmployees();
   const { data: positions = [], isLoading: isLoadingPositions } = usePositions(formData.department_id || undefined);
-  
+
   const isAdmin = hasRole('admin');
 
   useEffect(() => {
@@ -104,10 +114,28 @@ export function EmployeeDetailsSheet({
   };
 
   const handleResetPassword = () => {
-    resetPassword.mutate({
-      employeeId: employee.id,
-      email: employee.email,
-    });
+    resetPassword.mutate(
+      {
+        employeeId: employee.id,
+      },
+      {
+        onSuccess: (data) => {
+          setResetCodeData({
+            code: data.resetCode,
+            expiresAt: data.expiresAt,
+          });
+          setShowResetCodeDialog(true);
+        },
+      }
+    );
+  };
+
+  const handleCopyCode = () => {
+    if (resetCodeData?.code) {
+      navigator.clipboard.writeText(resetCodeData.code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   const isEditing = mode === 'edit';
@@ -580,6 +608,73 @@ export function EmployeeDetailsSheet({
           </div>
         </div>
       </SheetContent>
+
+      {/* Reset Code Dialog */}
+      <Dialog open={showResetCodeDialog} onOpenChange={setShowResetCodeDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Password Reset Code</DialogTitle>
+            <DialogDescription>
+              Share this code with {employee?.full_name} so they can reset their password.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Reset Code Display */}
+            <div className="bg-muted p-4 rounded-lg">
+              <div className="text-sm text-muted-foreground mb-2">Reset Code</div>
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-2xl font-mono font-bold tracking-widest">
+                  {resetCodeData?.code}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopyCode}
+                  className="gap-2"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Expiration Info */}
+            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3 rounded-lg">
+              <div className="text-sm text-amber-800 dark:text-amber-200">
+                <strong>Expires:</strong> {resetCodeData?.expiresAt ? new Date(resetCodeData.expiresAt).toLocaleString() : 'Unknown'}
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                The employee will need to:
+              </p>
+              <ol className="text-sm list-decimal list-inside space-y-1 text-muted-foreground">
+                <li>Navigate to the password reset page</li>
+                <li>Enter the reset code above</li>
+                <li>Set a new password</li>
+              </ol>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowResetCodeDialog(false)}>
+              Done
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }

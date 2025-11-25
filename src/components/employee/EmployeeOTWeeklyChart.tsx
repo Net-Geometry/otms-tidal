@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile, useIsTablet, useDeviceType } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MobileStatsList } from '@/components/ui/mobile-stats-list';
 
 interface WeeklyData {
   week: string;
@@ -56,7 +57,7 @@ export function EmployeeOTWeeklyChart() {
       const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
       const daysSinceFirst = Math.floor((date.getTime() - firstDay.getTime()) / (1000 * 60 * 60 * 24));
       const weekNum = Math.floor(daysSinceFirst / 7) + 1;
-      
+
       weeklyMap.set(weekNum, (weeklyMap.get(weekNum) || 0) + (req.total_hours || 0));
     });
 
@@ -89,24 +90,17 @@ export function EmployeeOTWeeklyChart() {
   // Mobile card view for simple data
   if (isMobile) {
     return (
-      <Card className="shadow-md rounded-xl">
-        <CardHeader>
-          <CardTitle className="text-lg">Weekly OT Hours</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3">
-            {data.map((item, index) => (
-              <div key={index} className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="text-sm text-muted-foreground">{item.week}</div>
-                <div className="text-lg font-bold text-primary">{item.hours}h</div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t">
-            <div className="text-sm text-muted-foreground">Total: <span className="font-semibold text-foreground">{data.reduce((sum, item) => sum + item.hours, 0).toFixed(1)}h</span></div>
-          </div>
-        </CardContent>
-      </Card>
+      <MobileStatsList
+        title="Weekly OT Hours"
+        items={data.map((item, index) => ({
+          id: index,
+          label: item.week,
+          value: `${item.hours}h`
+        }))}
+        totalLabel="Total"
+        totalValue={`${data.reduce((sum, item) => sum + item.hours, 0).toFixed(1)}h`}
+        columns={2}
+      />
     );
   }
 
@@ -121,16 +115,16 @@ export function EmployeeOTWeeklyChart() {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis 
-                dataKey="week" 
+              <XAxis
+                dataKey="week"
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
               />
-              <YAxis 
+              <YAxis
                 className="text-xs"
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
               />
-              <Tooltip 
+              <Tooltip
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
@@ -138,9 +132,9 @@ export function EmployeeOTWeeklyChart() {
                   fontSize: '12px'
                 }}
               />
-              <Bar 
-                dataKey="hours" 
-                fill="hsl(var(--primary))" 
+              <Bar
+                dataKey="hours"
+                fill="hsl(var(--primary))"
                 radius={[2, 2, 0, 0]}
                 name="Hours"
               />
@@ -166,17 +160,17 @@ export function EmployeeOTWeeklyChart() {
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={data}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis 
-              dataKey="week" 
+            <XAxis
+              dataKey="week"
               className="text-xs"
               tick={{ fill: 'hsl(var(--muted-foreground))' }}
             />
-            <YAxis 
+            <YAxis
               className="text-xs"
               tick={{ fill: 'hsl(var(--muted-foreground))' }}
             />
-            <Tooltip 
-              contentStyle={{ 
+            <Tooltip
+              contentStyle={{
                 backgroundColor: 'hsl(var(--card))',
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '8px'

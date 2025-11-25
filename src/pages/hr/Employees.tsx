@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 export default function Employees() {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('active');
+  const [statusFilter, setStatusFilter] = useState('all');
   const { data: employees, isLoading } = useEmployees();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -70,7 +71,7 @@ export default function Employees() {
     }));
 
     exportToCSV(exportData, `employees-${new Date().toISOString().split('T')[0]}`, headers);
-    
+
     toast({
       title: 'Success',
       description: 'Employee list exported successfully',
@@ -79,12 +80,10 @@ export default function Employees() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold">Employee Management</h1>
-            <p className="text-muted-foreground">Manage employee accounts and access</p>
-          </div>
+      <PageLayout
+        title="Employee Management"
+        description="Manage employee accounts and access"
+        actions={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RotateCw className="h-4 w-4 mr-2" />
@@ -99,7 +98,8 @@ export default function Employees() {
               Add Employee
             </Button>
           </div>
-        </div>
+        }
+      >
 
         <EmployeeStats employees={employees || []} />
 
@@ -114,32 +114,32 @@ export default function Employees() {
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="All Status" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="pending_password">Pending Password</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <Card className="p-6">
-          <EmployeeTable 
-            employees={employees || []} 
+          <EmployeeTable
+            employees={employees || []}
             isLoading={isLoading}
             searchQuery={searchQuery}
             statusFilter={statusFilter}
           />
         </Card>
 
-        <InviteEmployeeDialog 
-          open={inviteDialogOpen} 
+        <InviteEmployeeDialog
+          open={inviteDialogOpen}
           onOpenChange={setInviteDialogOpen}
         />
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

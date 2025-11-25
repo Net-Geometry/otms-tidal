@@ -72,26 +72,27 @@ export function EligibilityRuleDialog({ open, onOpenChange, rule }: EligibilityR
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{rule ? 'Edit' : 'Add'} Eligibility Rule</DialogTitle>
+          <DialogTitle className="text-lg sm:text-xl">{rule ? 'Edit' : 'Add'} Eligibility Rule</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="rule_name">Rule Name</Label>
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+          <div className="space-y-2 sm:space-y-2">
+            <Label htmlFor="rule_name" className="text-xs sm:text-sm">Rule Name</Label>
             <Input
               id="rule_name"
               value={formData.rule_name}
               onChange={(e) => setFormData({ ...formData, rule_name: e.target.value })}
               placeholder="e.g., Standard Employee Eligibility"
+              className="h-10 sm:h-9 text-base sm:text-sm"
               required
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="min_salary">Minimum Salary (RM)</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div className="space-y-2 sm:space-y-2">
+              <Label htmlFor="min_salary" className="text-xs sm:text-sm">Minimum Salary (RM)</Label>
               <Input
                 id="min_salary"
                 type="number"
@@ -99,12 +100,13 @@ export function EligibilityRuleDialog({ open, onOpenChange, rule }: EligibilityR
                 value={formData.min_salary}
                 onChange={(e) => setFormData({ ...formData, min_salary: parseFloat(e.target.value) })}
                 placeholder="0.00"
+                className="h-10 sm:h-9 text-base sm:text-sm"
                 required
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="max_salary">Maximum Salary (RM)</Label>
+            <div className="space-y-2 sm:space-y-2">
+              <Label htmlFor="max_salary" className="text-xs sm:text-sm">Maximum Salary (RM)</Label>
               <Input
                 id="max_salary"
                 type="number"
@@ -112,15 +114,16 @@ export function EligibilityRuleDialog({ open, onOpenChange, rule }: EligibilityR
                 value={formData.max_salary}
                 onChange={(e) => setFormData({ ...formData, max_salary: parseFloat(e.target.value) })}
                 placeholder="0.00"
+                className="h-10 sm:h-9 text-base sm:text-sm"
                 required
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-0 rounded-lg border p-3 sm:p-4">
             <div className="space-y-0.5">
-              <Label htmlFor="is_active">Active</Label>
-              <p className="text-sm text-muted-foreground">
+              <Label htmlFor="is_active" className="text-xs sm:text-sm font-medium">Active</Label>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Enable this rule immediately
               </p>
             </div>
@@ -131,11 +134,21 @@ export function EligibilityRuleDialog({ open, onOpenChange, rule }: EligibilityR
             />
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+              className="w-full sm:w-auto h-10 sm:h-9 text-base sm:text-sm"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full sm:w-auto h-10 sm:h-9 text-base sm:text-sm"
+            >
               {isLoading ? 'Saving...' : rule ? 'Update' : 'Create'}
             </Button>
           </DialogFooter>

@@ -1,4 +1,5 @@
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PWAInstallSection } from '@/components/pwa/PWAInstallSection';
@@ -22,11 +23,10 @@ import { HRSettingsSection } from '@/components/settings/HRSettingsSection';
 export default function Settings() {
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Manage your app preferences and settings</p>
-        </div>
+      <PageLayout
+        title="Settings"
+        description="Manage your app preferences and settings"
+      >
 
         <Card className="p-6">
           <div className="space-y-4">
@@ -55,7 +55,7 @@ export default function Settings() {
         <NotificationSettings />
 
         {/* Future settings sections can be added here */}
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }

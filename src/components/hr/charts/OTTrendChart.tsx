@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } fro
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile, useIsTablet, useDeviceType } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MobileStatsList } from '@/components/ui/mobile-stats-list';
 import { TrendingUp, Calendar } from 'lucide-react';
 
 interface MonthData {
@@ -27,7 +28,7 @@ export function OTTrendChart() {
     try {
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      
+
       const { data: otData, error } = await supabase
         .from('ot_requests')
         .select('ot_date, total_hours')
@@ -97,52 +98,44 @@ export function OTTrendChart() {
   // Calculate metrics for mobile and tablet views
   const totalHours = data.reduce((sum, item) => sum + item.hours, 0);
   const avgHours = totalHours / data.length;
-  const trend = data.length > 1 ? 
+  const trend = data.length > 1 ?
     ((data[data.length - 1].hours - data[0].hours) / data[0].hours * 100) : 0;
 
   // Mobile card view for trend data
   if (isMobile) {
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Monthly OT Trend</CardTitle>
-          <CardDescription>Last 6 months overview</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="text-2xl font-bold text-info">{totalHours.toFixed(1)}h</div>
-                <div className="text-xs text-muted-foreground">Total Hours</div>
-              </div>
-              <div className="text-center p-3 bg-muted/30 rounded-lg">
-                <div className="text-2xl font-bold text-primary">{avgHours.toFixed(1)}h</div>
-                <div className="text-xs text-muted-foreground">Avg/Month</div>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              {data.slice(-3).map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-2 bg-muted/20 rounded">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-sm">{item.month}</span>
-                  </div>
-                  <span className="font-medium">{item.hours}h</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-center gap-2 pt-2 border-t">
-              <TrendingUp className={`h-4 w-4 ${trend >= 0 ? 'text-success' : 'text-destructive'}`} />
-              <span className={`text-sm font-medium ${trend >= 0 ? 'text-success' : 'text-destructive'}`}>
-                {trend >= 0 ? '+' : ''}{trend.toFixed(1)}% vs start
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <MobileStatsList
+        title="Monthly OT Trend"
+        description="Last 6 months overview"
+        items={[
+          {
+            id: 'total',
+            label: 'Total Hours',
+            value: `${totalHours.toFixed(1)}h`,
+            icon: <TrendingUp className="h-4 w-4" />,
+            color: 'hsl(var(--info))'
+          },
+          {
+            id: 'avg',
+            label: 'Avg/Month',
+            value: `${avgHours.toFixed(1)}h`,
+            icon: <Calendar className="h-4 w-4" />,
+            color: 'hsl(var(--primary))'
+          },
+          ...data.slice(-3).map((item, index) => ({
+            id: index,
+            label: item.month,
+            value: `${item.hours}h`
+          }))
+        ]}
+        trend={{
+          value: trend,
+          label: 'vs start',
+          positiveIsGood: false
+        }}
+        columns={2}
+      />
     );
   }
 
@@ -159,20 +152,20 @@ export function OTTrendChart() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="month" 
+                <XAxis
+                  dataKey="month"
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={11}
                 />
-                <YAxis 
+                <YAxis
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={11}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Line 
-                  type="monotone" 
-                  dataKey="hours" 
-                  stroke="hsl(var(--primary))" 
+                <Line
+                  type="monotone"
+                  dataKey="hours"
+                  stroke="hsl(var(--primary))"
                   strokeWidth={2.5}
                   dot={{ fill: "hsl(var(--primary))", strokeWidth: 2, r: 3 }}
                   activeDot={{ r: 4, fill: "hsl(var(--primary))" }}
@@ -207,19 +200,19 @@ export function OTTrendChart() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="month" 
+              <XAxis
+                dataKey="month"
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
               />
-              <YAxis 
+              <YAxis
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={12}
               />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Line 
-                type="monotone" 
-                dataKey="hours" 
+              <Line
+                type="monotone"
+                dataKey="hours"
                 stroke="hsl(var(--info))"
                 strokeWidth={2}
                 dot={{ fill: "hsl(var(--info))", r: 4 }}

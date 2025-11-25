@@ -2,6 +2,17 @@ import { useState, useRef, useEffect } from 'react';
 import { Clock } from 'lucide-react';
 import './TimePickerInput.css';
 
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  return isMobile;
+};
+
 interface TimePickerInputProps {
   value: string;
   onChange: (value: string) => void;
@@ -18,6 +29,7 @@ export function TimePickerInput({ value, onChange }: TimePickerInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   // Parse initial value
   useEffect(() => {
@@ -55,16 +67,25 @@ export function TimePickerInput({ value, onChange }: TimePickerInputProps) {
     }
   };
 
-  // Position dropdown below input
+  // Position dropdown below input (or centered on mobile)
   useEffect(() => {
     if (isOpen && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setDropdownPos({
-        top: rect.bottom + 8,
-        left: rect.left,
-      });
+      if (isMobile) {
+        // Center the dropdown on mobile
+        setDropdownPos({
+          top: 0,
+          left: 0,
+        });
+      } else {
+        // Position below input on desktop
+        const rect = containerRef.current.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + 8,
+          left: rect.left,
+        });
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, isMobile]);
 
   useEffect(() => {
     if (isOpen) {

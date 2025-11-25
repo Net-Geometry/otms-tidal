@@ -38,16 +38,16 @@ export function ResubmitOTForm({ request, onSuccess }: ResubmitOTFormProps) {
   const rejectionReason = request.supervisor_remarks || request.hr_remarks || request.management_remarks;
   
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {rejectionReason && (
-        <Alert variant="destructive">
-          <AlertDescription>
+        <Alert variant="destructive" className="border-l-4">
+          <AlertDescription className="text-sm sm:text-base">
             <strong>Previous Rejection Reason:</strong>
-            <p className="mt-2">{rejectionReason}</p>
+            <p className="mt-2 text-xs sm:text-sm">{rejectionReason}</p>
           </AlertDescription>
         </Alert>
       )}
-      
+
       <OTForm
         onSubmit={handleResubmit}
         isSubmitting={isPending}

@@ -133,7 +133,14 @@ export default function Auth() {
           </Alert>
 
           <p className="text-xs text-muted-foreground mt-6 text-center">
-            Forgot password? Contact HR for assistance.
+            Forgot password? Contact your HR department for a reset code, then use it{' '}
+            <Button
+              variant="link"
+              className="p-0 h-auto"
+              onClick={() => navigate('/reset-password')}
+            >
+              here
+            </Button>
           </p>
         </CardContent>
       </Card>

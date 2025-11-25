@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AppLayout } from '@/components/AppLayout';
+import { PageLayout } from '@/components/ui/page-layout';
 import { ContentLoadingSkeleton } from '@/components/ContentLoadingSkeleton';
 import { OTForm } from '@/components/ot/OTForm';
 import { useOTSubmit } from '@/hooks/useOTSubmit';
@@ -22,7 +23,7 @@ export default function SubmitOT() {
         .select('employee_id, full_name')
         .eq('id', user.id)
         .single();
-      
+
       if (error) throw error;
       return data;
     },
@@ -51,17 +52,13 @@ export default function SubmitOT() {
 
   return (
     <AppLayout>
-      <div className="min-h-[calc(100vh-120px)] bg-gradient-to-br from-background via-background to-muted/30 dark:via-background dark:to-muted/10 py-6 px-4">
+      <PageLayout
+        title="Submit Overtime Request"
+        description="Fill in the details below to submit your overtime request. All fields are required."
+        onBack={() => navigate('/dashboard')}
+      >
         <div className="max-w-3xl mx-auto space-y-6">
           <Card className="bg-card border border-border rounded-xl shadow-lg dark:shadow-md transition-shadow duration-300">
-            <CardHeader className="px-6 pt-6 pb-4 border-b border-border/50">
-              <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
-                Submit Overtime Request
-              </CardTitle>
-              <CardDescription className="text-sm text-muted-foreground mt-2">
-                Fill in the details below to submit your overtime request. All fields are required.
-              </CardDescription>
-            </CardHeader>
             <CardContent className="px-6 py-6">
               <OTForm
                 onSubmit={handleSubmit}
@@ -81,7 +78,7 @@ export default function SubmitOT() {
             </p>
           </div>
         </div>
-      </div>
+      </PageLayout>
     </AppLayout>
   );
 }
