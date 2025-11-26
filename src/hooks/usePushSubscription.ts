@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getFirebaseMessaging, isFirebaseConfigured } from '@/config/firebase';
-import { getToken } from 'firebase/messaging';
+import { getToken, deleteToken } from 'firebase/messaging';
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
 
@@ -182,6 +182,18 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
         throw new Error('Authentication required to unsubscribe');
+      }
+
+      // Delete token from Firebase
+      const messaging = getFirebaseMessaging();
+      if (messaging) {
+        try {
+          await deleteToken(messaging);
+          console.log('FCM token deleted from Firebase');
+        } catch (firebaseErr) {
+          console.warn('Could not delete token from Firebase:', firebaseErr);
+          // Continue with backend deletion even if Firebase deletion fails
+        }
       }
 
       // Remove subscription from backend
