@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
 
       // Upsert FCM subscription
       const { data, error } = await supabase
-        .from('push_subscriptions_fcm')
+        .from('push_subscriptions')
         .upsert({
           user_id: user.id,
           fcm_token,
@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       }
 
       const { error } = await supabase
-        .from('push_subscriptions_fcm')
+        .from('push_subscriptions')
         .delete()
         .eq('user_id', user.id)
         .eq('fcm_token', requestData.fcm_token)

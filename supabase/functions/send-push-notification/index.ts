@@ -1,471 +1,562 @@
-// @ts-nocheck
-/**
- * Send Push Notification Edge Function (FCM)
- *
- * Backend service for sending push notifications to subscribed users via Firebase Cloud Messaging.
- * Handles multi-device support, subscription cleanup, and FCM authentication.
- *
- * @endpoint POST /functions/v1/send-push-notification
- * @payload {NotificationPayload} user_id, title, body, icon, data
- * @returns {PushResult} success/failed/expired counts
- */
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.77.0';
+import {
+  FCMNotificationPayload,
+  FCMSendResult,
+  PushSubscription,
+  NotificationPreferences,
+  UserProfile,
+  FCMMessage,
+  FCMApiResponse,
+  SendResult,
+  ValidationError,
+  FirebaseServiceAccount,
+  GoogleAccessTokenResponse,
+  NotificationType,
+} from './types.ts';
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.77.0'
-import { initializeApp, cert } from 'npm:firebase-admin@12.0.0/app'
-import { getMessaging } from 'npm:firebase-admin@12.0.0/messaging'
-import type {
-  NotificationPayload,
-  PushResult,
-  FCMSubscriptionRecord,
-  ErrorResponse,
-  NotificationPreferences
-} from './types.ts'
+// Environment variables
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON')!;
 
-// CORS headers for internal API calls
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-requested-with',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
-  'Access-Control-Max-Age': '86400',
-}
-
-// Firebase Admin SDK singleton
-let firebaseApp: any = null
-
-function initializeFirebase() {
-  if (firebaseApp) return firebaseApp
-
-  const projectId = Deno.env.get('FIREBASE_PROJECT_ID')
-  const privateKey = Deno.env.get('FIREBASE_PRIVATE_KEY')
-  const clientEmail = Deno.env.get('FIREBASE_CLIENT_EMAIL')
-  const storageBucket = Deno.env.get('FIREBASE_STORAGE_BUCKET')
-
-  if (!projectId || !privateKey || !clientEmail) {
-    throw new Error('Firebase credentials not configured in environment variables')
-  }
-
-  const serviceAccount = {
-    type: 'service_account',
-    project_id: projectId,
-    private_key_id: 'key-id',
-    private_key: privateKey,
-    client_email: clientEmail,
-    client_id: 'client-id',
-    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-    token_uri: 'https://oauth2.googleapis.com/token',
-    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
-    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${clientEmail}`
-  }
-
-  firebaseApp = initializeApp({
-    credential: cert(serviceAccount as any),
-    projectId
-  })
-
-  return firebaseApp
-}
-
-Deno.serve(async (req) => {
-  console.log(`[Request] ${req.method} ${req.url}`)
-
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    console.log('[CORS] Handling preflight request')
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders
-    })
-  }
-
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    const errorResponse: ErrorResponse = {
-      success: false,
-      error: 'Method not allowed. Use POST request.'
-    }
-    return new Response(
-      JSON.stringify(errorResponse),
-      {
-        status: 405,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
-  }
-
-  const startTime = performance.now()
-
-  try {
-    // Parse and validate request payload
-    const payload: NotificationPayload = await req.json()
-
-    // Validate required fields
-    if (!payload.user_id || !payload.title || !payload.body) {
-      const errorResponse: ErrorResponse = {
-        success: false,
-        error: 'Missing required fields: user_id, title, body'
-      }
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Validate user_id format (UUID)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    if (!uuidRegex.test(payload.user_id)) {
-      const errorResponse: ErrorResponse = {
-        success: false,
-        error: 'Invalid user_id format. Expected UUID.'
-      }
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Sanitize and validate payload size
-    const sanitizedPayload = sanitizePayload(payload)
-    const payloadSize = JSON.stringify(sanitizedPayload).length
-    if (payloadSize > 4096) { // 4KB limit
-      const errorResponse: ErrorResponse = {
-        success: false,
-        error: 'Payload too large. Maximum 4KB allowed.'
-      }
-      return new Response(
-        JSON.stringify(errorResponse),
-        {
-          status: 413,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Send push notification
-    const result = await sendPushNotification(sanitizedPayload)
-
-    const executionTime = performance.now() - startTime
-    console.log(`[Push] Notification sent in ${executionTime.toFixed(2)}ms:`, result)
-
-    return new Response(
-      JSON.stringify(result),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
-
-  } catch (error) {
-    const executionTime = performance.now() - startTime
-    console.error(`[Push] Error after ${executionTime.toFixed(2)}ms:`, error)
-
-    const errorResponse: ErrorResponse = {
-      success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }
-
-    return new Response(
-      JSON.stringify(errorResponse),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
-  }
-})
+// Cache for Firebase access token (expires in 1 hour)
+let cachedAccessToken: { token: string; expiresAt: number } | null = null;
 
 /**
- * Sanitizes notification payload to prevent XSS and injection attacks
+ * Validate the incoming notification payload
  */
-function sanitizePayload(payload: NotificationPayload): NotificationPayload {
-  return {
-    user_id: payload.user_id,
-    title: payload.title.substring(0, 100), // Limit title length
-    body: payload.body.substring(0, 300), // Limit body length
-    icon: payload.icon?.substring(0, 500),
-    badge: payload.badge?.substring(0, 500),
-    data: payload.data ? {
-      ...payload.data,
-      targetUrl: payload.data.targetUrl?.substring(0, 500) || '/'
-    } : undefined,
-    notification_type: payload.notification_type
-  }
-}
-
-/**
- * Sends push notification to all active subscriptions for a user via FCM
- */
-async function sendPushNotification(payload: NotificationPayload): Promise<PushResult> {
-  // Initialize Firebase Admin SDK
-  const app = initializeFirebase()
-  const messaging = getMessaging(app)
-
-  console.log('[Push] Firebase initialized for project')
-
-  // Create Supabase client with service role (bypasses RLS)
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Supabase configuration not found in environment variables')
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-  // Check user notification preferences before sending
-  const shouldSend = await shouldSendNotification(supabase, payload.user_id, payload.notification_type)
-
-  if (!shouldSend) {
-    console.log(`[Push] Notification blocked by user preferences for user: ${payload.user_id}, type: ${payload.notification_type}`)
+function validatePayload(payload: unknown): {
+  valid: boolean;
+  payload?: FCMNotificationPayload;
+  errors?: ValidationError[];
+} {
+  if (!payload || typeof payload !== 'object') {
     return {
-      success: 0,
-      failed: 0,
-      expired: 0,
-      message: 'Notification blocked by user preferences'
+      valid: false,
+      errors: [{ field: 'payload', reason: 'Payload must be a JSON object' }],
+    };
+  }
+
+  const p = payload as Record<string, unknown>;
+  const errors: ValidationError[] = [];
+
+  // Validate user_id (UUID format)
+  if (!p.user_id || typeof p.user_id !== 'string') {
+    errors.push({ field: 'user_id', reason: 'user_id is required and must be a string' });
+  } else if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(p.user_id as string)) {
+    errors.push({ field: 'user_id', reason: 'user_id must be a valid UUID' });
+  }
+
+  // Validate title
+  if (!p.title || typeof p.title !== 'string') {
+    errors.push({ field: 'title', reason: 'title is required and must be a string' });
+  } else if ((p.title as string).length > 256) {
+    errors.push({ field: 'title', reason: 'title must be 256 characters or less' });
+  } else if ((p.title as string).length === 0) {
+    errors.push({ field: 'title', reason: 'title cannot be empty' });
+  }
+
+  // Validate body
+  if (!p.body || typeof p.body !== 'string') {
+    errors.push({ field: 'body', reason: 'body is required and must be a string' });
+  } else if ((p.body as string).length > 4096) {
+    errors.push({ field: 'body', reason: 'body must be 4096 characters or less' });
+  } else if ((p.body as string).length === 0) {
+    errors.push({ field: 'body', reason: 'body cannot be empty' });
+  }
+
+  // Optional: validate notification_type if provided
+  if (p.notification_type) {
+    const validTypes: NotificationType[] = [
+      'ot_requests_new',
+      'ot_requests_approved',
+      'ot_requests_rejected',
+      'ot_pending_confirmation',
+      'ot_supervisor_confirmed',
+    ];
+    if (!validTypes.includes(p.notification_type as string)) {
+      errors.push({
+        field: 'notification_type',
+        reason: `notification_type must be one of: ${validTypes.join(', ')}`,
+      });
     }
   }
 
-  // Query all active FCM subscriptions for the user
-  console.log(`[Push] Querying FCM subscriptions for user: ${payload.user_id}`)
-
-  const { data: subscriptions, error: queryError } = await supabase
-    .from('push_subscriptions_fcm')
-    .select('*')
-    .eq('user_id', payload.user_id)
-    .eq('is_active', true)
-
-  if (queryError) {
-    console.error('[Push] Database query error:', queryError)
-    throw new Error(`Failed to query subscriptions: ${queryError.message}`)
-  }
-
-  // Handle no active subscriptions
-  if (!subscriptions || subscriptions.length === 0) {
-    console.log(`[Push] No active FCM subscriptions found for user: ${payload.user_id}`)
-    return {
-      success: 0,
-      failed: 0,
-      expired: 0,
-      message: 'No active subscriptions for user'
+  // Optional: validate data object
+  if (p.data && typeof p.data === 'object') {
+    const data = p.data as Record<string, unknown>;
+    if (data.targetUrl && typeof data.targetUrl !== 'string') {
+      errors.push({ field: 'data.targetUrl', reason: 'data.targetUrl must be a string' });
     }
-  }
-
-  console.log(`[Push] Found ${subscriptions.length} active FCM subscription(s)`)
-
-  // Send notifications to all subscriptions in parallel
-  const results = await Promise.allSettled(
-    subscriptions.map((sub: FCMSubscriptionRecord) =>
-      sendToSubscriptionFCM(sub, payload, messaging, supabase)
-    )
-  )
-
-  // Process results and track expired subscriptions
-  let successCount = 0
-  let failedCount = 0
-  const expiredIds: string[] = []
-
-  results.forEach((result, index) => {
-    const subscription = subscriptions[index]
-
-    if (result.status === 'fulfilled') {
-      successCount++
-      console.log(`[Push] ✓ Sent to FCM token ${subscription.id}`)
-    } else {
-      failedCount++
-      const error = result.reason
-
-      // Check if token is invalid/expired
-      if (isExpiredToken(error)) {
-        expiredIds.push(subscription.id)
-        console.log(`[Push] ✗ FCM token ${subscription.id} expired or invalid`)
-      } else {
-        console.error(`[Push] ✗ Failed to send to FCM token ${subscription.id}:`, error)
+    // Validate data keys (alphanumeric + underscore only)
+    for (const key of Object.keys(data)) {
+      if (!/^[a-zA-Z0-9_]+$/.test(key)) {
+        errors.push({ field: `data.${key}`, reason: 'Data keys must contain only alphanumeric characters and underscores' });
       }
     }
-  })
-
-  // Clean up expired/invalid tokens
-  if (expiredIds.length > 0) {
-    console.log(`[Push] Removing ${expiredIds.length} expired/invalid token(s)`)
-
-    const { error: deleteError } = await supabase
-      .from('push_subscriptions_fcm')
-      .delete()
-      .in('id', expiredIds)
-
-    if (deleteError) {
-      console.error('[Push] Failed to delete expired tokens:', deleteError)
-      // Don't throw - continue with result reporting
-    } else {
-      console.log(`[Push] ✓ Cleaned up ${expiredIds.length} expired token(s)`)
-    }
   }
 
-  const result: PushResult = {
-    success: successCount,
-    failed: failedCount,
-    expired: expiredIds.length
+  if (errors.length > 0) {
+    return { valid: false, errors };
   }
 
-  console.log(`[Push] Final result:`, result)
-  return result
+  return { valid: true, payload: p as FCMNotificationPayload };
 }
 
 /**
- * Checks if an error indicates an expired or invalid FCM token
+ * Create Supabase client for database operations
  */
-function isExpiredToken(error: any): boolean {
-  const errorCode = error?.code || error?.errorCode || ''
-  const message = error?.message || ''
-
-  return (
-    errorCode === 'messaging/registration-token-not-registered' ||
-    errorCode === 'messaging/mismatched-credential' ||
-    errorCode === 'messaging/invalid-registration-token' ||
-    message.includes('registration token') ||
-    message.includes('invalid token')
-  )
+function getSupabaseClient() {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
 /**
- * Checks if a notification should be sent based on user preferences
- * @param supabase - Supabase client instance
- * @param userId - Target user ID
- * @param notificationType - Type of notification (e.g., 'ot_requests_new')
- * @returns true if notification should be sent, false otherwise
+ * Get Firebase access token (with caching)
  */
-async function shouldSendNotification(
-  supabase: any,
+async function getFirebaseAccessToken(): Promise<string> {
+  // Return cached token if still valid
+  if (cachedAccessToken && cachedAccessToken.expiresAt > Date.now()) {
+    return cachedAccessToken.token;
+  }
+
+  const serviceAccount: FirebaseServiceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
+
+  // Create JWT for service account
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    iss: serviceAccount.client_email,
+    sub: serviceAccount.client_email,
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: now,
+    exp: now + 3600,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+  };
+
+  const headerEncoded = btoa(JSON.stringify(header)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const payloadEncoded = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+
+  // Sign JWT with private key
+  const message = `${headerEncoded}.${payloadEncoded}`;
+  const keyData = serviceAccount.private_key.replace(/\\n/g, '\n');
+
+  // Use Web Crypto API for signing
+  const encoder = new TextEncoder();
+  const keyObject = await crypto.subtle.importKey(
+    'pkcs8',
+    pem2ab(keyData),
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', keyObject, encoder.encode(message));
+  const signatureEncoded = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+
+  const jwt = `${message}.${signatureEncoded}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    throw new Error(`Failed to get Firebase access token: ${await tokenResponse.text()}`);
+  }
+
+  const tokenData = (await tokenResponse.json()) as GoogleAccessTokenResponse;
+
+  // Cache token (with 5-minute buffer before expiry)
+  cachedAccessToken = {
+    token: tokenData.access_token,
+    expiresAt: Date.now() + (tokenData.expires_in - 300) * 1000,
+  };
+
+  return tokenData.access_token;
+}
+
+/**
+ * Convert PEM string to ArrayBuffer
+ */
+function pem2ab(pem: string): ArrayBuffer {
+  const lines = pem.replace(/-----(BEGIN|END)[^-]*-----/g, '').replace(/\s/g, '');
+  const binary = atob(lines);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+/**
+ * Check if user allows this notification type
+ */
+async function checkUserNotificationPreference(
+  supabase: ReturnType<typeof getSupabaseClient>,
   userId: string,
-  notificationType?: string
+  notificationType?: NotificationType
 ): Promise<boolean> {
-  try {
-    // If no notification type specified, allow by default (backwards compatible)
-    if (!notificationType) {
-      console.log('[Push] No notification_type specified, allowing notification')
-      return true
-    }
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('notification_preferences')
+    .eq('id', userId)
+    .single();
 
-    // Fetch user preferences from profiles table
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('notification_preferences')
-      .eq('id', userId)
-      .single()
-
-    if (error) {
-      console.error('[Push] Error fetching notification preferences:', {
-        userId,
-        notificationType,
-        error: error.message,
-        code: error.code,
-        details: error.details
-      })
-      // On error, allow notification (fail open)
-      return true
-    }
-
-    const preferences = profile?.notification_preferences as NotificationPreferences | null
-
-    // If no preferences set, allow all notifications (default behavior)
-    if (!preferences) {
-      console.log('[Push] No preferences found, allowing notification')
-      return true
-    }
-
-    // Check global disable flag first
-    if (preferences.all_disabled === true) {
-      console.log('[Push] All notifications disabled for user')
-      return false
-    }
-
-    // Check specific notification type preference
-    const preferenceKey = notificationType as keyof NotificationPreferences
-    if (preferenceKey in preferences) {
-      const isEnabled = preferences[preferenceKey]
-      console.log(`[Push] Preference for ${notificationType}: ${isEnabled}`)
-      return isEnabled !== false // Default to true if not explicitly false
-    }
-
-    // Unknown notification type, allow by default
-    console.log(`[Push] Unknown notification type '${notificationType}', allowing notification`)
-    return true
-
-  } catch (err) {
-    console.error('[Push] Unexpected error checking preferences:', {
-      userId,
-      notificationType,
-      error: err instanceof Error ? err.message : 'Unknown error',
-      stack: err instanceof Error ? err.stack : undefined
-    })
-    // On unexpected error, allow notification (fail open)
-    return true
+  if (error) {
+    console.warn(`[SendPushNotification] Failed to fetch user preferences: ${error.message}`);
+    // Default to allowing notifications if fetch fails
+    return true;
   }
+
+  if (!profile) {
+    // User doesn't exist - allow send (will fail at other validation)
+    return true;
+  }
+
+  const prefs = (profile as UserProfile).notification_preferences || {};
+
+  // Check global disable flag
+  if (prefs.all_disabled === true) {
+    console.log(`[SendPushNotification] User ${userId} has all notifications disabled`);
+    return false;
+  }
+
+  // Check specific notification type
+  if (notificationType && prefs[notificationType] === false) {
+    console.log(`[SendPushNotification] User ${userId} has disabled ${notificationType}`);
+    return false;
+  }
+
+  return true;
 }
 
 /**
- * Sends notification to a single FCM subscription
+ * Fetch all active FCM tokens for a user
  */
-async function sendToSubscriptionFCM(
-  subscription: FCMSubscriptionRecord,
-  payload: NotificationPayload,
-  messaging: any,
-  supabase: any
-): Promise<void> {
-  // Build FCM message
-  const message = {
+async function fetchUserFCMTokens(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  userId: string
+): Promise<PushSubscription[]> {
+  const { data, error } = await supabase
+    .from('push_subscriptions')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (error) {
+    console.error(`[SendPushNotification] Failed to fetch FCM tokens: ${error.message}`);
+    return [];
+  }
+
+  return (data || []) as PushSubscription[];
+}
+
+/**
+ * Build FCM message from notification payload
+ */
+function buildFCMMessage(token: string, payload: FCMNotificationPayload): FCMMessage {
+  const targetUrl = payload.data?.targetUrl || '/';
+  const tag = `${payload.notification_type || 'notification'}-${Date.now()}`;
+
+  const message: FCMMessage = {
+    token,
     notification: {
       title: payload.title,
       body: payload.body,
-      imageUrl: payload.icon || '/icons/icon-192x192.png'
+      imageUrl: payload.icon,
     },
     webpush: {
       notification: {
+        icon: payload.icon || '/icon-192x192.png',
+        badge: payload.badge || '/badge-72x72.png',
         title: payload.title,
         body: payload.body,
-        icon: payload.icon || '/icons/icon-192x192.png',
-        badge: payload.badge || '/icons/badge-72x72.png',
-        actions: [
-          { action: 'view', title: 'View' },
-          { action: 'dismiss', title: 'Dismiss' }
-        ],
-        tag: 'otms-notification',
+        tag,
         requireInteraction: false,
-        vibrate: [200, 100, 200]
       },
-      data: payload.data ? {
-        targetUrl: payload.data.targetUrl || '/',
-        ...payload.data
-      } : {
-        targetUrl: '/'
-      }
+      fcmOptions: {
+        link: targetUrl.startsWith('/') ? targetUrl : `/${targetUrl}`,
+      },
     },
-    data: payload.data ? {
-      targetUrl: payload.data.targetUrl || '/',
-      ...payload.data
-    } : {
-      targetUrl: '/'
+  };
+
+  // Add data payload if provided (convert all values to strings for FCM)
+  if (payload.data) {
+    const dataPayload: Record<string, string> = {};
+    for (const [key, value] of Object.entries(payload.data)) {
+      if (key !== 'targetUrl') {
+        dataPayload[key] = String(value);
+      }
+    }
+    if (Object.keys(dataPayload).length > 0) {
+      message.data = dataPayload;
     }
   }
 
-  console.log('[Push] Sending to FCM token:', subscription.fcm_token.substring(0, 50) + '...')
+  return message;
+}
 
+/**
+ * Send message via FCM REST API
+ */
+async function sendViaFCM(projectId: string, accessToken: string, message: FCMMessage): Promise<SendResult> {
   try {
-    // Send message via Firebase Cloud Messaging
-    const response = await messaging.send({
-      token: subscription.fcm_token,
-      ...message
-    })
+    const response = await fetch(
+      `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ message }),
+      }
+    );
 
-    console.log('[Push] FCM message sent successfully to token:', subscription.id, 'Response:', response)
+    const responseData = (await response.json()) as FCMApiResponse;
+
+    if (!response.ok) {
+      const errorCode = responseData.error?.status || 'unknown_error';
+      const errorMessage = responseData.error?.message || 'Unknown FCM error';
+
+      console.warn(`[SendPushNotification] FCM error for token ${message.token}: ${errorCode} - ${errorMessage}`);
+
+      return {
+        token: message.token,
+        success: false,
+        error: `${errorCode}: ${errorMessage}`,
+      };
+    }
+
+    return {
+      token: message.token,
+      success: true,
+      messageId: responseData.name,
+    };
   } catch (error) {
-    console.error('[Push] Error sending to FCM token:', subscription.id, error)
-    throw error // Re-throw to be caught by Promise.allSettled
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[SendPushNotification] Failed to send to token ${message.token}: ${errorMsg}`);
+    return {
+      token: message.token,
+      success: false,
+      error: errorMsg,
+    };
   }
 }
+
+/**
+ * Mark invalid tokens as inactive
+ */
+async function cleanupInvalidTokens(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  invalidTokens: string[]
+): Promise<void> {
+  if (invalidTokens.length === 0) return;
+
+  const { error } = await supabase
+    .from('push_subscriptions')
+    .update({ is_active: false })
+    .in('fcm_token', invalidTokens);
+
+  if (error) {
+    console.error(`[SendPushNotification] Failed to cleanup invalid tokens: ${error.message}`);
+  } else {
+    console.log(`[SendPushNotification] Marked ${invalidTokens.length} invalid tokens as inactive`);
+  }
+}
+
+/**
+ * Main handler
+ */
+Deno.serve(async (req: Request) => {
+  const startTime = Date.now();
+
+  // Only accept POST requests
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ success: false, message: 'Method not allowed' }),
+      { status: 405, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  try {
+    // Parse and validate payload
+    const bodyText = await req.text();
+    let payload: unknown;
+
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Invalid JSON in request body',
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const validation = validatePayload(payload);
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Validation failed',
+          errors: validation.errors,
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const notificationPayload = validation.payload!;
+    console.log(`[SendPushNotification] Processing notification for user ${notificationPayload.user_id}`);
+
+    // Initialize Supabase client
+    const supabase = getSupabaseClient();
+
+    // Check user notification preferences
+    const preferencesAllowed = await checkUserNotificationPreference(
+      supabase,
+      notificationPayload.user_id,
+      notificationPayload.notification_type
+    );
+
+    if (!preferencesAllowed) {
+      const duration = Date.now() - startTime;
+      console.log(
+        `[SendPushNotification] ✓ Preferences blocked notification in ${duration}ms`
+      );
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'User notification preferences disabled this notification type',
+          sentCount: 0,
+          failedCount: 0,
+          invalidTokens: [],
+          errors: [],
+        } as FCMSendResult),
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fetch user's FCM tokens
+    const subscriptions = await fetchUserFCMTokens(supabase, notificationPayload.user_id);
+
+    if (subscriptions.length === 0) {
+      const duration = Date.now() - startTime;
+      console.log(`[SendPushNotification] ✓ No active subscriptions for user in ${duration}ms`);
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'User has no active FCM subscriptions',
+          sentCount: 0,
+          failedCount: 0,
+          invalidTokens: [],
+          errors: [],
+        } as FCMSendResult),
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get Firebase access token
+    let accessToken: string;
+    try {
+      accessToken = await getFirebaseAccessToken();
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[SendPushNotification] Failed to get Firebase access token: ${errorMsg}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Failed to authenticate with Firebase',
+          errors: [{ reason: errorMsg }],
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get Firebase project ID
+    const serviceAccount: FirebaseServiceAccount = JSON.parse(FIREBASE_SERVICE_ACCOUNT_JSON);
+    const projectId = serviceAccount.project_id;
+
+    // Send to all tokens in parallel
+    const sendPromises = subscriptions.map((sub) => {
+      const message = buildFCMMessage(sub.fcm_token, notificationPayload);
+      return sendViaFCM(projectId, accessToken, message);
+    });
+
+    const results = await Promise.allSettled(sendPromises);
+
+    // Process results
+    const invalidTokens: string[] = [];
+    let sentCount = 0;
+    let failedCount = 0;
+    const errors: Array<{ token?: string; reason: string }> = [];
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        const sendResult = result.value;
+        if (sendResult.success) {
+          sentCount++;
+          console.log(`[SendPushNotification] ✓ Sent to device ${sendResult.token.substring(0, 20)}...`);
+        } else {
+          failedCount++;
+          errors.push({ token: sendResult.token, reason: sendResult.error || 'Unknown error' });
+
+          // Mark invalid tokens for cleanup
+          if (sendResult.error?.includes('invalid-registration-token')) {
+            invalidTokens.push(sendResult.token);
+          }
+        }
+      } else {
+        failedCount++;
+        const error = result.reason;
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        errors.push({ reason: errorMsg });
+      }
+    }
+
+    // Cleanup invalid tokens
+    if (invalidTokens.length > 0) {
+      await cleanupInvalidTokens(supabase, invalidTokens);
+    }
+
+    const duration = Date.now() - startTime;
+    const successRate = sentCount > 0 ? Math.round((sentCount / subscriptions.length) * 100) : 0;
+    console.log(
+      `[SendPushNotification] ✓ Sent ${sentCount}/${subscriptions.length} (${successRate}%) in ${duration}ms`
+    );
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Notification sent to ${sentCount} device(s)`,
+        sentCount,
+        failedCount,
+        invalidTokens,
+        errors,
+      } as FCMSendResult),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[SendPushNotification] Unexpected error: ${errorMsg}`, error);
+
+    return new Response(
+      JSON.stringify({
+        success: false,
+        message: 'Internal server error',
+        error: errorMsg,
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+});

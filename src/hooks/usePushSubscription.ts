@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getFirebaseMessaging, isFirebaseConfigured } from '@/config/firebase';
 import { getToken } from 'firebase/messaging';
 
-const VAPID_PUBLIC_KEY = import.meta.env.REACT_APP_VAPID_PUBLIC_KEY || '';
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';
 
 interface UsePushSubscriptionReturn {
   subscription: string | null;
