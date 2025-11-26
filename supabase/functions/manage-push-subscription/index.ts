@@ -27,6 +27,21 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Validate required environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      console.error('Missing required environment variables:', {
+        supabaseUrl: !!supabaseUrl,
+        supabaseServiceRoleKey: !!supabaseServiceRoleKey
+      })
+      return new Response(
+        JSON.stringify({ success: false, message: 'Server configuration error: Missing Supabase credentials' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Validate authentication
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
@@ -37,8 +52,8 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      supabaseUrl,
+      supabaseServiceRoleKey,
       {
         global: { headers: { Authorization: authHeader } },
         auth: {
@@ -80,23 +95,29 @@ Deno.serve(async (req) => {
         )
       }
 
-      // Upsert FCM subscription
+      // Delete any existing subscription with this token, then insert fresh
+      // This avoids complex upsert logic
+      await supabase
+        .from('push_subscriptions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('fcm_token', fcmToken)
+
+      // Insert new subscription
       const { data, error } = await supabase
         .from('push_subscriptions')
-        .upsert({
+        .insert({
           user_id: user.id,
-          fcm_token,
-          device_name,
-          device_type,
+          fcm_token: fcmToken,
+          device_name: deviceName,
+          device_type: deviceType,
           is_active: true
-        }, {
-          onConflict: 'user_id,fcm_token'
         })
         .select('id')
         .single()
 
       if (error) {
-        console.error('FCM subscription insert error:', error)
+        console.error('FCM subscription error:', error)
         return new Response(
           JSON.stringify({ success: false, message: 'Failed to save FCM subscription' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -148,9 +169,11 @@ Deno.serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Edge function error:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : ''
+    console.error('Edge function error:', { message: errorMessage, stack: errorStack, error })
     return new Response(
-      JSON.stringify({ success: false, message: 'Internal server error' }),
+      JSON.stringify({ success: false, message: `Internal server error: ${errorMessage}` }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

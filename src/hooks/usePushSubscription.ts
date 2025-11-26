@@ -24,7 +24,10 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Check for existing FCM token on mount and set up token refresh listener
+   * Initialize subscription state from localStorage
+   * We don't auto-generate tokens on page load since Firebase will
+   * create a new one every time if notification permission exists.
+   * Instead, we track subscription state in localStorage.
    */
   useEffect(() => {
     if (!isFirebaseConfigured()) {
@@ -32,30 +35,25 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
       return;
     }
 
-    const checkExistingToken = async () => {
+    const restoreSubscriptionState = async () => {
       try {
-        const messaging = getFirebaseMessaging();
-        if (!messaging) {
-          console.log('Firebase messaging not initialized');
-          return;
-        }
-
-        // Get current token
-        const token = await getToken(messaging, {
-          vapidKey: VAPID_PUBLIC_KEY
-        });
-
-        if (token) {
-          setSubscription(token);
+        // Check if user previously subscribed using localStorage
+        const savedToken = localStorage.getItem('fcm_subscription_token');
+        if (savedToken) {
+          setSubscription(savedToken);
           setIsSubscribed(true);
-          console.log('Existing FCM token found');
+          console.log('Restored subscription state from localStorage');
+        } else {
+          setSubscription(null);
+          setIsSubscribed(false);
+          console.log('No previous subscription state found');
         }
       } catch (err) {
-        console.error('Error checking existing FCM token:', err);
+        console.error('Error restoring subscription state:', err);
       }
     };
 
-    checkExistingToken();
+    restoreSubscriptionState();
   }, []);
 
   /**
@@ -151,9 +149,10 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
       // Register token with backend
       await registerTokenWithBackend(token);
 
-      // Update state
+      // Update state and persist to localStorage
       setSubscription(token);
       setIsSubscribed(true);
+      localStorage.setItem('fcm_subscription_token', token);
       setIsLoading(false);
 
       return true;
@@ -221,9 +220,10 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
         throw new Error(result.message || 'Failed to unsubscribe');
       }
 
-      // Update state
+      // Update state and clear from localStorage
       setSubscription(null);
       setIsSubscribed(false);
+      localStorage.removeItem('fcm_subscription_token');
       setIsLoading(false);
 
       return true;
