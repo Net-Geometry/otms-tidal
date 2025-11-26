@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { isSameDay, parseISO, addDays } from "date-fns";
+import { isSameDay, parseISO, addDays, addMonths } from "date-fns";
 import { Link } from "react-router-dom";
 import { Edit } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { MiniCalendarSidebar } from "@/components/calendar/MiniCalendarSidebar";
 import { TimeGridView } from "@/components/calendar/TimeGridView";
+import { MonthlyGridView } from "@/components/calendar/MonthlyGridView";
 import { EventTypeFilter, type EventTypeFilters } from "@/components/calendar/EventTypeFilter";
 import { HolidayDetailsSheet } from "@/components/calendar/HolidayDetailsSheet";
 import { useHolidayCalendarView } from "@/hooks/useHolidayCalendarView";
@@ -17,7 +18,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<"week" | "day">("week");
+  const [viewMode, setViewMode] = useState<"week" | "day" | "month">("week");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedHoliday, setSelectedHoliday] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -99,6 +100,16 @@ export default function Calendar() {
     setSelectedDate(date);
     setSelectedHoliday(holiday);
     setSheetOpen(true);
+    // Switch to week view when clicking event from month view
+    if (viewMode === "month") {
+      setViewMode("week");
+    }
+  };
+
+  const handleMonthDateClick = (date: Date) => {
+    setSelectedDate(date);
+    // Switch to week view when clicking a date from month view
+    setViewMode("week");
   };
 
   return (
@@ -151,6 +162,14 @@ export default function Calendar() {
               Failed to load calendar data. Please try again later.
             </div>
           </div>
+        ) : viewMode === "month" ? (
+          <MonthlyGridView
+            selectedDate={selectedDate}
+            holidays={holidays || []}
+            filters={eventFilters}
+            onDateClick={handleMonthDateClick}
+            onEventClick={handleEventClick}
+          />
         ) : (
           <TimeGridView
             viewMode={viewMode}

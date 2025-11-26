@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, addDays, startOfWeek } from "date-fns";
+import { format, addDays, addMonths, startOfWeek } from "date-fns";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -17,8 +17,8 @@ const useIsMobile = () => {
 interface CalendarHeaderProps {
   selectedDate: Date;
   onDateChange: (date: Date) => void;
-  viewMode: "week" | "day";
-  onViewModeChange: (mode: "week" | "day") => void;
+  viewMode: "week" | "day" | "month";
+  onViewModeChange: (mode: "week" | "day" | "month") => void;
 }
 
 export function CalendarHeader({
@@ -36,16 +36,30 @@ export function CalendarHeader({
   };
 
   const handlePrevious = () => {
-    const offset = viewMode === "week" ? -7 : -1;
-    onDateChange(addDays(selectedDate, offset));
+    if (viewMode === "month") {
+      onDateChange(addMonths(selectedDate, -1));
+    } else {
+      const offset = viewMode === "week" ? -7 : -1;
+      onDateChange(addDays(selectedDate, offset));
+    }
   };
 
   const handleNext = () => {
-    const offset = viewMode === "week" ? 7 : 1;
-    onDateChange(addDays(selectedDate, offset));
+    if (viewMode === "month") {
+      onDateChange(addMonths(selectedDate, 1));
+    } else {
+      const offset = viewMode === "week" ? 7 : 1;
+      onDateChange(addDays(selectedDate, offset));
+    }
   };
 
   const getDateLabel = () => {
+    if (viewMode === "month") {
+      // Month view format
+      return isMobile
+        ? format(selectedDate, "MMM yyyy")
+        : format(selectedDate, "MMMM yyyy");
+    }
     if (isMobile) {
       // Shorter format on mobile
       if (viewMode === "week") {
@@ -113,6 +127,14 @@ export function CalendarHeader({
             className={`${isMobile ? "h-8 text-xs px-3" : "h-6 text-xs px-2"}`}
           >
             {isMobile ? "W" : "Week"}
+          </Button>
+          <Button
+            variant={viewMode === "month" ? "default" : "ghost"}
+            size="sm"
+            onClick={() => onViewModeChange("month")}
+            className={`${isMobile ? "h-8 text-xs px-3" : "h-6 text-xs px-2"}`}
+          >
+            {isMobile ? "M" : "Month"}
           </Button>
         </div>
       </div>
