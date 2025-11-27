@@ -23,7 +23,6 @@ async function sendSupervisorNotification(requestId: string, employeeId: string)
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
-    console.warn('No active session for sending supervisor notification');
     return;
   }
 
@@ -37,8 +36,6 @@ async function sendSupervisorNotification(requestId: string, employeeId: string)
   if (response.error) {
     throw new Error(`Notification error: ${response.error.message}`);
   }
-
-  console.log('Supervisor notification sent:', response.data);
 }
 
 export function useOTSubmit() {
@@ -71,7 +68,6 @@ export function useOTSubmit() {
         .single();
 
       if (settingsError) {
-        console.error('Error fetching OT settings:', settingsError);
         // Continue with default cutoff day
       }
 
@@ -143,7 +139,6 @@ export function useOTSubmit() {
 
       // Always notify direct supervisor first; respective supervisor is notified later when explicitly requested
       sendSupervisorNotification(otRequest.id, user.id).catch((notifError) => {
-        console.error('Failed to send supervisor notification:', notifError);
         // Don't throw - notification failure should not prevent OT submission
       });
 

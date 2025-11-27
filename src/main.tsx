@@ -11,7 +11,6 @@ import { registerSW } from 'virtual:pwa-register';
  */
 window.addEventListener('beforeinstallprompt', (e: Event) => {
   e.preventDefault();
-  console.log('[Main] beforeinstallprompt event captured at app startup');
   (window as any).__pwaPromptEvent = e;
 });
 
@@ -25,16 +24,16 @@ createRoot(document.getElementById("root")!).render(
 // This handles both dev and production modes correctly
 const updateSW = registerSW({
   onNeedRefresh() {
-    console.log('[PWA] New version available, refreshing...');
+    // New version available
   },
   onOfflineReady() {
-    console.log('[PWA] App ready to work offline');
+    // App ready to work offline
   },
   onRegistered(registration) {
-    console.log('[PWA] Service worker registered:', registration);
+    // Service worker registered
   },
   onRegisterError(error) {
-    console.error('[PWA] Service worker registration failed:', error);
+    // Service worker registration failed
   },
 });
 
@@ -43,7 +42,6 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'NAVIGATE_TO') {
       const targetUrl = event.data.url;
-      console.log('[App] Received navigation message from SW:', targetUrl);
 
       // Use React Router's navigation by updating window.location
       // This ensures proper routing in PWA context

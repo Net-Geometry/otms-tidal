@@ -31,7 +31,6 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
    */
   useEffect(() => {
     if (!isFirebaseConfigured()) {
-      console.log('Firebase not configured, skipping push subscription check');
       return;
     }
 
@@ -42,14 +41,12 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
         if (savedToken) {
           setSubscription(savedToken);
           setIsSubscribed(true);
-          console.log('Restored subscription state from localStorage');
         } else {
           setSubscription(null);
           setIsSubscribed(false);
-          console.log('No previous subscription state found');
         }
       } catch (err) {
-        console.error('Error restoring subscription state:', err);
+        // Silently fail on restoration error
       }
     };
 
@@ -92,11 +89,9 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
         throw new Error(result.message || 'Failed to register token');
       }
 
-      console.log('FCM token registered with backend:', result.subscriptionId);
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to register token';
-      console.error('Token registration error:', err);
       throw new Error(errorMessage);
     }
   };
@@ -127,7 +122,6 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
       try {
         await navigator.serviceWorker.register('/sw.js');
       } catch (err) {
-        console.error('Service worker registration failed:', err);
         // Don't fail if service worker registration fails, it might already be registered
       }
 
@@ -158,7 +152,6 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to subscribe to push notifications';
-      console.error('Push subscription error:', err);
       setError(errorMessage);
       setIsLoading(false);
       return false;
@@ -188,9 +181,7 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
       if (messaging) {
         try {
           await deleteToken(messaging);
-          console.log('FCM token deleted from Firebase');
         } catch (firebaseErr) {
-          console.warn('Could not delete token from Firebase:', firebaseErr);
           // Continue with backend deletion even if Firebase deletion fails
         }
       }
@@ -229,7 +220,6 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to unsubscribe from push notifications';
-      console.error('Push unsubscribe error:', err);
       setError(errorMessage);
       setIsLoading(false);
       return false;

@@ -42,7 +42,6 @@ export function useSupervisors(options?: UseSupervisorsOptions) {
           employeeId: options?.employeeId,
         },
       });
-console.log(data);
 
       if (error) {
         throw new Error(`Failed to fetch supervisors: ${error.message}`);

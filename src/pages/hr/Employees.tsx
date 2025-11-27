@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus, Download, RotateCw, Search } from 'lucide-react';
+import { UserPlus, Download, RotateCw, Search, Archive } from 'lucide-react';
 import { EmployeeTable } from '@/components/hr/employees/EmployeeTable';
 import { InviteEmployeeDialog } from '@/components/hr/employees/InviteEmployeeDialog';
 import { EmployeeStats } from '@/components/hr/employees/EmployeeStats';
@@ -15,6 +16,7 @@ import { exportToCSV } from '@/lib/exportUtils';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Employees() {
+  const navigate = useNavigate();
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -85,6 +87,10 @@ export default function Employees() {
         description="Manage employee accounts and access"
         actions={
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => navigate('/hr/employees/archived')}>
+              <Archive className="h-4 w-4 mr-2" />
+              Archived
+            </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh}>
               <RotateCw className="h-4 w-4 mr-2" />
               Refresh

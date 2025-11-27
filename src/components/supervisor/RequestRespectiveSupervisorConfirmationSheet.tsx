@@ -37,7 +37,6 @@ export function RequestRespectiveSupervisorConfirmationSheet({
       onOpenChange(false); // Close dialog
     } catch (error) {
       // Error is handled by the mutation (toast shown in useOTApproval)
-      console.error('Request confirmation failed:', error);
     }
   };
 

@@ -38,7 +38,7 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
             className="text-sm font-medium cursor-pointer flex items-center gap-2 group-hover:text-primary transition-colors"
           >
             <div className="w-3 h-3 rounded-sm bg-gradient-to-br from-red-500 to-red-600" />
-            Public
+            Public Holiday
           </Label>
         </div>
 
@@ -56,7 +56,7 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
             className="text-sm font-medium cursor-pointer flex items-center gap-2 group-hover:text-primary transition-colors"
           >
             <div className="w-3 h-3 rounded-sm bg-gradient-to-br from-indigo-500 to-indigo-600" />
-            Weekly
+            Weekly Holiday
           </Label>
         </div>
 
@@ -74,7 +74,7 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
             className="text-sm font-medium cursor-pointer flex items-center gap-2 group-hover:text-primary transition-colors"
           >
             <div className="w-3 h-3 rounded-sm bg-gradient-to-br from-yellow-500 to-yellow-600" />
-            State
+            State Holiday
           </Label>
         </div>
       </div>

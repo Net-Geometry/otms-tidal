@@ -127,42 +127,35 @@ Deno.serve(async (req) => {
       console.warn('Pre-cleanup step error (non-fatal):', pcErr)
     }
 
-    // Try hard delete in Auth
-    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(employeeId)
+    // Soft delete: Set deleted_at timestamp
+    // This is the primary deletion method - marks employee as deleted while preserving historical data
+    const { error: softDeleteError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        deleted_at: new Date().toISOString()
+      })
+      .eq('id', employeeId)
 
-    if (deleteError) {
-      console.error('Delete error:', deleteError)
-
-      // Fallback: Soft-deactivate the user so the UI can proceed without 500s
-      console.log('Falling back to soft delete (deactivate user)')
-      try {
-        // Mark profile inactive
-        const { error: profErr } = await supabaseAdmin
-          .from('profiles')
-          .update({ status: 'inactive' })
-          .eq('id', employeeId)
-        if (profErr) console.warn('Soft delete: update profile status failed:', profErr)
-
-        // Ensure no roles remain
-        const { error: rolesErr } = await supabaseAdmin
-          .from('user_roles')
-          .delete()
-          .eq('user_id', employeeId)
-        if (rolesErr) console.warn('Soft delete: remove roles failed:', rolesErr)
-
-        return new Response(
-          JSON.stringify({ message: 'Employee deactivated successfully', wasDeactivated: true }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      } catch (softErr) {
-        console.error('Soft delete failed:', softErr)
-        throw deleteError
-      }
+    if (softDeleteError) {
+      throw new Error(`Failed to mark employee as deleted: ${softDeleteError.message}`)
     }
 
-    console.log('Employee deleted successfully:', employeeId)
+    // Try hard delete in Auth (optional - if auth deletion fails, the soft delete is still in place)
+    let wasHardDeleted = false
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(employeeId)
+
+    if (!deleteError) {
+      // Hard delete from auth succeeded
+      wasHardDeleted = true
+    }
+
     return new Response(
-      JSON.stringify({ message: 'Employee deleted successfully', wasDeactivated: false }),
+      JSON.stringify({
+        success: true,
+        message: 'Employee deleted successfully',
+        wasHardDeleted,
+        deletedAt: new Date().toISOString()
+      }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 

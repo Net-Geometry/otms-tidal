@@ -103,7 +103,6 @@ export function PWAInstallBanner() {
         setExpandedInstructions(false);
         // Banner will automatically hide when app is installed due to isInstalled check
       } catch (error) {
-        console.error('Failed to install PWA:', error);
         logPWAEvent('install_failed', deviceInfo.browserName, `${deviceInfo.isAndroid ? 'Android' : deviceInfo.isIOS ? 'iOS' : 'Desktop'}`, {
           error: String(error),
         });

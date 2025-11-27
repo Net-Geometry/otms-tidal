@@ -7,6 +7,7 @@ export function useEmployees() {
     queryKey: ['hr-employees'],
     queryFn: async () => {
       // Fetch profiles with departments and companies relationship
+      // Filter out deleted employees (deleted_at IS NULL)
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select(`
@@ -14,6 +15,7 @@ export function useEmployees() {
           departments(id, name, code),
           companies(id, name, code)
         `)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;

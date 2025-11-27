@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { format, addDays, addMonths, startOfWeek } from "date-fns";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const useIsMobile = () => {
@@ -31,27 +31,6 @@ export function CalendarHeader({
   const weekStart = startOfWeek(selectedDate);
   const weekEnd = addDays(weekStart, 6);
 
-  const handleToday = () => {
-    onDateChange(new Date());
-  };
-
-  const handlePrevious = () => {
-    if (viewMode === "month") {
-      onDateChange(addMonths(selectedDate, -1));
-    } else {
-      const offset = viewMode === "week" ? -7 : -1;
-      onDateChange(addDays(selectedDate, offset));
-    }
-  };
-
-  const handleNext = () => {
-    if (viewMode === "month") {
-      onDateChange(addMonths(selectedDate, 1));
-    } else {
-      const offset = viewMode === "week" ? 7 : 1;
-      onDateChange(addDays(selectedDate, offset));
-    }
-  };
 
   const getDateLabel = () => {
     if (viewMode === "month") {
@@ -75,34 +54,6 @@ export function CalendarHeader({
 
   return (
     <div className={`flex items-center justify-between gap-2 py-2 flex-wrap ${isMobile ? "gap-3" : ""}`}>
-      <div className={`flex items-center ${isMobile ? "gap-2 h-10" : "gap-1"}`}>
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handlePrevious}
-          className={isMobile ? "h-10 w-10" : "h-7 w-7"}
-        >
-          <ChevronLeft className={isMobile ? "h-4 w-4" : "h-3 w-3"} />
-        </Button>
-        {!isMobile && (
-          <Button
-            variant="outline"
-            onClick={handleToday}
-            className={`text-xs h-7 px-2`}
-            size="sm"
-          >
-            Today
-          </Button>
-        )}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handleNext}
-          className={isMobile ? "h-10 w-10" : "h-7 w-7"}
-        >
-          <ChevronRight className={isMobile ? "h-4 w-4" : "h-3 w-3"} />
-        </Button>
-      </div>
 
       <div className={`flex-1 min-w-0 ${isMobile ? "flex-basis-100 order-3 w-full" : ""}`}>
         <h2 className={`font-semibold text-foreground text-center truncate ${isMobile ? "text-xs" : "text-sm"}`}>

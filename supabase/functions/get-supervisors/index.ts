@@ -48,11 +48,12 @@ serve(async (req) => {
       directSupervisorId = employee?.supervisor_id || null;
     }
 
-    // Fetch all active profiles
+    // Fetch all active profiles (excluding deleted employees)
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
       .select('id, full_name, employee_id')
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .is('deleted_at', null);
 
     if (profilesError) {
       throw new Error(`Failed to fetch profiles: ${profilesError.message}`);

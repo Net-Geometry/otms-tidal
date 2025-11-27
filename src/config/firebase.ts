@@ -28,7 +28,6 @@ let messaging: ReturnType<typeof getMessaging> | null = null
 
 export const getFirebaseApp = () => {
   if (!isFirebaseConfigured()) {
-    console.warn('Firebase is not configured. Please add required environment variables.')
     return null
   }
 
@@ -41,7 +40,6 @@ export const getFirebaseApp = () => {
 
 export const getFirebaseMessaging = () => {
   if (!isFirebaseConfigured()) {
-    console.warn('Firebase is not configured. Please add required environment variables.')
     return null
   }
 

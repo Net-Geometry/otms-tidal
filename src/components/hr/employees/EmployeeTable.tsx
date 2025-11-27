@@ -40,7 +40,13 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
 
   // Filter employees based on search and status
   const filteredEmployees = employees.filter(employee => {
-    const matchesSearch = searchQuery === '' || 
+    // Exclude deleted employees (deleted_at IS NOT NULL)
+    const deletedAt = (employee as any).deleted_at;
+    if (deletedAt !== null && deletedAt !== undefined) {
+      return false;
+    }
+
+    const matchesSearch = searchQuery === '' ||
       employee.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.employee_id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -355,8 +361,8 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
             <AlertDialogTitle>Delete Employee</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete {employeeToDelete?.full_name}?
-              This action cannot be undone and will permanently remove the employee
-              account and all associated data.
+              The employee will be moved to the archive and can be restored later.
+              Their historical OT records will remain intact.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -55,7 +55,6 @@ export default function SetupPassword() {
         .single();
 
       if (error) {
-        console.error(`Verification attempt ${i + 1} failed:`, error);
         continue;
       }
 
@@ -129,7 +128,6 @@ export default function SetupPassword() {
         navigate('/auth');
       }, 1500);
     } catch (error: any) {
-      console.error('Password setup error:', error);
       const errorMessage = error.message || 'Failed to set password';
       setError(errorMessage);
       toast.error(errorMessage);

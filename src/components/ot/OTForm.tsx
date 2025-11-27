@@ -30,8 +30,8 @@ const OTFormSchema = z.object({
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
   reason: z.string()
-    .min(10, 'Reason must be at least 10 characters')
-    .max(500, 'Reason cannot exceed 500 characters'),
+    .max(500, 'Reason cannot exceed 500 characters')
+    .optional(),
   attachment_urls: z.array(z.string().url('Invalid file URL'))
     .max(5, 'Maximum 5 attachments allowed')
     .optional()
@@ -46,18 +46,15 @@ const OTFormSchema = z.object({
   ], {
     required_error: 'Please select a reason for overtime',
   }),
-  reason_other: z.string()
-    .max(100, 'Reason cannot exceed 100 characters')
-    .optional(),
   respective_supervisor_id: z.string().uuid().optional().or(z.literal('none')),
 }).refine((data) => {
   if (data.reason_dropdown === 'Other') {
-    return data.reason_other && data.reason_other.trim().length >= 20;
+    return data.reason && data.reason.trim().length >= 10;
   }
   return true;
 }, {
-  message: 'Please provide a detailed reason (minimum 20 characters)',
-  path: ['reason_other'],
+  message: 'Please provide a detailed reason (minimum 10 characters)',
+  path: ['reason'],
 });
 
 type OTFormValues = z.infer<typeof OTFormSchema>;
@@ -90,13 +87,11 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           .single();
 
         if (error) {
-          console.error('Error fetching cutoff day:', error);
           setCutoffDay(10); // Fallback to default
         } else if (data?.ot_submission_cutoff_day) {
           setCutoffDay(data.ot_submission_cutoff_day);
         }
       } catch (err) {
-        console.error('Error fetching OT settings:', err);
         setCutoffDay(10); // Fallback to default
       }
     };
@@ -108,7 +103,6 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
     resolver: zodResolver(OTFormSchema),
     defaultValues: defaultValues || {
       reason: '',
-      reason_other: '',
       respective_supervisor_id: 'none',
       attachment_urls: [],
     },
@@ -155,7 +149,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
   const handleSubmit = (values: OTFormValues) => {
     const finalReason = values.reason_dropdown === 'Other'
-      ? values.reason_other || ''
+      ? values.reason?.trim() || 'Other'
       : values.reason_dropdown;
 
     onSubmit({
@@ -336,42 +330,23 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="reason"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Reason for OT *</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Please provide a detailed reason for overtime (minimum 10 characters)"
-                  className="min-h-[100px] sm:min-h-[120px] resize-none text-base sm:text-sm"
-                  {...field}
-                />
-              </FormControl>
-              <div className="text-xs text-muted-foreground text-right">
-                {field.value?.length || 0} / 500 characters
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
         {form.watch('reason_dropdown') === 'Other' && (
           <FormField
             control={form.control}
-            name="reason_other"
+            name="reason"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Other Reason (if applicable)</FormLabel>
+                <FormLabel>Reason for OT</FormLabel>
                 <FormControl>
-                  <Input
-                    type="text"
-                    placeholder="Enter your own reason"
-                    className="h-10 sm:h-9 text-base sm:text-sm"
+                  <Textarea
+                    placeholder="Please provide a detailed reason for overtime (minimum 10 characters)"
+                    className="min-h-[100px] sm:min-h-[120px] resize-none text-base sm:text-sm"
                     {...field}
                   />
                 </FormControl>
+                <div className="text-xs text-muted-foreground text-right">
+                  {field.value?.length || 0} / 500 characters
+                </div>
                 <FormMessage />
               </FormItem>
             )}

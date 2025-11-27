@@ -139,21 +139,18 @@ export const usePWAInstall = (): UsePWAInstallReturn => {
     // Check if event was already captured in main.tsx
     if (window.__pwaPromptEvent) {
       setPromptEvent(window.__pwaPromptEvent);
-      console.log('[PWA Install] Hook initialized with cached event');
     }
 
     // Also listen for the event in case it fires after hook mounts
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       const event = e as BeforeInstallPromptEvent;
-      console.log('[PWA Install] beforeinstallprompt event received');
       setPromptEvent(event);
       window.__pwaPromptEvent = event;
     };
 
     // Listen for appinstalled event
     const handleAppInstalled = () => {
-      console.log('[PWA Install] App successfully installed!');
       setIsInstalled(true);
       setPromptEvent(null);
       window.__pwaPromptEvent = null;
@@ -161,12 +158,6 @@ export const usePWAInstall = (): UsePWAInstallReturn => {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
-
-    console.log('[PWA Install] Hook initialized:', {
-      isStandalone,
-      beforeInstallPromptSupported: 'BeforeInstallPromptEvent' in window,
-      userAgent: navigator.userAgent.substring(0, 80),
-    });
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -176,7 +167,6 @@ export const usePWAInstall = (): UsePWAInstallReturn => {
 
   const promptInstall = async () => {
     if (!promptEvent) {
-      console.warn('[usePWAInstall] Install prompt event not available. Use browser\'s address bar install button.');
       throw new Error('beforeinstallprompt event not available. Use browser\'s address bar install button.');
     }
 
@@ -185,14 +175,10 @@ export const usePWAInstall = (): UsePWAInstallReturn => {
       const choice = await promptEvent.userChoice;
 
       if (choice.outcome === 'accepted') {
-        console.log('[usePWAInstall] User accepted install prompt');
         setPromptEvent(null);
         window.__pwaPromptEvent = null;
-      } else {
-        console.log('[usePWAInstall] User dismissed install prompt');
       }
     } catch (error) {
-      console.error('[usePWAInstall] Error triggering install prompt', error);
       throw error;
     }
   };

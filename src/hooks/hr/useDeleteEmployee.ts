@@ -52,13 +52,14 @@ export function useDeleteEmployee() {
       return data;
     },
     onSuccess: (data) => {
+      // Invalidate and immediately refetch both queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ['hr-employees'] });
-      const wasDeactivated = data?.wasDeactivated === true;
+      queryClient.invalidateQueries({ queryKey: ['archived-employees'] });
+      queryClient.refetchQueries({ queryKey: ['hr-employees'] });
+      queryClient.refetchQueries({ queryKey: ['archived-employees'] });
       toast({
         title: 'Success',
-        description: wasDeactivated 
-          ? 'Employee deactivated successfully' 
-          : 'Employee deleted successfully',
+        description: 'Employee removed from active list and moved to archive',
       });
     },
     onError: (error: Error) => {
