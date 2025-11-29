@@ -26,7 +26,7 @@ export default function ApproveOT() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
-    return tabParam || 'supervisor_verified';
+    return tabParam || 'pending_certification';
   });
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [recertifyDetailsRequest, setRecertifyDetailsRequest] = useState<any>(null);
@@ -42,7 +42,7 @@ export default function ApproveOT() {
     rejectRequest: rejectRequestMutation,
     isApproving,
     isRejecting
-  } = useOTApproval({ role: 'hr', status: activeTab === 'pending_hr_recertification' ? 'supervisor_verified' : activeTab });
+  } = useOTApproval({ role: 'hr', status: activeTab === 'pending_hr_recertification' ? 'pending_hr_recertification' : activeTab });
 
   const { data: recertifyRequests = [], isLoading: isLoadingRecertify } = usePendingRecertifications();
   const recertifyActions = useRecertifyOTActions();
@@ -70,7 +70,9 @@ export default function ApproveOT() {
 
         if (data) {
           const statusToTab: Record<string, string> = {
-            'supervisor_verified': 'supervisor_verified',
+            'supervisor_verified': 'pending_certification',
+            'supervisor_confirmed': 'pending_certification',
+            'respective_supervisor_confirmed': 'pending_certification',
             'hr_certified': 'hr_certified',
             'rejected': 'rejected',
             'pending_hr_recertification': 'pending_hr_recertification',
@@ -133,9 +135,9 @@ export default function ApproveOT() {
         description="Certify overtime requests that have been verified by supervisors"
       >
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="supervisor_verified">
+        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="pending_certification">
           <TabsList>
-            <TabsTrigger value="supervisor_verified">Pending Certification</TabsTrigger>
+            <TabsTrigger value="pending_certification">Pending Certification</TabsTrigger>
             <TabsTrigger value="hr_certified">Certified</TabsTrigger>
             <TabsTrigger value="rejected">Rejected</TabsTrigger>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -268,7 +270,7 @@ export default function ApproveOT() {
                     rejectRequest={handleReject}
                     isApproving={isApproving}
                     isRejecting={isRejecting}
-                    showActions={activeTab === 'supervisor_verified'}
+                    showActions={activeTab === 'pending_certification'}
                     initialSelectedRequestId={selectedRequestId}
                   />
                 </div>
