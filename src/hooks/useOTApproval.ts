@@ -124,6 +124,10 @@ const getStatusFilter = (role: ApprovalRole, statusFilter?: string): OTStatus[] 
     if (statusFilter === 'completed') {
       return ['supervisor_verified', 'hr_certified', 'management_approved'];
     }
+    // Handle "pending_certification" - HR's pending certification tab that shows all certifiable statuses
+    if (statusFilter === 'pending_certification' && role === 'hr') {
+      return ['supervisor_verified', 'supervisor_confirmed', 'respective_supervisor_confirmed'];
+    }
     return [statusFilter as OTStatus];
   }
 
@@ -237,8 +241,8 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       // Apply status filter
       const statuses = getStatusFilter(role, status);
       if (statuses.length > 0) {
-        // Use .in() for multi-status filters ('completed', 'all' for supervisor)
-        if (status === 'completed' || (status === 'all' && role === 'supervisor')) {
+        // Use .in() for multi-status filters ('completed', 'all' for supervisor, 'pending_certification' for HR)
+        if (status === 'completed' || (status === 'all' && role === 'supervisor') || (status === 'pending_certification' && role === 'hr')) {
           query = query.in('status', statuses);
         } else if (status && status !== 'all') {
           // Single status filter
@@ -613,6 +617,23 @@ export function useOTApproval(options: UseOTApprovalOptions) {
               } catch (notifError) {
                 console.error('Error sending respective supervisor notification (non-blocking):', notifError);
               }
+            }
+
+            // Send HR certification notification
+            try {
+              const hrResponse = await supabase.functions.invoke('send-hr-certification-notification', {
+                body: {
+                  requestId
+                }
+              });
+
+              if (hrResponse.error) {
+                console.error('Failed to send HR certification notification:', hrResponse.error);
+              } else {
+                console.log('HR certification notification sent successfully:', hrResponse.data);
+              }
+            } catch (notifError) {
+              console.error('Error sending HR certification notification (non-blocking):', notifError);
             }
 
             // Send employee confirmation notification

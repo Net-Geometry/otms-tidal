@@ -88,7 +88,7 @@ export function OTApprovalDetailsSheet({
 
   const canApproveOrReject = (req: GroupedOTRequest) => {
     if (role === 'supervisor') return req.status === 'pending_verification';
-    if (role === 'hr') return req.status === 'supervisor_verified';
+    if (role === 'hr') return req.status === 'supervisor_verified' || req.status === 'supervisor_confirmed' || req.status === 'respective_supervisor_confirmed';
     if (role === 'management') return req.status === 'hr_certified';
     return false;
   };
