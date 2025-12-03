@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { DashboardCard } from '@/components/DashboardCard';
+import { MonthYearFilter } from '@/components/MonthYearFilter';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Settings, Users, Clock, DollarSign, FileText, Shield } from 'lucide-react';
@@ -13,6 +15,9 @@ import { formatCurrency } from '@/lib/otCalculations';
 export default function AdminDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
+  const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalOTHours: 0,
@@ -20,16 +25,21 @@ export default function AdminDashboard() {
     systemHealth: 100,
     activeEmployees: 0,
     pendingRequests: 0,
+    hasData: false,
   });
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
+
+  const filterDate = useMemo(() => {
+    return new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1);
+  }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
     if (user) {
       fetchStats();
       fetchProfile();
     }
-  }, [user]);
+  }, [user, filterDate]);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -43,9 +53,8 @@ export default function AdminDashboard() {
   };
 
   const fetchStats = async () => {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const monthStart = startOfMonth(filterDate);
+    const monthEnd = endOfMonth(filterDate);
 
     // Fetch total users
     const { count: totalUsers } = await supabase
@@ -62,13 +71,15 @@ export default function AdminDashboard() {
     const { data: otRequests } = await supabase
       .from('ot_requests')
       .select('total_hours, ot_amount, status')
-      .gte('created_at', startOfMonth.toISOString());
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
 
     const totalOTHours = otRequests?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
     const totalExpenditure = otRequests?.reduce((sum, req) => sum + (req.ot_amount || 0), 0) || 0;
     const pendingRequests = otRequests?.filter(req =>
       req.status === 'pending_verification' || req.status === 'supervisor_verified'
     ).length || 0;
+    const hasData = otRequests && otRequests.length > 0;
 
     setStats({
       totalUsers: totalUsers || 0,
@@ -77,6 +88,7 @@ export default function AdminDashboard() {
       systemHealth: 100,
       activeEmployees: activeEmployees || 0,
       pendingRequests,
+      hasData,
     });
     setLoading(false);
   };
@@ -103,6 +115,15 @@ export default function AdminDashboard() {
           </div>
         }
       >
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold">Filter by Month</h3>
+          <MonthYearFilter
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onMonthChange={setSelectedMonth}
+            onYearChange={setSelectedYear}
+          />
+        </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {loading ? (
@@ -112,7 +133,7 @@ export default function AdminDashboard() {
               <Skeleton className="h-32" />
               <Skeleton className="h-32" />
             </>
-          ) : (
+          ) : stats.hasData ? (
             <>
               <DashboardCard
                 title="Total Users"
@@ -129,13 +150,13 @@ export default function AdminDashboard() {
               <DashboardCard
                 title="Total OT Hours"
                 value={stats.totalOTHours.toFixed(1)}
-                subtitle="This month"
+                subtitle={format(filterDate, 'MMMM yyyy')}
                 icon={Clock}
               />
               <DashboardCard
                 title="Total Expenditure"
                 value={formatCurrency(stats.totalExpenditure)}
-                subtitle="This month"
+                subtitle={format(filterDate, 'MMMM yyyy')}
                 icon={DollarSign}
               />
               <DashboardCard
@@ -144,6 +165,49 @@ export default function AdminDashboard() {
                 subtitle="All systems operational"
                 icon={Shield}
               />
+            </>
+          ) : (
+            <>
+              <div className="opacity-50 pointer-events-none">
+                <DashboardCard
+                  title="Total Users"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  icon={Users}
+                />
+              </div>
+              <div className="opacity-50 pointer-events-none">
+                <DashboardCard
+                  title="Pending Requests"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  icon={FileText}
+                />
+              </div>
+              <div className="opacity-50 pointer-events-none">
+                <DashboardCard
+                  title="Total OT Hours"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  icon={Clock}
+                />
+              </div>
+              <div className="opacity-50 pointer-events-none">
+                <DashboardCard
+                  title="Total Expenditure"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  icon={DollarSign}
+                />
+              </div>
+              <div className="opacity-50 pointer-events-none">
+                <DashboardCard
+                  title="System Health"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  icon={Shield}
+                />
+              </div>
             </>
           )}
         </div>

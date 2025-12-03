@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,7 +15,11 @@ interface ChartData {
   fill: string;
 }
 
-export function OTVerificationBreakdownChart() {
+interface OTVerificationBreakdownChartProps {
+  filterDate?: Date;
+}
+
+export function OTVerificationBreakdownChart({ filterDate = new Date() }: OTVerificationBreakdownChartProps) {
   const { user } = useAuth();
   const [data, setData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,20 +29,20 @@ export function OTVerificationBreakdownChart() {
     if (user) {
       fetchVerificationData();
     }
-  }, [user]);
+  }, [user, filterDate]);
 
   const fetchVerificationData = async () => {
     if (!user) return;
 
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const monthStart = startOfMonth(filterDate);
+    const monthEnd = endOfMonth(filterDate);
 
     const { data: otRequests } = await supabase
       .from('ot_requests')
       .select('status')
       .eq('supervisor_id', user.id)
-      .gte('created_at', startOfMonth.toISOString());
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
 
     const verified = otRequests?.filter(req =>
       req.status === 'supervisor_verified' || req.status === 'hr_certified' || req.status === 'management_approved'
@@ -71,6 +76,22 @@ export function OTVerificationBreakdownChart() {
   }
 
   const total = data.reduce((sum, entry) => sum + entry.value, 0);
+
+  if (total === 0) {
+    return (
+      <Card className="border-0 shadow-md">
+        <CardHeader>
+          <CardTitle>OT Verification Breakdown</CardTitle>
+          <CardDescription>Compare verified and pending OT requests</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[280px] flex items-center justify-center text-muted-foreground">
+            No OT data available for {format(filterDate, 'MMMM yyyy')}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-0 shadow-md">

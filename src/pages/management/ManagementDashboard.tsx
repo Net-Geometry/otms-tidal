@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,6 +8,7 @@ import { PageLayout } from '@/components/ui/page-layout';
 import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { OTTrendChart } from '@/components/hr/charts/OTTrendChart';
 import { OTCostChart } from '@/components/management/charts/OTCostChart';
+import { MonthYearFilter } from '@/components/MonthYearFilter';
 import { QuickInsights } from '@/components/management/QuickInsights';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,21 +18,29 @@ import { formatCurrency } from '@/lib/otCalculations';
 export default function ManagementDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
+  const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [stats, setStats] = useState({
     totalOTHours: 0,
     totalExpenditure: 0,
     complianceRate: 0,
     monthlyTrend: '+0%',
+    hasData: false,
   });
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
+
+  const filterDate = useMemo(() => {
+    return new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1);
+  }, [selectedMonth, selectedYear]);
 
   useEffect(() => {
     if (user) {
       fetchStats();
       fetchProfile();
     }
-  }, [user]);
+  }, [user, filterDate]);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -54,18 +64,17 @@ export default function ManagementDashboard() {
 
   const fetchStats = async () => {
     try {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const startOfLastMonth = new Date(startOfMonth);
-      startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+      const monthStart = startOfMonth(filterDate);
+      const monthEnd = endOfMonth(filterDate);
+      const lastMonthStart = startOfMonth(new Date(filterDate.getFullYear(), filterDate.getMonth() - 1, 1));
+      const lastMonthEnd = endOfMonth(new Date(filterDate.getFullYear(), filterDate.getMonth() - 1, 1));
 
       // Current month data
       const { data: currentMonthData, error: currentError } = await supabase
         .from('ot_requests')
         .select('total_hours, ot_amount, status')
-        .gte('created_at', startOfMonth.toISOString());
+        .gte('created_at', monthStart.toISOString())
+        .lte('created_at', monthEnd.toISOString());
 
       if (currentError) {
         console.error('Error fetching current month data:', currentError);
@@ -77,8 +86,8 @@ export default function ManagementDashboard() {
       const { data: lastMonthData, error: lastError } = await supabase
         .from('ot_requests')
         .select('total_hours')
-        .gte('created_at', startOfLastMonth.toISOString())
-        .lt('created_at', startOfMonth.toISOString());
+        .gte('created_at', lastMonthStart.toISOString())
+        .lte('created_at', lastMonthEnd.toISOString());
 
       if (lastError) {
         console.error('Error fetching last month data:', lastError);
@@ -98,12 +107,14 @@ export default function ManagementDashboard() {
       const lastMonthHours = lastMonthData?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 1;
       const trend = lastMonthHours > 0 ? ((totalOTHours - lastMonthHours) / lastMonthHours) * 100 : 0;
       const monthlyTrend = `${trend >= 0 ? '+' : ''}${trend.toFixed(1)}%`;
+      const hasData = currentMonthData && currentMonthData.length > 0;
 
       setStats({
         totalOTHours,
         totalExpenditure,
         complianceRate,
         monthlyTrend,
+        hasData,
       });
       setLoading(false);
     } catch (err) {
@@ -118,6 +129,15 @@ export default function ManagementDashboard() {
         title="Management Dashboard"
         description={fullName ? `Welcome back, ${fullName}! Here's your executive overview.` : "Welcome back! Here's your executive overview."}
       >
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold">Filter by Month</h3>
+          <MonthYearFilter
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onMonthChange={setSelectedMonth}
+            onYearChange={setSelectedYear}
+          />
+        </div>
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {loading ? (
@@ -127,20 +147,20 @@ export default function ManagementDashboard() {
               <Skeleton className="h-32" />
               <Skeleton className="h-32" />
             </>
-          ) : (
+          ) : stats.hasData ? (
             <>
               <EnhancedDashboardCard
                 icon={Clock}
                 title="Organization OT Hours"
                 value={stats.totalOTHours.toFixed(1)}
-                subtitle="This month"
+                subtitle={format(filterDate, 'MMMM yyyy')}
                 variant="info"
               />
               <EnhancedDashboardCard
                 icon={DollarSign}
                 title="Total Expenditure"
                 value={formatCurrency(stats.totalExpenditure)}
-                subtitle="OT payments this month"
+                subtitle={format(filterDate, 'MMMM yyyy')}
                 variant="primary"
               />
               <EnhancedDashboardCard
@@ -158,6 +178,45 @@ export default function ManagementDashboard() {
                 variant="warning"
               />
             </>
+          ) : (
+            <>
+              <div className="opacity-50 pointer-events-none">
+                <EnhancedDashboardCard
+                  icon={Clock}
+                  title="Organization OT Hours"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  variant="info"
+                />
+              </div>
+              <div className="opacity-50 pointer-events-none">
+                <EnhancedDashboardCard
+                  icon={DollarSign}
+                  title="Total Expenditure"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  variant="primary"
+                />
+              </div>
+              <div className="opacity-50 pointer-events-none">
+                <EnhancedDashboardCard
+                  icon={CheckCircle}
+                  title="Compliance Rate"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  variant="success"
+                />
+              </div>
+              <div className="opacity-50 pointer-events-none">
+                <EnhancedDashboardCard
+                  icon={TrendingUp}
+                  title="Monthly Trend"
+                  value="-"
+                  subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+                  variant="warning"
+                />
+              </div>
+            </>
           )}
         </div>
 
@@ -167,8 +226,8 @@ export default function ManagementDashboard() {
             Visual summary of organizational overtime and expenditure performance
           </p>
           <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
-            <OTTrendChart />
-            <OTCostChart />
+            <OTTrendChart filterDate={filterDate} />
+            <OTCostChart filterDate={filterDate} />
           </div>
         </div>
 

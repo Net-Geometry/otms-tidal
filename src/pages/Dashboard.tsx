@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AppLayout } from '@/components/AppLayout';
 import { DashboardCard } from '@/components/DashboardCard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MonthYearFilter } from '@/components/MonthYearFilter';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { Clock, CheckCircle, AlertCircle, Plus, History } from 'lucide-react';
@@ -13,12 +15,20 @@ import { LoadingSkeleton } from '@/components/LoadingSkeleton';
 export default function Dashboard() {
   const { user, roles, hasRole, isLoadingRoles, getDefaultRoute } = useAuth();
   const navigate = useNavigate();
+  const currentDate = new Date();
+  const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
+  const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [stats, setStats] = useState({
     totalHours: 0,
     pending: 0,
-    approved: 0
+    approved: 0,
+    hasData: false,
   });
   const [loading, setLoading] = useState(true);
+
+  const filterDate = useMemo(() => {
+    return new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1);
+  }, [selectedMonth, selectedYear]);
 
   // Wait for roles to load
   if (isLoadingRoles) {
@@ -36,17 +46,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchStats();
-  }, [user]);
+  }, [user, filterDate]);
 
   const fetchStats = async () => {
     if (!user) return;
 
     try {
       const isEmployee = hasRole('employee');
-      
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+      const monthStart = startOfMonth(filterDate);
+      const monthEnd = endOfMonth(filterDate);
 
       const query = supabase
         .from('ot_requests')
@@ -56,17 +64,19 @@ export default function Dashboard() {
         query.eq('employee_id', user.id);
       }
 
-      query.gte('ot_date', startOfMonth.toISOString());
+      query.gte('ot_date', monthStart.toISOString().split('T')[0]);
+      query.lte('ot_date', monthEnd.toISOString().split('T')[0]);
 
       const { data, error } = await query;
 
       if (error) throw error;
 
+      const hasData = data && data.length > 0;
       const totalHours = data?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
       const pending = data?.filter(req => req.status === 'pending_verification').length || 0;
       const approved = data?.filter(req => req.status === 'hr_certified' || req.status === 'bod_approved').length || 0;
 
-      setStats({ totalHours, pending, approved });
+      setStats({ totalHours, pending, approved, hasData });
     } catch (error: any) {
       toast.error(error.message || 'Failed to load dashboard stats');
     } finally {
@@ -79,11 +89,19 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Welcome back! Here's an overview of your OT status.
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Dashboard</h1>
+            <p className="text-muted-foreground mt-1">
+              Welcome back! Here's an overview of your OT status.
+            </p>
+          </div>
+          <MonthYearFilter
+            selectedMonth={selectedMonth}
+            selectedYear={selectedYear}
+            onMonthChange={setSelectedMonth}
+            onYearChange={setSelectedYear}
+          />
         </div>
 
         {isEmployee && (
@@ -111,13 +129,13 @@ export default function Dashboard() {
               <div key={i} className="h-32 bg-muted animate-pulse rounded-lg" />
             ))}
           </div>
-        ) : (
+        ) : stats.hasData ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <DashboardCard
               icon={Clock}
               title="Total OT Hours"
               value={stats.totalHours.toFixed(2)}
-              subtitle="Current month"
+              subtitle={format(filterDate, 'MMMM yyyy')}
             />
             <DashboardCard
               icon={AlertCircle}
@@ -129,8 +147,35 @@ export default function Dashboard() {
               icon={CheckCircle}
               title="Approved Requests"
               value={stats.approved}
-              subtitle="This month"
+              subtitle={format(filterDate, 'MMMM yyyy')}
             />
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="opacity-50 pointer-events-none">
+              <DashboardCard
+                icon={Clock}
+                title="Total OT Hours"
+                value="-"
+                subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+              />
+            </div>
+            <div className="opacity-50 pointer-events-none">
+              <DashboardCard
+                icon={AlertCircle}
+                title="Pending Requests"
+                value="-"
+                subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+              />
+            </div>
+            <div className="opacity-50 pointer-events-none">
+              <DashboardCard
+                icon={CheckCircle}
+                title="Approved Requests"
+                value="-"
+                subtitle={`No OT data available for ${format(filterDate, 'MMMM yyyy')}`}
+              />
+            </div>
           </div>
         )}
       </div>

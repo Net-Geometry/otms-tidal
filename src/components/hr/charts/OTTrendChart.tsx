@@ -13,7 +13,11 @@ interface MonthData {
   hours: number;
 }
 
-export function OTTrendChart() {
+interface OTTrendChartProps {
+  filterDate?: Date;
+}
+
+export function OTTrendChart({ filterDate = new Date() }: OTTrendChartProps) {
   const [data, setData] = useState<MonthData[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
@@ -22,11 +26,11 @@ export function OTTrendChart() {
 
   useEffect(() => {
     fetchOTTrendData();
-  }, []);
+  }, [filterDate]);
 
   const fetchOTTrendData = async () => {
     try {
-      const sixMonthsAgo = new Date();
+      const sixMonthsAgo = new Date(filterDate);
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
       const { data: otData, error } = await supabase
