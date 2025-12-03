@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -22,7 +23,11 @@ const COLORS = [
   'hsl(var(--accent))',
 ];
 
-export function DepartmentOTChart() {
+interface DepartmentOTChartProps {
+  filterDate?: Date;
+}
+
+export function DepartmentOTChart({ filterDate = new Date() }: DepartmentOTChartProps) {
   const [data, setData] = useState<DepartmentData[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
@@ -31,11 +36,11 @@ export function DepartmentOTChart() {
 
   useEffect(() => {
     fetchDepartmentOTData();
-  }, []);
+  }, [filterDate]);
 
   const fetchDepartmentOTData = async () => {
     try {
-      const startOfMonth = new Date();
+      const startOfMonth = new Date(filterDate);
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
@@ -111,7 +116,7 @@ export function DepartmentOTChart() {
         </CardHeader>
         <CardContent>
           <div className={`${isMobile ? 'h-32' : 'h-[300px]'} flex items-center justify-center text-muted-foreground`}>
-            No OT data available for this month
+            No OT data available for {format(filterDate, 'MMMM yyyy')}
           </div>
         </CardContent>
       </Card>

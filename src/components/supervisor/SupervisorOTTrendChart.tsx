@@ -14,23 +14,26 @@ interface WeekData {
   hours: number;
 }
 
-export function SupervisorOTTrendChart() {
+interface SupervisorOTTrendChartProps {
+  filterDate?: Date;
+}
+
+export function SupervisorOTTrendChart({ filterDate = new Date() }: SupervisorOTTrendChartProps) {
   const [data, setData] = useState<WeekData[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchTrendData();
-  }, []);
+  }, [filterDate]);
 
   const fetchTrendData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const now = new Date();
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
+      const monthStart = startOfMonth(filterDate);
+      const monthEnd = endOfMonth(filterDate);
 
       // Get all weeks in the current month
       const weeks = eachWeekOfInterval({ start: monthStart, end: monthEnd });
@@ -84,6 +87,22 @@ export function SupervisorOTTrendChart() {
     );
   }
 
+  if (data.every(d => d.hours === 0)) {
+    return (
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Monthly OT Trend</CardTitle>
+          <CardDescription>Track your team's OT hours progress</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-64 flex items-center justify-center text-muted-foreground">
+            No OT data available for {format(filterDate, 'MMMM yyyy')}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Mobile card view for supervisor trend
   if (isMobile) {
     const totalHours = data.reduce((sum, item) => sum + item.hours, 0);
@@ -130,7 +149,7 @@ export function SupervisorOTTrendChart() {
     <Card className="shadow-md">
       <CardHeader>
         <CardTitle className="text-lg font-semibold">Monthly OT Trend</CardTitle>
-        <CardDescription>Track how your team's OT hours have evolved this month</CardDescription>
+        <CardDescription>Track how your team's OT hours have evolved</CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={300}>

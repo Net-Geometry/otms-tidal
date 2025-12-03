@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +13,11 @@ interface WeeklyData {
   hours: number;
 }
 
-export function EmployeeOTWeeklyChart() {
+interface EmployeeOTWeeklyChartProps {
+  filterDate?: Date;
+}
+
+export function EmployeeOTWeeklyChart({ filterDate = new Date() }: EmployeeOTWeeklyChartProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
@@ -24,25 +29,20 @@ export function EmployeeOTWeeklyChart() {
     if (user) {
       fetchWeeklyData();
     }
-  }, [user]);
+  }, [user, filterDate]);
 
   const fetchWeeklyData = async () => {
     if (!user) return;
 
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    const endOfMonth = new Date();
-    endOfMonth.setMonth(endOfMonth.getMonth() + 1, 0);
-    endOfMonth.setHours(23, 59, 59, 999);
+    const monthStart = startOfMonth(filterDate);
+    const monthEnd = endOfMonth(filterDate);
 
     const { data: requests, error } = await supabase
       .from('ot_requests')
       .select('ot_date, total_hours')
       .eq('employee_id', user.id)
-      .gte('ot_date', startOfMonth.toISOString().split('T')[0])
-      .lte('ot_date', endOfMonth.toISOString().split('T')[0]);
+      .gte('ot_date', monthStart.toISOString().split('T')[0])
+      .lte('ot_date', monthEnd.toISOString().split('T')[0]);
 
     if (error) {
       console.error('Error fetching weekly data:', error);
@@ -82,6 +82,21 @@ export function EmployeeOTWeeklyChart() {
         </CardHeader>
         <CardContent>
           <Skeleton className="h-[260px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (data.every(d => d.hours === 0)) {
+    return (
+      <Card className="shadow-md rounded-xl">
+        <CardHeader>
+          <CardTitle>Weekly OT Hours</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[260px] flex items-center justify-center text-muted-foreground">
+            No OT data available for {format(filterDate, 'MMMM yyyy')}
+          </div>
         </CardContent>
       </Card>
     );

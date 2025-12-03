@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +15,11 @@ interface StatusData {
   color: string;
 }
 
-export function EmployeeOTStatusChart() {
+interface EmployeeOTStatusChartProps {
+  filterDate?: Date;
+}
+
+export function EmployeeOTStatusChart({ filterDate = new Date() }: EmployeeOTStatusChartProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const isTablet = useIsTablet();
@@ -26,20 +31,20 @@ export function EmployeeOTStatusChart() {
     if (user) {
       fetchStatusData();
     }
-  }, [user]);
+  }, [user, filterDate]);
 
   const fetchStatusData = async () => {
     if (!user) return;
 
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const monthStart = startOfMonth(filterDate);
+    const monthEnd = endOfMonth(filterDate);
 
     const { data: requests, error } = await supabase
       .from('ot_requests')
       .select('status')
       .eq('employee_id', user.id)
-      .gte('created_at', startOfMonth.toISOString());
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
 
     if (error) {
       console.error('Error fetching status data:', error);
@@ -87,7 +92,7 @@ export function EmployeeOTStatusChart() {
           <CardTitle className={isMobile ? 'text-lg' : 'text-xl'}>Request Status</CardTitle>
         </CardHeader>
         <CardContent className={`${isMobile ? 'h-32' : 'h-[260px]'} flex items-center justify-center`}>
-          <p className="text-muted-foreground">No OT requests this month</p>
+          <p className="text-muted-foreground">No OT data available for {format(filterDate, 'MMMM yyyy')}</p>
         </CardContent>
       </Card>
     );

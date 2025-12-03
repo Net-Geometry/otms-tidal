@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -15,19 +16,22 @@ interface DepartmentCost {
 
 const COLORS = ['#5F26B4', '#8B5CF6', '#C084FC', '#DDD6FE'];
 
-export function OTCostChart() {
+interface OTCostChartProps {
+  filterDate?: Date;
+}
+
+export function OTCostChart({ filterDate = new Date() }: OTCostChartProps) {
   const [data, setData] = useState<DepartmentCost[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchCostData();
-  }, []);
+  }, [filterDate]);
 
   const fetchCostData = async () => {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const monthStart = startOfMonth(filterDate);
+    const monthEnd = endOfMonth(filterDate);
 
     const { data: otData } = await supabase
       .from('ot_requests')
@@ -38,7 +42,8 @@ export function OTCostChart() {
           departments!profiles_department_id_fkey(name)
         )
       `)
-      .gte('created_at', startOfMonth.toISOString())
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString())
       .not('ot_amount', 'is', null);
 
     if (otData) {
@@ -88,7 +93,7 @@ export function OTCostChart() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            No cost data available for this month
+            No OT data available for {format(filterDate, 'MMMM yyyy')}
           </div>
         </CardContent>
       </Card>
@@ -99,13 +104,13 @@ export function OTCostChart() {
     <Card>
       <CardHeader>
         <CardTitle>OT Cost Distribution</CardTitle>
-        <CardDescription>By Department (Current Month)</CardDescription>
+        <CardDescription>By Department</CardDescription>
       </CardHeader>
       <CardContent>
         {isMobile ? (
           <MobileStatsList
             title="OT Cost Distribution"
-            description="By Department (Current Month)"
+            description="By Department"
             items={data.map((item, index) => {
               const total = data.reduce((sum, d) => sum + d.value, 0);
               const percentage = total > 0 ? (item.value / total) * 100 : 0;
