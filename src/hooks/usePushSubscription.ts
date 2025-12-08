@@ -97,11 +97,39 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
   };
 
   /**
+   * Wait for service worker to be active
+   * Firebase Cloud Messaging requires an active service worker before getToken() can be called
+   */
+  const waitForActiveServiceWorker = async (maxWaitTime = 5000): Promise<ServiceWorkerContainer['controller']> => {
+    const startTime = Date.now();
+    const pollInterval = 100; // Check every 100ms
+
+    while (Date.now() - startTime < maxWaitTime) {
+      // Check if a service worker is currently active
+      if (navigator.serviceWorker.controller) {
+        console.log('[usePushSubscription] Service worker is now active and controlling the page');
+        return navigator.serviceWorker.controller;
+      }
+
+      // Wait a bit before checking again
+      await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+
+    throw new Error(
+      `Service Worker did not become active within ${maxWaitTime}ms. ` +
+      'Make sure your service worker is properly registered and the manifest.json is accessible.'
+    );
+  };
+
+  /**
    * Subscribe to push notifications
    */
   const subscribe = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
+
+    // Log diagnostics at the start
+    logPushDiagnostics();
 
     try {
       if (!isFirebaseConfigured()) {
@@ -118,11 +146,19 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
         throw new Error('Service workers are not supported in this browser');
       }
 
-      // Ensure service worker is registered
-      try {
-        await navigator.serviceWorker.register('/sw.js');
-      } catch (err) {
-        // Don't fail if service worker registration fails, it might already be registered
+      // Check if a service worker is already active (registered by Vite PWA plugin)
+      // If not, wait for it to become active. The Vite PWA plugin registers the service worker
+      // automatically, but it may not be active yet when the hook first runs.
+      console.log('[usePushSubscription] Checking service worker status...');
+
+      if (navigator.serviceWorker.controller) {
+        console.log('[usePushSubscription] Service worker is already active and controlling the page');
+      } else {
+        // Wait for the service worker to be active and controlling the page
+        // This is critical - Firebase Cloud Messaging requires an active service worker
+        console.log('[usePushSubscription] Service worker not yet active, waiting...');
+        await waitForActiveServiceWorker(5000);
+        console.log('[usePushSubscription] Service worker is now active, proceeding with FCM token request');
       }
 
       // Request notification permission
@@ -131,14 +167,17 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
         throw new Error('Notification permission denied');
       }
 
-      // Get FCM token
+      // Get FCM token (now that service worker is active)
+      console.log('[usePushSubscription] Requesting FCM token...');
       const token = await getToken(messaging, {
         vapidKey: VAPID_PUBLIC_KEY
       });
 
       if (!token) {
-        throw new Error('Failed to get FCM token');
+        throw new Error('Failed to get FCM token - service worker may not be properly initialized');
       }
+
+      console.log('[usePushSubscription] FCM token obtained successfully');
 
       // Register token with backend
       await registerTokenWithBackend(token);
@@ -149,9 +188,16 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
       localStorage.setItem('fcm_subscription_token', token);
       setIsLoading(false);
 
+      console.log('[usePushSubscription] Push subscription successful');
       return true;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to subscribe to push notifications';
+      console.error('[usePushSubscription] Subscription error:', errorMessage);
+
+      // Log diagnostics on error to help debug
+      console.log('[usePushSubscription] Diagnostics at time of error:');
+      logPushDiagnostics();
+
       setError(errorMessage);
       setIsLoading(false);
       return false;
@@ -235,6 +281,45 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
     unsubscribe
   };
 };
+
+/**
+ * Diagnostic function to help debug service worker and Firebase issues
+ */
+function logPushDiagnostics(): void {
+  console.log('[usePushSubscription] === DIAGNOSTICS START ===');
+
+  // Check browser support
+  console.log('[usePushSubscription] Browser Support:');
+  console.log('  - Service Workers:', 'serviceWorker' in navigator);
+  console.log('  - Notifications:', 'Notification' in window);
+  console.log('  - IndexedDB:', !!window.indexedDB);
+
+  // Check service worker status
+  console.log('[usePushSubscription] Service Worker Status:');
+  if ('serviceWorker' in navigator) {
+    console.log('  - Controller:', !!navigator.serviceWorker.controller);
+    if (navigator.serviceWorker.controller) {
+      console.log('  - Controller URL:', navigator.serviceWorker.controller.scriptURL);
+    }
+    console.log('  - Ready state:', navigator.serviceWorker.ready ? 'ready' : 'not ready');
+  }
+
+  // Check notification permission
+  console.log('[usePushSubscription] Notification Permission:', Notification.permission);
+
+  // Check Firebase config
+  console.log('[usePushSubscription] Firebase Config:');
+  console.log('  - Configured:', isFirebaseConfigured());
+  console.log('  - VAPID Key:', VAPID_PUBLIC_KEY ? 'present' : 'missing');
+
+  // Check localStorage
+  console.log('[usePushSubscription] Stored Subscription:');
+  const stored = localStorage.getItem('fcm_subscription_token');
+  console.log('  - Exists:', !!stored);
+  console.log('  - Token length:', stored?.length || 0);
+
+  console.log('[usePushSubscription] === DIAGNOSTICS END ===');
+}
 
 /**
  * Helper function to generate a device name based on browser info

@@ -11,6 +11,75 @@ precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 
 // ============================================================================
+// FIREBASE CLOUD MESSAGING INITIALIZATION
+// ============================================================================
+// Initialize Firebase in the service worker for handling push notifications
+// These scripts are loaded from Firebase CDN and provide messaging functionality
+// @ts-ignore - Scripts are injected from CDN
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js');
+// @ts-ignore - Scripts are injected from CDN
+importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
+
+let firebaseMessaging: any = null;
+
+try {
+  // Initialize Firebase in the service worker
+  // @ts-ignore - Firebase is loaded from CDN above
+  firebase.initializeApp({
+    apiKey: "AIzaSyBYR57l9-Fkk8ECAIIfsgT7gaV6fChWvJs",
+    authDomain: "otms-tidal.firebaseapp.com",
+    projectId: "otms-tidal",
+    storageBucket: "otms-tidal.firebasestorage.app",
+    messagingSenderId: "394510332934",
+    appId: "1:394510332934:web:f478a08f2e687e06fbff87",
+  });
+
+  // @ts-ignore - Firebase is loaded from CDN above
+  firebaseMessaging = firebase.messaging();
+
+  console.log('[SW] Firebase Cloud Messaging initialized successfully');
+} catch (error) {
+  console.warn('[SW] Failed to initialize Firebase Cloud Messaging:', error);
+  // Continue anyway - FCM is optional, the app will still work
+}
+
+// Handle background messages from Firebase Cloud Messaging
+if (firebaseMessaging) {
+  try {
+    // @ts-ignore - firebaseMessaging is injected from Firebase CDN
+    firebaseMessaging.onBackgroundMessage((payload: any) => {
+      console.log('[SW] Received background message:', payload);
+
+      const notificationTitle = payload.notification?.title || 'OT Management System';
+      const notificationOptions = {
+        body: payload.notification?.body || 'You have a new notification',
+        icon: payload.notification?.icon || '/icon-192x192.png',
+        badge: payload.notification?.badge || '/badge-72x72.png',
+        tag: payload.data?.tag || 'notification',
+        data: payload.data || {},
+        requireInteraction: false,
+        actions: [
+          {
+            action: 'open',
+            title: 'Open',
+          },
+          {
+            action: 'close',
+            title: 'Close',
+          },
+        ],
+      };
+
+      return self.registration.showNotification(notificationTitle, notificationOptions);
+    });
+
+    console.log('[SW] Background message handler registered');
+  } catch (error) {
+    console.warn('[SW] Failed to register background message handler:', error);
+  }
+}
+
+// ============================================================================
 // PUSH NOTIFICATION INFRASTRUCTURE (INACTIVE - MVP)
 // ============================================================================
 // This infrastructure is in place for future activation of push notifications.
