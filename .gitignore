@@ -28,9 +28,11 @@ dist-ssr
 #AI-related
 .agents
 .claude
+CLAUDE.md
 **bmad**
 .github/chatmodes
 .trae
 docs
 AGENTS.md
 .mcp**
+**agent**

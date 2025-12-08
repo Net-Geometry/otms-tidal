@@ -7,6 +7,7 @@ import { ResubmissionBadge } from './ResubmissionBadge';
 import { useIsMobile, useIsTablet, useDeviceType } from '@/hooks/use-mobile';
 import { OTRequest, OTStatus, DayType } from '@/types/otms';
 import { formatCurrency, formatHours, getDayTypeColor, getDayTypeLabel, formatTimeRange } from '@/lib/otCalculations';
+import { getStatusTooltip } from '@/lib/otStatusTooltip';
 import { Clock, Calendar, User } from 'lucide-react';
 
 interface OTSession {
@@ -187,7 +188,7 @@ export function OTHistoryTable({ requests, onViewDetails }: OTHistoryTableProps)
                       onClick={() => onViewDetails(session.request)}
                       className="cursor-pointer hover:opacity-80 transition-opacity"
                     >
-                      <StatusBadge status={session.status} rejectionStage={session.request.rejection_stage} />
+                      <StatusBadge status={session.status} rejectionStage={session.request.rejection_stage} tooltip={getStatusTooltip(session.request as any)} />
                     </button>
                   </div>
                 ))}
@@ -228,7 +229,7 @@ export function OTHistoryTable({ requests, onViewDetails }: OTHistoryTableProps)
                 <div className="text-right">
                   <div className="font-semibold text-sm">{formatHours(grouped.totalHours)} hrs</div>
                   <div className="flex justify-end">
-                    <StatusBadge status={grouped.statuses[0]} rejectionStage={grouped.sessions[0]?.request?.rejection_stage} />
+                    <StatusBadge status={grouped.statuses[0]} rejectionStage={grouped.sessions[0]?.request?.rejection_stage} tooltip={grouped.sessions[0]?.request ? getStatusTooltip(grouped.sessions[0].request as any) : null} />
                   </div>
                 </div>
               </div>
@@ -293,7 +294,7 @@ export function OTHistoryTable({ requests, onViewDetails }: OTHistoryTableProps)
                         onClick={() => onViewDetails(session.request)}
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                       >
-                        <StatusBadge status={session.status} rejectionStage={session.request.rejection_stage} />
+                        <StatusBadge status={session.status} rejectionStage={session.request.rejection_stage} tooltip={getStatusTooltip(session.request as any)} />
                       </button>
                     </div>
                   ))}

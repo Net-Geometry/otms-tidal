@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { OTRequest } from '@/types/otms';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
 import { StatusBadge } from '@/components/StatusBadge';
+import { getStatusTooltip } from '@/lib/otStatusTooltip';
 import { Separator } from '@/components/ui/separator';
 
 interface OTApprovalDetailsSheetProps {
@@ -66,7 +67,7 @@ export function OTApprovalDetailsSheet({
               <div>
                 <Label className="text-muted-foreground">Status</Label>
                 <div className="mt-1">
-                  <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
+                  <StatusBadge status={request.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request as any)} />
                 </div>
               </div>
             </div>

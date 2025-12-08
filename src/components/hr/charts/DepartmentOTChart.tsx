@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
@@ -40,9 +40,8 @@ export function DepartmentOTChart({ filterDate = new Date() }: DepartmentOTChart
 
   const fetchDepartmentOTData = async () => {
     try {
-      const startOfMonth = new Date(filterDate);
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+      const monthStart = startOfMonth(filterDate);
+      const monthEnd = endOfMonth(filterDate);
 
       const { data: otData, error } = await supabase
         .from('ot_requests')
@@ -56,7 +55,8 @@ export function DepartmentOTChart({ filterDate = new Date() }: DepartmentOTChart
             )
           )
         `)
-        .gte('ot_date', startOfMonth.toISOString().split('T')[0]);
+        .gte('ot_date', monthStart.toISOString().split('T')[0])
+        .lte('ot_date', monthEnd.toISOString().split('T')[0]);
 
       if (error) throw error;
 

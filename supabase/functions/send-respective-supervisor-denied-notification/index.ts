@@ -1,9 +1,12 @@
 /**
  * Send Respective Supervisor Denied Notification Edge Function
  *
- * Sends notifications to direct supervisors when the respective supervisor
- * denies an OT request. This notifies the direct supervisor that they need
- * to review the denial and decide whether to reject or revise the request.
+ * Sends notifications to both the employee and direct supervisor when
+ * the respective supervisor denies an OT request. The employee is notified
+ * that they can amend and resubmit, while the supervisor is informed of
+ * the denial for their records.
+ *
+ * Workflow (B): Respective SV denies → Employee notified to amend & resubmit → Direct SV notified of denial
  *
  * @endpoint POST /functions/v1/send-respective-supervisor-denied-notification
  * @payload {DeniedNotificationPayload} requestId
@@ -18,7 +21,8 @@ const corsHeaders = {
 /**
  * Get Supabase service role credentials from environment
  * Throws if credentials are not configured
- */ function getSupabaseCredentials() {
+ */
+function getSupabaseCredentials() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -29,7 +33,8 @@ const corsHeaders = {
     serviceKey: supabaseServiceKey
   };
 }
-Deno.serve(async (req)=>{
+
+Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
@@ -114,9 +119,11 @@ Deno.serve(async (req)=>{
     });
   }
 });
+
 /**
  * Main logic for sending denial notifications
- */ async function sendDenialNotifications(supabase, requestId) {
+ */
+async function sendDenialNotifications(supabase, requestId) {
   console.log(`[RespectiveSupervisorDenied] Processing request ${requestId}`);
   // 1. Fetch OT request details
   const { data: otRequest, error: otError } = await supabase.from('ot_requests').select('id, ot_date, total_hours, reason, employee_id, supervisor_id, respective_supervisor_id, respective_supervisor_denied_at, respective_supervisor_denial_remarks, status').eq('id', requestId).single();
@@ -127,15 +134,15 @@ Deno.serve(async (req)=>{
     });
     throw new Error('OT request not found');
   }
-  // 2. Verify the request is in pending_supervisor_review status
-  if (otRequest.status !== 'pending_supervisor_review') {
-    console.warn('[RespectiveSupervisorDenied] Request is not in pending_supervisor_review status:', {
+  // 2. Verify the request is in rejected status
+  if (otRequest.status !== 'rejected') {
+    console.warn('[RespectiveSupervisorDenied] Request is not in rejected status:', {
       requestId,
       status: otRequest.status
     });
     return {
       success: false,
-      error: 'Request is not in pending_supervisor_review status',
+      error: 'Request is not in rejected status',
       message: `Current status: ${otRequest.status}`
     };
   }
@@ -179,39 +186,119 @@ Deno.serve(async (req)=>{
     const { data: respSup } = await supabase.from('profiles').select('id, full_name, employee_id').eq('id', otRequest.respective_supervisor_id).single();
     respectiveSupervisor = respSup;
   }
-  console.log(`[RespectiveSupervisorDenied] Sending denial notification to ${directSupervisor.full_name}`);
-  // 8. Send notification to direct supervisor
+  console.log(`[RespectiveSupervisorDenied] Sending denial notifications to employee and supervisor`);
+  // 8. Send notifications to both employee and direct supervisor
+  let notificationsSent = 0;
+  let failures = 0;
+
+  // Send notification to employee to amend and resubmit
+  try {
+    await sendNotificationToEmployee(supabase, employee, respectiveSupervisor, otRequest);
+    console.log(`[RespectiveSupervisorDenied] ✓ Notification sent to employee ${employee.full_name}`);
+    notificationsSent++;
+  } catch (employeeNotifError) {
+    console.error('[RespectiveSupervisorDenied] Failed to send notification to employee:', employeeNotifError);
+    failures++;
+  }
+
+  // Send notification to direct supervisor
   try {
     await sendNotificationToDirectSupervisor(supabase, directSupervisor, employee, respectiveSupervisor, otRequest);
-    console.log(`[RespectiveSupervisorDenied] ✓ Notification sent successfully`);
+    console.log(`[RespectiveSupervisorDenied] ✓ Notification sent to supervisor ${directSupervisor.full_name}`);
+    notificationsSent++;
+  } catch (supervisorNotifError) {
+    console.error('[RespectiveSupervisorDenied] Failed to send notification to supervisor:', supervisorNotifError);
+    failures++;
+  }
+
+  if (notificationsSent === 2) {
+    return {
+      success: true,
+      notificationsSent: 2,
+      supervisorsNotified: 1,
+      employeesNotified: 1,
+      failures: 0,
+      message: `Denial notification sent to ${employee.full_name} and ${directSupervisor.full_name}`
+    };
+  } else if (notificationsSent === 1) {
     return {
       success: true,
       notificationsSent: 1,
-      supervisorsNotified: 1,
-      failures: 0,
-      message: `Denial notification sent to ${directSupervisor.full_name}`
+      supervisorsNotified: notificationsSent === 2 ? 1 : (failures === 1 ? 1 : 0),
+      employeesNotified: notificationsSent === 2 || (notificationsSent === 1 && failures === 1) ? 1 : 0,
+      failures: failures,
+      message: `Partial notification sent (${notificationsSent} of 2 recipients)`
     };
-  } catch (notifError) {
-    console.error('[RespectiveSupervisorDenied] Failed to send notification:', notifError);
+  } else {
     return {
       success: false,
       notificationsSent: 0,
       supervisorsNotified: 0,
-      failures: 1,
-      error: 'Failed to send notification',
-      details: notifError instanceof Error ? notifError.message : 'Unknown error'
+      employeesNotified: 0,
+      failures: 2,
+      error: 'Failed to send notifications to both recipients'
     };
   }
 }
+
 /**
- * Sends denial notification to direct supervisor using send-push-notification function
- */ async function sendNotificationToDirectSupervisor(_supabase, directSupervisor, employee, respectiveSupervisor, otRequest) {
+ * Sends denial notification to employee with amend and resubmit instructions
+ */
+async function sendNotificationToEmployee(_supabase, employee, respectiveSupervisor, otRequest) {
   // Format notification content
   const respectiveSupervisorName = respectiveSupervisor?.full_name || 'Respective Supervisor';
-  const title = `OT Denied by ${respectiveSupervisorName}`;
-  const denialRemarksPreview = otRequest.respective_supervisor_denial_remarks && otRequest.respective_supervisor_denial_remarks.length > 60 ? `${otRequest.respective_supervisor_denial_remarks.substring(0, 60)}...` : otRequest.respective_supervisor_denial_remarks || 'No remarks provided';
-  const body = `${employee.full_name} - ${formatDate(otRequest.ot_date)} - ${otRequest.total_hours} hours - Review needed`;
-  // Link to review the denial
+  const title = `OT Request Denied - Please Amend`;
+  const body = `Your OT request (Ticket #${otRequest.id.substring(0, 8).toUpperCase()}) for ${formatDate(otRequest.ot_date)} was denied by ${respectiveSupervisorName}.`;
+  // Link to amend the request
+  const targetUrl = `/employee/amend-ot?request=${otRequest.id}`;
+  const notificationPayload = {
+    user_id: employee.id,
+    title,
+    body,
+    icon: '/icons/icon-192x192.png',
+    notification_type: 'ot_denied_amend_needed',
+    data: {
+      targetUrl,
+      type: 'ot_denied_amend_needed',
+      requestId: otRequest.id,
+      respectiveSupervisorName,
+      otDate: otRequest.ot_date,
+      totalHours: otRequest.total_hours,
+      denialRemarks: otRequest.respective_supervisor_denial_remarks || ''
+    }
+  };
+  console.log(`[RespectiveSupervisorDenied] Sending to employee ${employee.full_name}:`, {
+    title,
+    targetUrl,
+    notificationType: 'ot_denied_amend_needed'
+  });
+  // Call the send-push-notification Edge Function
+  const { url: supabaseUrl, serviceKey } = getSupabaseCredentials();
+  const response = await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${serviceKey}`
+    },
+    body: JSON.stringify(notificationPayload)
+  });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to send notification: ${response.status} ${errorText}`);
+  }
+  const result = await response.json();
+  console.log(`[RespectiveSupervisorDenied] ✓ Sent to employee ${employee.full_name}:`, result);
+}
+
+/**
+ * Sends denial notification to direct supervisor for their records
+ */
+async function sendNotificationToDirectSupervisor(_supabase, directSupervisor, employee, respectiveSupervisor, otRequest) {
+  // Format notification content
+  const respectiveSupervisorName = respectiveSupervisor?.full_name || 'Respective Supervisor';
+  const title = `OT Request Denied by ${respectiveSupervisorName}`;
+  const body = `${respectiveSupervisorName} denied OT for ${employee.full_name} on ${formatDate(otRequest.ot_date)} (${otRequest.total_hours}h). Employee may amend and resubmit.`;
+  // Link for records/reference
   const targetUrl = `/supervisor/verify-ot?request=${otRequest.id}`;
   const notificationPayload = {
     user_id: directSupervisor.id,
@@ -221,7 +308,7 @@ Deno.serve(async (req)=>{
     notification_type: 'ot_respective_supervisor_denied',
     data: {
       targetUrl,
-      type: 'ot_confirmation_denied',
+      type: 'ot_denial_notification',
       requestId: otRequest.id,
       employeeName: employee.full_name,
       employeeId: employee.employee_id,
@@ -231,7 +318,7 @@ Deno.serve(async (req)=>{
       denialRemarks: otRequest.respective_supervisor_denial_remarks || ''
     }
   };
-  console.log(`[RespectiveSupervisorDenied] Sending to ${directSupervisor.full_name}:`, {
+  console.log(`[RespectiveSupervisorDenied] Sending to supervisor ${directSupervisor.full_name}:`, {
     title,
     targetUrl,
     notificationType: 'ot_respective_supervisor_denied'
@@ -251,11 +338,13 @@ Deno.serve(async (req)=>{
     throw new Error(`Failed to send notification: ${response.status} ${errorText}`);
   }
   const result = await response.json();
-  console.log(`[RespectiveSupervisorDenied] ✓ Sent to ${directSupervisor.full_name}:`, result);
+  console.log(`[RespectiveSupervisorDenied] ✓ Sent to supervisor ${directSupervisor.full_name}:`, result);
 }
+
 /**
  * Format date string for display
- */ function formatDate(dateString) {
+ */
+function formatDate(dateString) {
   try {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-MY', {

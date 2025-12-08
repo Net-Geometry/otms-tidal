@@ -26,7 +26,7 @@ export default function ApproveOT() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
-    return tabParam || 'pending_certification';
+    return tabParam || 'pending'; // Consolidated to "pending"
   });
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [recertifyDetailsRequest, setRecertifyDetailsRequest] = useState<any>(null);
@@ -42,12 +42,46 @@ export default function ApproveOT() {
     rejectRequest: rejectRequestMutation,
     isApproving,
     isRejecting
-  } = useOTApproval({ role: 'hr', status: activeTab === 'pending_hr_recertification' ? 'pending_hr_recertification' : activeTab });
+  } = useOTApproval({ role: 'hr', status: activeTab === 'recertify' ? undefined : (activeTab === 'pending' ? undefined : activeTab) });
 
   const { data: recertifyRequests = [], isLoading: isLoadingRecertify } = usePendingRecertifications();
   const recertifyActions = useRecertifyOTActions();
 
-  const filteredRequests = requests?.filter(request => {
+  // Helper function to determine which "logical" tab a request belongs to
+  const getTabForStatus = (status: string): string => {
+    const pendingStatuses = ['supervisor_confirmed', 'supervisor_verified'];
+    const certifiedStatuses = ['hr_certified'];
+    const rejectedStatuses = ['rejected'];
+
+    if (pendingStatuses.includes(status)) return 'pending';
+    if (certifiedStatuses.includes(status)) return 'certified';
+    if (rejectedStatuses.includes(status)) return 'rejected';
+    return 'all';
+  };
+
+  // Filter requests by consolidated status tab
+  const filterRequestsByTab = (requests: typeof requests, tab: string) => {
+    if (tab === 'all') return requests;
+
+    const pendingStatuses = ['supervisor_confirmed', 'supervisor_verified'];
+    const certifiedStatuses = ['hr_certified'];
+    const rejectedStatuses = ['rejected'];
+
+    switch (tab) {
+      case 'pending':
+        return requests.filter(r => pendingStatuses.includes(r.status));
+      case 'certified':
+        return requests.filter(r => certifiedStatuses.includes(r.status));
+      case 'rejected':
+        return requests.filter(r => rejectedStatuses.includes(r.status));
+      default:
+        return requests;
+    }
+  };
+
+  // First filter by consolidated tab, then by search query
+  const requestsByTab = filterRequestsByTab(requests || [], activeTab);
+  const filteredRequests = requestsByTab?.filter(request => {
     if (!searchQuery) return true;
     const profile = (request as any).profiles;
     const employeeName = profile?.full_name?.toLowerCase() || '';
@@ -69,17 +103,7 @@ export default function ApproveOT() {
           .maybeSingle();
 
         if (data) {
-          const statusToTab: Record<string, string> = {
-            'supervisor_verified': 'pending_certification',
-            'supervisor_confirmed': 'pending_certification',
-            'respective_supervisor_confirmed': 'pending_certification',
-            'hr_certified': 'hr_certified',
-            'rejected': 'rejected',
-            'pending_hr_recertification': 'pending_hr_recertification',
-          };
-
-          const tab = statusToTab[data.status] || 'all';
-          setActiveTab(tab);
+          setActiveTab(getTabForStatus(data.status));
         }
       };
 
@@ -135,19 +159,27 @@ export default function ApproveOT() {
         description="Certify overtime requests that have been verified by supervisors"
       >
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="pending_certification">
-          <TabsList>
-            <TabsTrigger value="pending_certification">Pending Certification</TabsTrigger>
-            <TabsTrigger value="hr_certified">Certified</TabsTrigger>
-            <TabsTrigger value="rejected">Rejected</TabsTrigger>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="pending_hr_recertification">
-              Recertify {recertifyRequests.length > 0 && `(${recertifyRequests.length})`}
+        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="pending">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="pending">
+              <span>⏳ Awaiting Certification</span>
+            </TabsTrigger>
+            <TabsTrigger value="certified">
+              <span>✓ Certified</span>
+            </TabsTrigger>
+            <TabsTrigger value="rejected">
+              <span>⚠ Rejected</span>
+            </TabsTrigger>
+            <TabsTrigger value="all">
+              <span>📋 All</span>
+            </TabsTrigger>
+            <TabsTrigger value="recertify">
+              <span>🔄 Recertify {recertifyRequests.length > 0 && `(${recertifyRequests.length})`}</span>
             </TabsTrigger>
           </TabsList>
 
-          {activeTab === 'pending_hr_recertification' ? (
-            <TabsContent value="pending_hr_recertification" className="mt-6">
+          {activeTab === 'recertify' ? (
+            <TabsContent value="recertify" className="mt-6">
               <Card className="p-6">
                 <div className="space-y-4">
                   <Alert>
@@ -270,7 +302,8 @@ export default function ApproveOT() {
                     rejectRequest={handleReject}
                     isApproving={isApproving}
                     isRejecting={isRejecting}
-                    showActions={activeTab === 'pending_certification'}
+                    showActions={activeTab === 'pending'}
+                    showApprovalHistory={activeTab === 'all'}
                     initialSelectedRequestId={selectedRequestId}
                   />
                 </div>

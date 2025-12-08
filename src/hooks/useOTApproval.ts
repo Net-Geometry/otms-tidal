@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { OTRequest, OTStatus, AppRole, GroupedOTRequest, ConfirmRequestInput, ConfirmRespectiveSupervisorInput, DenyRespectiveSupervisorInput, RequestRespectiveSupervisorConfirmationInput } from '@/types/otms';
+import { OTRequest, OTStatus, AppRole, GroupedOTRequest, ConfirmRequestInput, ConfirmRespectiveSupervisorInput, DenyRespectiveSupervisorInput, RequestRespectiveSupervisorConfirmationInput, getRequestRoute } from '@/types/otms';
 import { toast } from 'sonner';
-import { validateConfirmationTransition, validateRemarks, isLegacyRequest } from '@/services/ot-workflow';
+import { validateRemarks } from '@/services/ot-workflow';
+import { useRouteAApproval } from './useRouteAApproval';
+import { useRouteBApproval } from './useRouteBApproval';
+import { useOTApprovalShared } from './useOTApprovalShared';
 
 /**
  * Send employee notification via Edge Function
@@ -65,6 +68,7 @@ interface UseOTApprovalOptions {
 interface ApprovalAction {
   requestIds: string[];
   remarks?: string;
+  denialRemarks?: string;
 }
 
 // Helper function to group OT requests by employee and date
@@ -128,25 +132,47 @@ const getStatusFilter = (role: ApprovalRole, statusFilter?: string): OTStatus[] 
     if (statusFilter === 'pending_certification' && role === 'hr') {
       return ['supervisor_verified', 'supervisor_confirmed', 'respective_supervisor_confirmed'];
     }
+    // Handle HR-specific tab names
+    if (role === 'hr') {
+      if (statusFilter === 'pending') {
+        return ['supervisor_confirmed', 'respective_supervisor_confirmed', 'supervisor_verified'];
+      }
+      if (statusFilter === 'certified') {
+        return ['hr_certified'];
+      }
+      if (statusFilter === 'rejected') {
+        return ['rejected'];
+      }
+    }
+    // Handle supervisor-specific tab names
+    if (role === 'supervisor') {
+      if (statusFilter === 'completed') {
+        return ['supervisor_confirmed', 'supervisor_verified', 'hr_certified', 'management_approved'];
+      }
+      if (statusFilter === 'rejected') {
+        return ['rejected'];
+      }
+    }
     return [statusFilter as OTStatus];
   }
 
   // Handle "all" case specifically for each role
   if (statusFilter === 'all') {
     if (role === 'supervisor') {
-      return ['pending_verification', 'pending_supervisor_confirmation', 'pending_respective_supervisor_confirmation', 'pending_supervisor_review', 'supervisor_verified', 'supervisor_confirmed', 'respective_supervisor_confirmed', 'hr_certified', 'management_approved', 'rejected'];
+      return ['pending_verification', 'pending_supervisor_verification', 'pending_respective_supervisor_confirmation', 'supervisor_verified', 'supervisor_confirmed', 'respective_supervisor_confirmed', 'hr_certified', 'management_approved', 'rejected'];
     }
     if (role === 'hr') {
-      return ['pending_verification', 'supervisor_verified', 'supervisor_confirmed', 'respective_supervisor_confirmed', 'rejected'];
+      // Show ALL statuses for HR "all" tab (full history view)
+      return ['pending_verification', 'pending_supervisor_verification', 'pending_respective_supervisor_confirmation', 'respective_supervisor_confirmed', 'supervisor_confirmed', 'supervisor_verified', 'hr_certified', 'management_approved', 'rejected'];
     }
     if (role === 'management') {
-      return ['hr_certified', 'management_approved', 'rejected', 'pending_hr_recertification'];
+      return ['hr_certified', 'management_approved', 'rejected'];
     }
   }
 
   switch (role) {
     case 'supervisor':
-      return ['pending_verification'];
+      return ['pending_verification', 'pending_supervisor_verification'];
     case 'hr':
       // HR sees supervisor-confirmed, respective supervisor confirmed, and legacy supervisor-verified requests
       return ['supervisor_confirmed', 'respective_supervisor_confirmed', 'supervisor_verified'];
@@ -161,8 +187,8 @@ const getStatusFilter = (role: ApprovalRole, statusFilter?: string): OTStatus[] 
 const getApprovedStatus = (role: ApprovalRole): OTStatus => {
   switch (role) {
     case 'supervisor':
-      // Updated: After supervisor verification, request goes to pending confirmation
-      return 'pending_supervisor_confirmation';
+      // After supervisor verification, request is confirmed
+      return 'supervisor_confirmed';
     case 'hr':
       return 'hr_certified';
     case 'management':
@@ -234,6 +260,16 @@ export function useOTApproval(options: UseOTApprovalOptions) {
             department_id,
             basic_salary,
             departments(name)
+          ),
+          supervisor:profiles!ot_requests_supervisor_id_fkey(
+            id,
+            employee_id,
+            full_name
+          ),
+          respective_supervisor:profiles!ot_requests_respective_supervisor_id_fkey(
+            id,
+            employee_id,
+            full_name
           )
         `)
         .order('ot_date', { ascending: false });
@@ -268,18 +304,16 @@ export function useOTApproval(options: UseOTApprovalOptions) {
           // Apply status-specific filtering for supervisors
           // This ensures proper separation of roles based on request status
           // Note: RLS policy now restricts supervisors to only their direct reports or as respective supervisor
-          if (status === 'pending_supervisor_confirmation') {
-            // Only show pending_supervisor_confirmation for direct supervisors
-            // (requests from employees they manage)
+          if (status === 'pending_respective_supervisor_confirmation') {
+            // Only show pending_respective_supervisor_confirmation for respective supervisors
+            query = query.eq('respective_supervisor_id', user.id);
+          } else if (status === 'pending_supervisor_verification') {
+            // Route B: Direct supervisors verifying after respective supervisor confirms
             if (employeeIds.length > 0) {
               query = query.in('employee_id', employeeIds);
             } else {
-              // If supervisor has no direct employees, return empty by filtering on a false condition
               query = query.filter('id', 'is', null);
             }
-          } else if (status === 'pending_respective_supervisor_confirmation') {
-            // Only show pending_respective_supervisor_confirmation for respective supervisors
-            query = query.eq('respective_supervisor_id', user.id);
           } else if (status === 'pending_supervisor_review') {
             // Only direct supervisors see this (requests from their employees that were denied)
             if (employeeIds.length > 0) {
@@ -289,7 +323,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
               query = query.filter('id', 'is', null);
             }
           } else if (status === 'pending_verification') {
-            // For pending_verification, show requests for direct reports (with or without respective supervisor)
+            // Route A: For pending_verification, show requests for direct reports (with or without respective supervisor)
             if (employeeIds.length > 0) {
               query = query.in('employee_id', employeeIds);
             } else {
@@ -345,7 +379,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
           // Flow A: Single-step approval directly to supervisor_confirmed
           targetStatus = 'supervisor_confirmed';
         }
-        // Otherwise: Flow B or legacy flow - use normal pending_supervisor_confirmation
+        // Otherwise: Flow B - targetStatus already set by getApprovedStatus()
       }
 
       const updateData: any = {
@@ -393,9 +427,9 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       const actionLabel = role === 'supervisor' ? 'verified' : role === 'hr' ? 'approved' : 'reviewed';
       toast.success(`OT request ${actionLabel} successfully`);
 
-      // For supervisor role: trigger confirmation request notification (only for Flow B, not Flow A)
-      // Flow A goes directly to supervisor_confirmed, so no confirmation notification needed
-      if (role === 'supervisor' && data?.requestIds && data?.targetStatus === 'pending_supervisor_confirmation') {
+      // For supervisor role: trigger verification notification (only for Flow B after respective SV confirms)
+      // Flow A goes directly to supervisor_confirmed, Flow B goes to pending_supervisor_verification
+      if (role === 'supervisor' && data?.requestIds && data?.targetStatus === 'pending_supervisor_verification') {
         try {
           // Fetch the OT requests to get employee IDs
           const { data: requests, error: fetchError } = await supabase
@@ -516,24 +550,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
         throw new Error('No requests found');
       }
 
-      // Validate each request
-      const validationErrors: string[] = [];
-      requests.forEach((request: OTRequest) => {
-        // Skip legacy requests
-        if (isLegacyRequest(request)) {
-          validationErrors.push(`Request ${request.id} is a legacy request and cannot be confirmed`);
-          return;
-        }
-
-        const validation = validateConfirmationTransition(request, user.id);
-        if (!validation.valid) {
-          validationErrors.push(`Request ${request.id}: ${validation.error}`);
-        }
-      });
-
-      if (validationErrors.length > 0) {
-        throw new Error(validationErrors.join('; '));
-      }
+      // Requests are validated at the database level via RLS policies and constraints
 
       // Perform batch confirmation with status determination per request
       // Multi-step flow (with respective supervisor already confirmed) → supervisor_verified
@@ -685,8 +702,8 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       // Validate each request
       const validationErrors: string[] = [];
       requests.forEach((request: OTRequest) => {
-        if (request.status !== 'pending_supervisor_confirmation') {
-          validationErrors.push(`Request ${request.id} is not pending supervisor confirmation`);
+        if (request.status !== 'pending_verification') {
+          validationErrors.push(`Request ${request.id} is not pending verification`);
         }
 
         if (request.supervisor_id !== user.id) {
@@ -791,9 +808,9 @@ export function useOTApproval(options: UseOTApprovalOptions) {
         throw new Error(validationErrors.join('; '));
       }
 
-      // Perform batch confirmation - send back to pending_supervisor_confirmation
+      // Perform batch confirmation - transition to pending_supervisor_verification (Route B workflow)
       const updateData = {
-        status: 'pending_supervisor_confirmation' as OTStatus,
+        status: 'pending_supervisor_verification' as OTStatus,
         respective_supervisor_confirmed_at: new Date().toISOString(),
         respective_supervisor_remarks: remarks || null,
       };
@@ -815,7 +832,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       const count = data.requestIds.length;
       toast.success(`${count} OT request${count > 1 ? 's' : ''} confirmed successfully`);
 
-      // Send confirmation success notifications to direct supervisor and employee
+      // Send confirmation notification to direct supervisor
       try {
         for (const requestId of data.requestIds) {
           try {
@@ -833,23 +850,6 @@ export function useOTApproval(options: UseOTApprovalOptions) {
             }
           } catch (notifError) {
             console.error('Error sending direct supervisor notification (non-blocking):', notifError);
-          }
-
-          try {
-            // Also notify employee that request is progressing through respective supervisor
-            const employeeResponse = await supabase.functions.invoke('send-employee-confirmation-notification', {
-              body: {
-                requestId
-              }
-            });
-
-            if (employeeResponse.error) {
-              console.error('Failed to send employee progress notification:', employeeResponse.error);
-            } else {
-              console.log('Employee progress notification sent successfully:', employeeResponse.data);
-            }
-          } catch (notifError) {
-            console.error('Error sending employee progress notification (non-blocking):', notifError);
           }
         }
       } catch (error) {
@@ -904,9 +904,10 @@ export function useOTApproval(options: UseOTApprovalOptions) {
         throw new Error(validationErrors.join('; '));
       }
 
-      // Update status to pending_supervisor_review
+      // Update status to rejected - employee will need to amend and resubmit
       const updateData = {
-        status: 'pending_supervisor_review' as OTStatus,
+        status: 'rejected' as OTStatus,
+        rejection_stage: 'respective_supervisor_verification',
         respective_supervisor_denied_at: new Date().toISOString(),
         respective_supervisor_denial_remarks: denialRemarks,
       };
@@ -926,9 +927,9 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       queryClient.invalidateQueries({ queryKey: ['supervisor-dashboard-metrics'] });
 
       const count = data.requestIds.length;
-      toast.success(`${count} OT request${count > 1 ? 's' : ''} sent back to supervisor for review`);
+      toast.success(`${count} OT request${count > 1 ? 's' : ''} denied. Employee can amend and resubmit.`);
 
-      // Send denial notification to direct supervisor
+      // Send denial notification to employee and direct supervisor
       try {
         for (const requestId of data.requestIds) {
           try {
@@ -1057,6 +1058,84 @@ export function useOTApproval(options: UseOTApprovalOptions) {
     },
   });
 
+  // Direct supervisor verification mutation for B workflow - simple acknowledgment after respective SV confirms
+  const verifyOTMutation = useMutation({
+    mutationFn: async ({ requestIds }: { requestIds: string[] }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Fetch the requests to validate
+      const { data: requests, error: fetchError } = await supabase
+        .from('ot_requests')
+        .select('*')
+        .in('id', requestIds);
+
+      if (fetchError) throw fetchError;
+      if (!requests || requests.length === 0) {
+        throw new Error('No requests found');
+      }
+
+      // Validate each request - must be in pending_supervisor_verification status
+      const validationErrors: string[] = [];
+      requests.forEach((request: OTRequest) => {
+        if (request.status !== 'pending_supervisor_verification') {
+          validationErrors.push(`Request ${request.id} is not pending verification`);
+        }
+
+        if (request.supervisor_id !== user.id) {
+          validationErrors.push(`Request ${request.id} is not assigned to you`);
+        }
+      });
+
+      if (validationErrors.length > 0) {
+        throw new Error(validationErrors.join('; '));
+      }
+
+      // Perform batch verification - move to supervisor_confirmed
+      const updateData = {
+        status: 'supervisor_confirmed' as OTStatus,
+        supervisor_verified_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('ot_requests')
+        .update(updateData)
+        .in('id', requestIds);
+
+      if (error) throw error;
+
+      return { requestIds, success: true };
+    },
+    onSuccess: async (data) => {
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: ['ot-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['supervisor-dashboard-metrics'] });
+
+      const count = data.requestIds.length;
+      toast.success(`${count} OT request${count > 1 ? 's' : ''} verified successfully`);
+
+      // Notify HR that requests are ready for certification
+      try {
+        for (const requestId of data.requestIds) {
+          try {
+            await supabase.functions.invoke('send-supervisor-verified-notification', {
+              body: {
+                requestId
+              }
+            });
+          } catch (notifError) {
+            console.error('Error sending HR notification (non-blocking):', notifError);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to trigger HR notifications (non-blocking):', error);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Failed to verify request: ${error.message}`);
+    },
+  });
+
   return {
     requests: groupOTRequestsByEmployee(data || []),
     isLoading,
@@ -1068,6 +1147,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
     confirmRespectiveSupervisor: confirmRespectiveSupervisorMutation.mutateAsync,
     denyRespectiveSupervisor: denyRespectiveSupervisorMutation.mutateAsync,
     reviseDeniedRequest: reviseDeniedRequestMutation.mutateAsync,
+    verifyOT: verifyOTMutation.mutateAsync,
     isApproving: approveMutation.isPending,
     isRejecting: rejectMutation.isPending,
     isConfirming: confirmMutation.isPending,
@@ -1075,5 +1155,82 @@ export function useOTApproval(options: UseOTApprovalOptions) {
     isConfirmingRespectiveSupervisor: confirmRespectiveSupervisorMutation.isPending,
     isDenyingRespectiveSupervisor: denyRespectiveSupervisorMutation.isPending,
     isRevisingDeniedRequest: reviseDeniedRequestMutation.isPending,
+    isVerifying: verifyOTMutation.isPending,
+  };
+}
+
+/**
+ * New simplified OT Approval facade
+ * Uses route-specific hooks (useRouteAApproval, useRouteBApproval)
+ * Determines route automatically based on requests
+ */
+export function useOTApprovalSimplified(options?: UseOTApprovalOptions) {
+  const { role = 'supervisor', status } = options || {};
+
+  // Get all requests for this role
+  const queryClient = useQueryClient();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['ot-requests', role, status],
+    queryFn: async () => {
+      const statusFilter = status && status !== 'all' ? status : undefined;
+
+      const { data, error } = await supabase
+        .from('ot_requests')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []) as OTRequest[];
+    },
+  });
+
+  const requests = data || [];
+
+  // Separate Route A and Route B requests
+  const routeARequests = requests.filter(r => !r.respective_supervisor_id);
+  const routeBRequests = requests.filter(r => r.respective_supervisor_id);
+
+  // Use specialized hooks
+  const routeA = useRouteAApproval({ requestIds: routeARequests.map(r => r.id), enabled: role !== 'employee' });
+  const routeB = useRouteBApproval({ requestIds: routeBRequests.map(r => r.id), enabled: role !== 'employee' });
+  const shared = useOTApprovalShared();
+
+  // Group requests for display
+  const groupedRequests = shared.groupOTRequestsByEmployee(requests);
+
+  return {
+    // Data
+    requests: groupedRequests,
+    allRequests: requests,
+    isLoading,
+    error,
+
+    // Route A mutations
+    supervisorApprove: routeA.supervisorApprove,
+    isSupervisorApproving: routeA.isSupervisorApproving,
+
+    // Route B mutations
+    respectiveSVConfirm: routeB.respectiveSVConfirm,
+    isRespectiveSVConfirming: routeB.isRespectiveSVConfirming,
+    respectiveSVDeny: routeB.respectiveSVDeny,
+    isRespectiveSVDenying: routeB.isRespectiveSVDenying,
+    supervisorVerify: routeB.supervisorVerify,
+    isSupervisorVerifying: routeB.isSupervisorVerifying,
+
+    // Shared HR mutations (both routes)
+    hrCertify: routeA.hrCertify || routeB.hrCertify,
+    isHRCertifying: routeA.isHRCertifying || routeB.isHRCertifying,
+    hrReject: routeA.hrReject || routeB.hrReject,
+    isHRRejecting: routeA.isHRRejecting || routeB.isHRRejecting,
+
+    // Shared management mutations
+    managementApprove: shared.managementApprove,
+    isManagementApproving: shared.isManagementApproving,
+    managementReject: shared.managementReject,
+    isManagementRejecting: shared.isManagementRejecting,
+
+    // Helper functions
+    getRoute: shared.getRoute,
+    canEdit: shared.canEditRequest,
   };
 }

@@ -17,9 +17,14 @@ interface OTSubmitData {
 
 /**
  * Send supervisor notification via Edge Function (initial supervisor alert)
+ * Routes to respective supervisor if selected, otherwise to direct supervisor
  * Wrapped in try-catch to ensure notification failures don't break OT submission
  */
-async function sendSupervisorNotification(requestId: string, employeeId: string): Promise<void> {
+async function sendSupervisorNotification(
+  requestId: string,
+  employeeId: string,
+  respectiveSupervisorId?: string | null
+): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (!session) {
@@ -29,7 +34,8 @@ async function sendSupervisorNotification(requestId: string, employeeId: string)
   const response = await supabase.functions.invoke('send-supervisor-ot-notification', {
     body: {
       requestId,
-      employeeId
+      employeeId,
+      respectiveSupervisorId
     }
   });
 
@@ -65,6 +71,7 @@ export function useOTSubmit() {
       const { data: settings, error: settingsError } = await supabase
         .from('ot_settings')
         .select('ot_submission_cutoff_day')
+        .limit(1)
         .single();
 
       if (settingsError) {
@@ -108,8 +115,12 @@ export function useOTSubmit() {
         }
       }
 
-      // All submissions begin in pending_verification so direct supervisor can review first
-      const initialStatus = 'pending_verification';
+      // Determine initial status based on workflow route
+      // Route A (no respective SV): direct supervisor verifies first
+      // Route B (with respective SV): respective supervisor confirms first
+      const initialStatus = data.respective_supervisor_id
+        ? 'pending_respective_supervisor_confirmation'
+        : 'pending_verification';
 
       // Generate ticket number: OT-YYYYMMDD-RANDOM
       const dateStr = format(new Date(data.ot_date), 'yyyyMMdd');
@@ -137,8 +148,10 @@ export function useOTSubmit() {
 
       if (error) throw error;
 
-      // Always notify direct supervisor first; respective supervisor is notified later when explicitly requested
-      sendSupervisorNotification(otRequest.id, user.id).catch((notifError) => {
+      // Notify appropriate supervisor based on workflow route
+      // Route B: Notify respective supervisor if selected
+      // Route A: Notify direct supervisor if no respective supervisor
+      sendSupervisorNotification(otRequest.id, user.id, data.respective_supervisor_id).catch((notifError) => {
         // Don't throw - notification failure should not prevent OT submission
       });
 

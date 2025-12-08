@@ -1,22 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useEffect } from 'react';
 
 export interface Notification {
   id: string;
   user_id: string;
   title: string;
   message: string;
-  link: string | null;
+  link?: string | null;
   is_read: boolean;
-  notification_type: 'ot_approved' 
-    | 'ot_rejected' 
+  notification_type: 'ot_approved'
+    | 'ot_rejected'
     | 'ot_pending_review'
     | 'ot_requests_new'
     | 'ot_requests_approved'
     | 'ot_requests_rejected'
-    | 'ot_pending_confirmation'      // NEW: Supervisor needs to confirm OT
-    | 'ot_supervisor_confirmed';     // NEW: Supervisor confirmed OT
+    | 'ot_pending_confirmation'
+    | 'ot_supervisor_confirmed';
   created_at: string;
 }
 
@@ -32,8 +31,12 @@ export function useNotifications() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Notification[];
+
+      return (data || []) as Notification[];
     },
+    staleTime: 30000, // Refetch every 30 seconds
+    refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: true, // Always refetch when component mounts
   });
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
@@ -65,28 +68,6 @@ export function useNotifications() {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },
   });
-
-  // Subscribe to real-time notifications
-  useEffect(() => {
-    const channel = supabase
-      .channel('notifications-channel')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-        },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['notifications'] });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
 
   return {
     notifications,

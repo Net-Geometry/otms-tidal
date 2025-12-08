@@ -12,6 +12,7 @@ import { PWAInstallBanner } from "./components/PWAInstallBanner";
 import { HTTPSWarning } from "./components/pwa/HTTPSWarning";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { createQueryClient } from "./lib/queryClient";
 import { ContentLoadingSkeleton } from "./components/ContentLoadingSkeleton";
 import { HolidayManagement } from "./components/admin/HolidayManagement";
@@ -65,13 +66,14 @@ const App = () => (
   <ErrorBoundary>
     <ThemeProvider defaultTheme="system" storageKey="ot-scribe-theme">
       <QueryClientProvider client={queryClient}>
-        <HTTPSWarning />
-        <BrowserRouter>
-          <AuthProvider>
-            <ActiveRoleProvider>
-              <AuthGuard>
-                <PWAInstallBanner />
-                <Suspense fallback={<ContentLoadingSkeleton />}>
+        <TooltipProvider>
+          <HTTPSWarning />
+          <BrowserRouter>
+            <AuthProvider>
+              <ActiveRoleProvider>
+                <AuthGuard>
+                  <PWAInstallBanner />
+                  <Suspense fallback={<ContentLoadingSkeleton />}>
                 <Routes>
                 <Route path="/" element={<RootRedirect />} />
                 <Route path="/auth" element={<Auth />} />
@@ -121,14 +123,15 @@ const App = () => (
                 
                 <Route path="*" element={<NotFound />} />
                 </Routes>
-              </Suspense>
-              <Toaster />
-              <Sonner />
-              </AuthGuard>
-            </ActiveRoleProvider>
-          </AuthProvider>
-        </BrowserRouter>
-    </QueryClientProvider>
+                  </Suspense>
+                  <Toaster />
+                  <Sonner />
+                </AuthGuard>
+              </ActiveRoleProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   </ErrorBoundary>
 );

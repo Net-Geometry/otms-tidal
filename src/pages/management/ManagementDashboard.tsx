@@ -232,7 +232,7 @@ export default function ManagementDashboard() {
         </div>
 
         <div>
-          <QuickInsights />
+          <QuickInsights filterDate={filterDate} />
         </div>
       </PageLayout>
     </AppLayout>

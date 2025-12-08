@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { StatusBadge } from '@/components/StatusBadge';
 import { GroupedOTRequest } from '@/types/otms';
 import { formatCurrency, formatHours, formatTime12Hour } from '@/lib/otCalculations';
+import { getStatusTooltip } from '@/lib/otStatusTooltip';
 import { useOTDailySessions } from '@/hooks/useOTDailySessions';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -22,6 +23,7 @@ interface OTApprovalDetailsSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   role: ApprovalRole;
+  currentUserId?: string;
   onApprove?: (request: GroupedOTRequest, sessionIds: string[]) => void;
   onReject?: (request: GroupedOTRequest, sessionIds: string[]) => void;
   onConfirm?: (requestIds: string[], remarks?: string) => Promise<void>;
@@ -41,6 +43,7 @@ export function OTApprovalDetailsSheet({
   open,
   onOpenChange,
   role,
+  currentUserId,
   onApprove,
   onReject,
   onConfirm,
@@ -94,7 +97,10 @@ export function OTApprovalDetailsSheet({
   };
 
   const canConfirmAsRespectiveSupervisor = (req: GroupedOTRequest) => {
-    return req.status === 'pending_respective_supervisor_confirmation';
+    return req.status === 'pending_respective_supervisor_confirmation' &&
+           req.respective_supervisor_id && // Must have respective supervisor assigned
+           req.respective_supervisor_id === currentUserId && // Must be the actual respective supervisor
+           onConfirmRespectiveSupervisor && onDenyRespectiveSupervisor; // Must have callbacks provided
   };
 
 
@@ -220,7 +226,7 @@ export function OTApprovalDetailsSheet({
                               ({formatHours(session.total_hours)} hours)
                             </span>
                           </div>
-                          {session.status && <StatusBadge status={session.status} rejectionStage={request.rejection_stage} />}
+                          {session.status && <StatusBadge status={session.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request)} />}
                         </div>
                         
                         {session.reason && (
@@ -277,7 +283,7 @@ export function OTApprovalDetailsSheet({
                               ({formatHours(session.total_hours)} hours)
                             </span>
                           </div>
-                          <StatusBadge status={session.status} rejectionStage={request.rejection_stage} />
+                          <StatusBadge status={session.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request)} />
                         </div>
                       </div>
                     ))}
@@ -291,7 +297,7 @@ export function OTApprovalDetailsSheet({
 
             <div className="flex items-center gap-2 text-sm">
               <span className="font-medium">Status:</span>
-              <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
+              <StatusBadge status={request.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request)} />
             </div>
           </div>
 
@@ -611,9 +617,9 @@ export function OTApprovalDetailsSheet({
             </>
           )}
 
-          {/* Action Buttons Footer - For Direct Supervisor Final Confirmation (after respective supervisor confirms) */}
+          {/* Action Buttons Footer - For Direct Supervisor Verification (after respective supervisor confirms) */}
           {onConfirm && role === 'supervisor' &&
-           request.status === 'pending_supervisor_confirmation' &&
+           request.status === 'pending_supervisor_verification' &&
            request.respective_supervisor_id &&
            request.respective_supervisor_confirmed_at && (
             <>

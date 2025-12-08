@@ -23,6 +23,16 @@ export function useOTRequests(options: UseOTRequestsOptions = {}) {
           profiles!ot_requests_employee_id_fkey(
             employee_id,
             full_name
+          ),
+          supervisor:profiles!ot_requests_supervisor_id_fkey(
+            id,
+            employee_id,
+            full_name
+          ),
+          respective_supervisor:profiles!ot_requests_respective_supervisor_id_fkey(
+            id,
+            employee_id,
+            full_name
           )
         `)
         .eq('employee_id', user.id)
@@ -64,7 +74,19 @@ export function useOTRequestDetails(requestId: string | null) {
 
       const { data, error } = await supabase
         .from('ot_requests')
-        .select('*')
+        .select(`
+          *,
+          supervisor:profiles!ot_requests_supervisor_id_fkey(
+            id,
+            employee_id,
+            full_name
+          ),
+          respective_supervisor:profiles!ot_requests_respective_supervisor_id_fkey(
+            id,
+            employee_id,
+            full_name
+          )
+        `)
         .eq('id', requestId)
         .single();
 

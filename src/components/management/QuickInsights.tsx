@@ -5,6 +5,7 @@ import { Briefcase, User, Clock, TrendingUp, TrendingDown } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/otCalculations';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 interface Insight {
   title: string;
@@ -15,21 +16,23 @@ interface Insight {
   borderColor: string;
 }
 
-export function QuickInsights() {
+interface QuickInsightsProps {
+  filterDate?: Date;
+}
+
+export function QuickInsights({ filterDate = new Date() }: QuickInsightsProps) {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchInsights();
-  }, []);
+  }, [filterDate]);
 
   const fetchInsights = async () => {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-
-    const startOfLastMonth = new Date(startOfMonth);
-    startOfLastMonth.setMonth(startOfLastMonth.getMonth() - 1);
+    const monthStart = startOfMonth(filterDate);
+    const monthEnd = endOfMonth(filterDate);
+    const lastMonthStart = startOfMonth(new Date(filterDate.getFullYear(), filterDate.getMonth() - 1, 1));
+    const lastMonthEnd = endOfMonth(new Date(filterDate.getFullYear(), filterDate.getMonth() - 1, 1));
 
     // Fetch current month data
     const { data: currentData } = await supabase
@@ -44,14 +47,15 @@ export function QuickInsights() {
           departments!profiles_department_id_fkey(name)
         )
       `)
-      .gte('created_at', startOfMonth.toISOString());
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
 
     // Fetch last month data for trends
     const { data: lastMonthData } = await supabase
       .from('ot_requests')
       .select('total_hours, employee_id')
-      .gte('created_at', startOfLastMonth.toISOString())
-      .lt('created_at', startOfMonth.toISOString());
+      .gte('created_at', lastMonthStart.toISOString())
+      .lte('created_at', lastMonthEnd.toISOString());
 
     if (currentData) {
       // Top OT Department

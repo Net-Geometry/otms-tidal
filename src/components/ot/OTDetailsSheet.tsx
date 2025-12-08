@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { StatusBadge } from '@/components/StatusBadge';
 import { OTRequest } from '@/types/otms';
 import { formatCurrency, formatHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
+import { getStatusTooltip } from '@/lib/otStatusTooltip';
 
 interface OTDetailsSheetProps {
   request: OTRequest | null;
@@ -33,7 +34,7 @@ export function OTDetailsSheet({ request, open, onOpenChange, onEdit }: OTDetail
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <p className="text-sm font-medium text-muted-foreground mb-2">Status</p>
-              <StatusBadge status={request.status} rejectionStage={request.rejection_stage} />
+              <StatusBadge status={request.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request as any)} />
             </div>
             
             {/* Edit button - only for pending_verification status */}

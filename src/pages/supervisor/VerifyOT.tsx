@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OTApprovalTable } from '@/components/approvals/OTApprovalTable';
 import { useOTApproval } from '@/hooks/useOTApproval';
+import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,27 +14,72 @@ import { supabase } from '@/integrations/supabase/client';
 export default function VerifyOT() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('pending_verification');
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'completed' | 'rejected' | 'all'>('pending'); // Consolidated "pending" filter
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const {
-    requests,
+    requests: allRequests,
     isLoading,
     approveRequest: approveRequestMutation,
     rejectRequest: rejectRequestMutation,
     confirmRequest: confirmRequestMutation,
-    requestRespectiveSupervisorConfirmation: requestRespectiveSupervisorConfirmationMutation,
     confirmRespectiveSupervisor: confirmRespectiveSupervisorMutation,
     denyRespectiveSupervisor: denyRespectiveSupervisorMutation,
     reviseDeniedRequest: reviseDeniedRequestMutation,
     isApproving,
     isRejecting,
     isConfirming,
-    isRequestingRespectiveSupervisorConfirmation,
     isConfirmingRespectiveSupervisor,
     isDenyingRespectiveSupervisor,
     isRevisingDeniedRequest
-  } = useOTApproval({ role: 'supervisor', status: statusFilter });
+  } = useOTApproval({ role: 'supervisor', status: 'all' });
+
+  // Filter requests by consolidated status tab
+  const filterRequestsByTab = (requests: typeof allRequests, tab: string) => {
+    if (tab === 'all') return requests;
+
+    const pendingStatuses = ['pending_verification', 'pending_supervisor_verification', 'pending_respective_supervisor_confirmation'];
+    const completedStatuses = ['supervisor_confirmed', 'supervisor_verified', 'respective_supervisor_confirmed', 'hr_certified', 'management_approved'];
+    const rejectedStatuses = ['rejected'];
+
+    let filtered = requests;
+
+    switch (tab) {
+      case 'pending':
+        filtered = requests.filter(r => pendingStatuses.includes(r.status));
+        // Filter based on supervisor role
+        if (user?.id) {
+          filtered = filtered.filter(r => {
+            const isDirectSupervisor = (r as any).supervisor_id === user.id;
+            const isRespecttiveSupervisor = (r as any).respective_supervisor_id === user.id;
+
+            // If they're only the respective supervisor (not direct), only show if awaiting their confirmation
+            if (isRespecttiveSupervisor && !isDirectSupervisor) {
+              return r.status === 'pending_respective_supervisor_confirmation';
+            }
+
+            // If they're the direct supervisor but NOT the respective supervisor,
+            // hide pending_respective_supervisor_confirmation requests
+            if (isDirectSupervisor && !isRespecttiveSupervisor &&
+                r.status === 'pending_respective_supervisor_confirmation') {
+              return false;
+            }
+
+            return true;
+          });
+        }
+        return filtered;
+      case 'completed':
+        return requests.filter(r => completedStatuses.includes(r.status));
+      case 'rejected':
+        return requests.filter(r => rejectedStatuses.includes(r.status));
+      default:
+        return requests;
+    }
+  };
+
+  const requests = filterRequestsByTab(allRequests, statusFilter);
 
   // Wrapper functions to match the expected API
   const approveRequest = async (requestIds: string[], remarks?: string) => {
@@ -46,10 +92,6 @@ export default function VerifyOT() {
 
   const confirmRequest = async (requestIds: string[], remarks?: string) => {
     await confirmRequestMutation({ requestIds, remarks });
-  };
-
-  const requestRespectiveSupervisorConfirmation = async (requestIds: string[]) => {
-    await requestRespectiveSupervisorConfirmationMutation({ requestIds });
   };
 
   const confirmRespectiveSupervisor = async (requestIds: string[], remarks?: string) => {
@@ -73,6 +115,22 @@ export default function VerifyOT() {
     return employeeName.includes(query) || employeeId.includes(query);
   }) || [];
 
+  // Helper function to determine which "logical" tab a request belongs to
+  const getTabForStatus = (status: string): string => {
+    const pendingStatuses = [
+      'pending_verification',
+      'pending_supervisor_verification',
+      'pending_respective_supervisor_confirmation'
+    ];
+    const completedStatuses = ['supervisor_confirmed', 'supervisor_verified', 'respective_supervisor_confirmed', 'hr_certified', 'management_approved'];
+    const rejectedStatuses = ['rejected'];
+
+    if (pendingStatuses.includes(status)) return 'pending';
+    if (completedStatuses.includes(status)) return 'completed';
+    if (rejectedStatuses.includes(status)) return 'rejected';
+    return 'all';
+  };
+
   // Smart tab selection based on request status
   useEffect(() => {
     const requestId = searchParams.get('request');
@@ -85,14 +143,7 @@ export default function VerifyOT() {
           .maybeSingle();
 
         if (data) {
-          const statusToTab: Record<string, string> = {
-            'pending_verification': 'pending_verification',
-            'supervisor_verified': 'completed',
-            'rejected': 'rejected',
-          };
-
-          const tab = statusToTab[data.status] || 'all';
-          setStatusFilter(tab);
+          setStatusFilter(getTabForStatus(data.status));
         }
       };
 
@@ -109,7 +160,7 @@ export default function VerifyOT() {
       searchParams.delete('request');
       setSearchParams(searchParams, { replace: true });
     }
-  }, [searchParams, requests, setSearchParams, statusFilter]);
+  }, [searchParams, requests, setSearchParams]);
 
   return (
     <AppLayout>
@@ -131,14 +182,19 @@ export default function VerifyOT() {
             </div>
 
             <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-              <TabsList className="grid w-full grid-cols-7">
-                <TabsTrigger value="pending_verification">Pending</TabsTrigger>
-                <TabsTrigger value="pending_supervisor_confirmation">Confirm</TabsTrigger>
-                <TabsTrigger value="pending_respective_supervisor_confirmation">Verify</TabsTrigger>
-                <TabsTrigger value="pending_supervisor_review">Review</TabsTrigger>
-                <TabsTrigger value="completed">Verified</TabsTrigger>
-                <TabsTrigger value="rejected">Rejected</TabsTrigger>
-                <TabsTrigger value="all">All</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="pending">
+                  <span>⏳ Awaiting My Action</span>
+                </TabsTrigger>
+                <TabsTrigger value="completed">
+                  <span>✓ Completed</span>
+                </TabsTrigger>
+                <TabsTrigger value="rejected">
+                  <span>⚠ Rejected</span>
+                </TabsTrigger>
+                <TabsTrigger value="all">
+                  <span>📋 All</span>
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value={statusFilter} className="mt-4">
@@ -146,20 +202,20 @@ export default function VerifyOT() {
                   requests={filteredRequests}
                   isLoading={isLoading}
                   role="supervisor"
+                  currentUserId={user?.id}
                   approveRequest={approveRequest}
                   rejectRequest={rejectRequest}
                   confirmRequest={confirmRequest}
-                  requestRespectiveSupervisorConfirmation={requestRespectiveSupervisorConfirmation}
                   confirmRespectiveSupervisor={confirmRespectiveSupervisor}
                   denyRespectiveSupervisor={denyRespectiveSupervisor}
                   reviseDeniedRequest={reviseDeniedRequest}
                   isApproving={isApproving}
                   isRejecting={isRejecting}
                   isConfirming={isConfirming}
-                  isRequestingRespectiveSupervisorConfirmation={isRequestingRespectiveSupervisorConfirmation}
                   isConfirmingRespectiveSupervisor={isConfirmingRespectiveSupervisor}
                   isDenyingRespectiveSupervisor={isDenyingRespectiveSupervisor}
                   isRevisingDeniedRequest={isRevisingDeniedRequest}
+                  showApprovalHistory={statusFilter === 'completed'}
                   initialSelectedRequestId={selectedRequestId}
                 />
               </TabsContent>

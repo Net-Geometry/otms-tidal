@@ -55,6 +55,19 @@ const OTFormSchema = z.object({
 }, {
   message: 'Please provide a detailed reason (minimum 10 characters)',
   path: ['reason'],
+}).refine((data) => {
+  // Validate that end_time is after start_time
+  if (data.start_time && data.end_time) {
+    const [startHour, startMinute] = data.start_time.split(':').map(Number);
+    const [endHour, endMinute] = data.end_time.split(':').map(Number);
+    const startTimeInMinutes = startHour * 60 + startMinute;
+    const endTimeInMinutes = endHour * 60 + endMinute;
+    return endTimeInMinutes > startTimeInMinutes;
+  }
+  return true;
+}, {
+  message: 'End time must be after start time',
+  path: ['end_time'],
 });
 
 type OTFormValues = z.infer<typeof OTFormSchema>;
@@ -281,6 +294,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                   <TimePickerInput
                     value={field.value}
                     onChange={field.onChange}
+                    minTime={startTime}
                   />
                 </FormControl>
                 <FormMessage />
