@@ -97,28 +97,39 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
   };
 
   /**
-   * Wait for service worker to be active
-   * Firebase Cloud Messaging requires an active service worker before getToken() can be called
+   * Wait for service worker to be registered
+   * Firebase Cloud Messaging requires a registered and active service worker before getToken() can be called
    */
-  const waitForActiveServiceWorker = async (maxWaitTime = 5000): Promise<ServiceWorkerContainer['controller']> => {
-    const startTime = Date.now();
-    const pollInterval = 100; // Check every 100ms
-
-    while (Date.now() - startTime < maxWaitTime) {
-      // Check if a service worker is currently active
-      if (navigator.serviceWorker.controller) {
-        console.log('[usePushSubscription] Service worker is now active and controlling the page');
-        return navigator.serviceWorker.controller;
-      }
-
-      // Wait a bit before checking again
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+  const ensureServiceWorkerReady = async (maxWaitTime = 10000): Promise<ServiceWorkerRegistration> => {
+    // First check if a service worker is already registered
+    if (navigator.serviceWorker.controller) {
+      console.log('[usePushSubscription] Service worker is already active and controlling the page');
+      const reg = await navigator.serviceWorker.ready;
+      return reg;
     }
 
-    throw new Error(
-      `Service Worker did not become active within ${maxWaitTime}ms. ` +
-      'Make sure your service worker is properly registered and the manifest.json is accessible.'
-    );
+    console.log('[usePushSubscription] Waiting for service worker registration...');
+
+    // Use navigator.serviceWorker.ready which waits for the service worker to be registered and active
+    // This is the proper way to wait for a service worker, as per Web Standards
+    try {
+      const registration = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Service Worker did not become active within ${maxWaitTime}ms. Make sure manifest.json is accessible.`)),
+            maxWaitTime
+          )
+        )
+      ]);
+
+      console.log('[usePushSubscription] Service worker registration successful:', registration);
+      return registration;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.error('[usePushSubscription] Service worker registration failed:', errorMsg);
+      throw new Error(`Service Worker registration failed: ${errorMsg}`);
+    }
   };
 
   /**
@@ -146,20 +157,12 @@ export const usePushSubscription = (): UsePushSubscriptionReturn => {
         throw new Error('Service workers are not supported in this browser');
       }
 
-      // Check if a service worker is already active (registered by Vite PWA plugin)
-      // If not, wait for it to become active. The Vite PWA plugin registers the service worker
-      // automatically, but it may not be active yet when the hook first runs.
-      console.log('[usePushSubscription] Checking service worker status...');
-
-      if (navigator.serviceWorker.controller) {
-        console.log('[usePushSubscription] Service worker is already active and controlling the page');
-      } else {
-        // Wait for the service worker to be active and controlling the page
-        // This is critical - Firebase Cloud Messaging requires an active service worker
-        console.log('[usePushSubscription] Service worker not yet active, waiting...');
-        await waitForActiveServiceWorker(5000);
-        console.log('[usePushSubscription] Service worker is now active, proceeding with FCM token request');
-      }
+      // Ensure service worker is registered and active
+      // The Vite PWA plugin registers the service worker automatically via registerSW()
+      // But we need to wait for it to be ready before calling Firebase's getToken()
+      console.log('[usePushSubscription] Ensuring service worker is registered and active...');
+      await ensureServiceWorkerReady(10000);
+      console.log('[usePushSubscription] Service worker is ready, proceeding with FCM token request');
 
       // Request notification permission
       const permission = await Notification.requestPermission();
