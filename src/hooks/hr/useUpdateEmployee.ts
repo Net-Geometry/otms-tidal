@@ -88,6 +88,26 @@ export function useUpdateEmployee() {
 
       if (profileError) throw profileError;
 
+      // If email is being updated, sync it with auth.users table
+      if (updateBody.email) {
+        const { error: emailSyncError } = await supabase.functions.invoke(
+          'fix-account-email',
+          {
+            body: {
+              user_id: id,
+              new_email: updateBody.email,
+            },
+          }
+        );
+
+        if (emailSyncError) {
+          console.error('Failed to sync email with auth.users:', emailSyncError);
+          throw new Error(
+            'Profile updated but failed to sync email with authentication system. User may not be able to login with new email.'
+          );
+        }
+      }
+
       // Update roles if provided
       if (roles && roles.length > 0) {
         // Use the database function to validate and update roles

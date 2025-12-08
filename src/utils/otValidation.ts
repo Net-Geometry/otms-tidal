@@ -1,20 +1,18 @@
 /**
  * OT Submission Validation Utilities
- * Handles validation for overtime submission deadlines based on month-based cutoff rules
+ * Handles validation for overtime submission deadlines with a 7-day window restriction
  */
 
 /**
- * Checks if a given date is allowed for OT submission based on the submission cutoff day
+ * Checks if a given date is allowed for OT submission
  *
  * Rules:
  * - Cannot submit for future dates
- * - Cannot submit for dates older than current year (or with special rules for older dates)
- * - After the cutoff day of current month: can only submit for current month (within 7-day lookback)
- * - Before/on the cutoff day of current month: can submit for current and all previous months
+ * - Can only submit for dates within the last 7 days (from 7 days ago to today inclusive)
  *
  * @param otDate - The date the OT was worked
  * @param currentDate - The current date (defaults to today)
- * @param cutoffDay - The day of month after which previous month submissions are blocked (default: 10)
+ * @param cutoffDay - Deprecated parameter (kept for backward compatibility, not used)
  * @returns Object with { isAllowed: boolean, message?: string }
  */
 export function canSubmitOTForDate(
@@ -43,51 +41,18 @@ export function canSubmitOTForDate(
     };
   }
 
-  // Validate cutoff day range
-  if (cutoffDay < 1 || cutoffDay > 31) {
+  // Check if OT date is within the last 7 days
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  if (ot < sevenDaysAgo) {
     return {
       isAllowed: false,
-      message: "Invalid cutoff day configuration",
+      message: "OT can only be submitted for work done within the last 7 days",
     };
   }
 
-  // Check if OT date is in the current month
-  if (otYear === currentYear && otMonth === currentMonth) {
-    // For current month: check 7-day lookback
-    const daysDiff = Math.floor((today.getTime() - ot.getTime()) / (1000 * 60 * 60 * 24));
-    if (daysDiff <= 7) {
-      return { isAllowed: true };
-    } else {
-      return {
-        isAllowed: false,
-        message: "Current month OT can only be submitted within 7 days of the date worked",
-      };
-    }
-  }
-
-  // For previous months: check if current day is before/on cutoff day
-  if (currentDayOfMonth <= cutoffDay) {
-    // We're within the submission window for previous months
-    // Allow submission for dates in previous months
-    const otMonthDate = new Date(otYear, otMonth, 1);
-    const currentMonthDate = new Date(currentYear, currentMonth, 1);
-
-    if (otMonthDate < currentMonthDate) {
-      return { isAllowed: true };
-    } else {
-      // This shouldn't happen if logic is correct, but handle gracefully
-      return {
-        isAllowed: false,
-        message: "Invalid date for submission",
-      };
-    }
-  } else {
-    // We're past the cutoff day, no previous month submissions allowed
-    return {
-      isAllowed: false,
-      message: `OT for previous months can only be submitted until the ${cutoffDay}th of the current month`,
-    };
-  }
+  return { isAllowed: true };
 }
 
 /**

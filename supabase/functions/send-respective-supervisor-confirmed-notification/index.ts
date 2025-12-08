@@ -3,7 +3,9 @@
  *
  * Sends notifications to direct supervisors when the respective supervisor
  * confirms an OT request. This allows the direct supervisor to proceed with
- * their final confirmation.
+ * verification and then send to HR for certification.
+ *
+ * New workflow (B): Respective SV confirms → Direct SV notified → Direct SV verifies → HR certifies
  *
  * @endpoint POST /functions/v1/send-respective-supervisor-confirmed-notification
  * @payload {ConfirmedNotificationPayload} requestId
@@ -18,7 +20,8 @@ const corsHeaders = {
 /**
  * Get Supabase service role credentials from environment
  * Throws if credentials are not configured
- */ function getSupabaseCredentials() {
+ */
+function getSupabaseCredentials() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -29,7 +32,8 @@ const corsHeaders = {
     serviceKey: supabaseServiceKey
   };
 }
-Deno.serve(async (req)=>{
+
+Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', {
@@ -114,9 +118,11 @@ Deno.serve(async (req)=>{
     });
   }
 });
+
 /**
  * Main logic for sending confirmation notifications
- */ async function sendConfirmationNotifications(supabase, requestId) {
+ */
+async function sendConfirmationNotifications(supabase, requestId) {
   console.log(`[RespectiveSupervisorConfirmed] Processing request ${requestId}`);
   // 1. Fetch OT request details
   const { data: otRequest, error: otError } = await supabase.from('ot_requests').select('id, ot_date, total_hours, reason, employee_id, supervisor_id, respective_supervisor_id, respective_supervisor_confirmed_at, respective_supervisor_remarks, status').eq('id', requestId).single();
@@ -127,15 +133,15 @@ Deno.serve(async (req)=>{
     });
     throw new Error('OT request not found');
   }
-  // 2. Verify the request is in pending_supervisor_confirmation status (after respective supervisor confirmed)
-  if (otRequest.status !== 'pending_supervisor_confirmation') {
-    console.warn('[RespectiveSupervisorConfirmed] Request is not in pending_supervisor_confirmation status:', {
+  // 2. Verify the request is in respective_supervisor_confirmed status (after respective supervisor confirmed)
+  if (otRequest.status !== 'respective_supervisor_confirmed') {
+    console.warn('[RespectiveSupervisorConfirmed] Request is not in respective_supervisor_confirmed status:', {
       requestId,
       status: otRequest.status
     });
     return {
       success: false,
-      error: 'Request is not in pending_supervisor_confirmation status after respective supervisor confirmation',
+      error: 'Request is not in respective_supervisor_confirmed status',
       message: `Current status: ${otRequest.status}`
     };
   }
@@ -203,15 +209,17 @@ Deno.serve(async (req)=>{
     };
   }
 }
+
 /**
  * Sends confirmation notification to direct supervisor using send-push-notification function
- */ async function sendNotificationToDirectSupervisor(_supabase, directSupervisor, employee, respectiveSupervisor, otRequest) {
+ */
+async function sendNotificationToDirectSupervisor(_supabase, directSupervisor, employee, respectiveSupervisor, otRequest) {
   // Format notification content
   const respectiveSupervisorName = respectiveSupervisor?.full_name || 'Respective Supervisor';
-  const title = `OT Confirmed by ${respectiveSupervisorName}`;
-  const body = `${employee.full_name} - ${formatDate(otRequest.ot_date)} - ${otRequest.total_hours} hours - Ready for your final confirmation`;
-  // Link to confirm the request
-  const targetUrl = `/supervisor/verify-ot?request=${otRequest.id}`;
+  const title = `OT Request Ready for Your Verification`;
+  const body = `${respectiveSupervisorName} confirmed OT for ${employee.full_name} on ${formatDate(otRequest.ot_date)} (${otRequest.total_hours}h). Please verify to send to HR.`;
+  // Link to verify the request
+  const targetUrl = `/supervisor/verify?request=${otRequest.id}`;
   const notificationPayload = {
     user_id: directSupervisor.id,
     title,
@@ -252,9 +260,11 @@ Deno.serve(async (req)=>{
   const result = await response.json();
   console.log(`[RespectiveSupervisorConfirmed] ✓ Sent to ${directSupervisor.full_name}:`, result);
 }
+
 /**
  * Format date string for display
- */ function formatDate(dateString) {
+ */
+function formatDate(dateString) {
   try {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-MY', {

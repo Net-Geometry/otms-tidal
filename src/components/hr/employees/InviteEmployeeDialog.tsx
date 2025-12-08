@@ -13,6 +13,7 @@ import { useDepartments } from '@/hooks/hr/useDepartments';
 import { useEmployees } from '@/hooks/hr/useEmployees';
 import { usePositions } from '@/hooks/hr/usePositions';
 import { useCompanies } from '@/hooks/hr/useCompanies';
+import { useCompanyLocations } from '@/hooks/hr/useCompanyLocations';
 
 const inviteSchema = z.object({
   email: z.string().trim().email('Invalid email address').optional().or(z.literal('')),
@@ -26,10 +27,20 @@ const inviteSchema = z.object({
   basic_salary: z.number().min(1, 'Basic salary must be greater than 0'),
   employment_type: z.string().min(1, 'Employment type is required'),
   joining_date: z.string().min(1, 'Joining date is required'),
-  work_location: z.string().trim().min(1, 'Work location is required').max(100),
+  work_location: z.string().uuid('Work location is required'),
   supervisor_id: z.string().uuid().optional().or(z.literal('')),
   role: z.enum(['employee', 'supervisor', 'hr', 'management', 'admin']),
   is_ot_eligible: z.boolean().default(true),
+}).refine((data) => {
+  // supervisor_id is required unless the user is admin or management
+  const requiresSupervisor = !['admin', 'management'].includes(data.role);
+  if (requiresSupervisor && !data.supervisor_id) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Reporting To is required for this role',
+  path: ['supervisor_id'],
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
@@ -44,7 +55,8 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
   const { data: companies = [] } = useCompanies();
   const { data: departments = [] } = useDepartments();
   const { data: employees = [] } = useEmployees();
-  
+  const { data: locations = [] } = useCompanyLocations();
+
   const form = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
     defaultValues: {
@@ -83,10 +95,18 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
     form.setValue('position_id', '');
   }
 
+  // Watch role to determine if supervisor_id is required
+  const selectedRole = form.watch('role');
+  const supervisorRequired = !['admin', 'management'].includes(selectedRole);
+
   const onSubmit = (data: InviteFormData) => {
     // Get position title from selected position
     const selectedPosition = positions.find(p => p.id === data.position_id);
     const positionTitle = selectedPosition?.title || '';
+
+    // Get state from selected location
+    const selectedLocation = locations.find(loc => loc.id === data.work_location);
+    const state = selectedLocation?.state_code || null;
 
     inviteEmployee({
       email: data.email || null,
@@ -102,6 +122,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
       employment_type: data.employment_type,
       joining_date: data.joining_date,
       work_location: data.work_location,
+      state: state,
       supervisor_id: data.supervisor_id || null,
       role: data.role,
       is_ot_eligible: data.is_ot_eligible,
@@ -351,16 +372,30 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                   </FormItem>
                 )}
               />
+            </div>
 
+            {/* Row 7: Work Location */}
+            <div className="grid gap-2">
               <FormField
                 control={form.control}
                 name="work_location"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Work Location *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. HQ, Site A" {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Work Location" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {locations.map((location) => (
+                          <SelectItem key={location.id} value={location.id}>
+                            {location.location_name} ({location.state_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -373,11 +408,13 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
               name="supervisor_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Reporting To</FormLabel>
+                  <FormLabel>
+                    Reporting To {supervisorRequired ? '*' : ''}
+                  </FormLabel>
                   <Select onValueChange={field.onChange} value={field.value || undefined}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select Supervisor (Optional)" />
+                        <SelectValue placeholder={supervisorRequired ? "Select Supervisor (Required)" : "Select Supervisor (Optional)"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>

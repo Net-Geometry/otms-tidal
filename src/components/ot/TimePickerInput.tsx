@@ -17,9 +17,10 @@ interface TimePickerInputProps {
   value: string;
   onChange: (value: string) => void;
   label?: string;
+  minTime?: string; // Format: "HH:MM"
 }
 
-export function TimePickerInput({ value, onChange }: TimePickerInputProps) {
+export function TimePickerInput({ value, onChange, minTime }: TimePickerInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [hours, setHours] = useState('00');
   const [minutes, setMinutes] = useState('00');
@@ -30,6 +31,10 @@ export function TimePickerInput({ value, onChange }: TimePickerInputProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  // Parse minTime if provided
+  const minHour = minTime ? parseInt(minTime.split(':')[0], 10) : -1;
+  const minMinute = minTime ? parseInt(minTime.split(':')[1], 10) : -1;
 
   // Parse initial value
   useEffect(() => {
@@ -46,12 +51,36 @@ export function TimePickerInput({ value, onChange }: TimePickerInputProps) {
   // Generate minute options with 5-minute increments
   const minuteOptions = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
 
+  // Check if hour is disabled based on minTime
+  const isHourDisabled = (hour: string): boolean => {
+    if (minHour === -1) return false; // No constraint
+    const hourNum = parseInt(hour, 10);
+    return hourNum < minHour;
+  };
+
+  // Check if minute is disabled based on minTime and selected hour
+  const isMinuteDisabled = (minute: string): boolean => {
+    if (minHour === -1) return false; // No constraint
+    const hourNum = parseInt(hours, 10);
+    const minuteNum = parseInt(minute, 10);
+
+    // If hour is less than minHour, disable all minutes
+    if (hourNum < minHour) return true;
+
+    // If hour equals minHour, disable minutes less than minMinute
+    if (hourNum === minHour && minuteNum < minMinute) return true;
+
+    return false;
+  };
+
   const handleHourChange = (newHour: string) => {
+    if (isHourDisabled(newHour)) return;
     setHours(newHour);
     onChange(`${newHour}:${minutes}`);
   };
 
   const handleMinuteChange = (newMinute: string) => {
+    if (isMinuteDisabled(newMinute)) return;
     setMinutes(newMinute);
     onChange(`${hours}:${newMinute}`);
   };
@@ -139,16 +168,19 @@ export function TimePickerInput({ value, onChange }: TimePickerInputProps) {
               <div className="spinner-container">
                 <div className="spinner-highlight" />
                 <div ref={hourScrollRef} className="spinner-scroll">
-                  {hourOptions.map((hour) => (
-                    <div
-                      key={hour}
-                      data-value={hour}
-                      className={`spinner-item ${hours === hour ? 'selected' : ''}`}
-                      onClick={() => handleHourChange(hour)}
-                    >
-                      {hour}
-                    </div>
-                  ))}
+                  {hourOptions.map((hour) => {
+                    const disabled = isHourDisabled(hour);
+                    return (
+                      <div
+                        key={hour}
+                        data-value={hour}
+                        className={`spinner-item ${hours === hour ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+                        onClick={() => handleHourChange(hour)}
+                      >
+                        {hour}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -159,16 +191,19 @@ export function TimePickerInput({ value, onChange }: TimePickerInputProps) {
               <div className="spinner-container">
                 <div className="spinner-highlight" />
                 <div ref={minuteScrollRef} className="spinner-scroll">
-                  {minuteOptions.map((minute) => (
-                    <div
-                      key={minute}
-                      data-value={minute}
-                      className={`spinner-item ${minutes === minute ? 'selected' : ''}`}
-                      onClick={() => handleMinuteChange(minute)}
-                    >
-                      {minute}
-                    </div>
-                  ))}
+                  {minuteOptions.map((minute) => {
+                    const disabled = isMinuteDisabled(minute);
+                    return (
+                      <div
+                        key={minute}
+                        data-value={minute}
+                        className={`spinner-item ${minutes === minute ? 'selected' : ''} ${disabled ? 'disabled' : ''}`}
+                        onClick={() => handleMinuteChange(minute)}
+                      >
+                        {minute}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>

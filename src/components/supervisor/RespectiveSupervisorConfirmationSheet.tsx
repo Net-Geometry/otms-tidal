@@ -80,9 +80,9 @@ export function RespectiveSupervisorConfirmationSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-2xl flex flex-col">
         <SheetHeader>
-          <SheetTitle>Confirm Supervisor's OT Verification</SheetTitle>
+          <SheetTitle>Verify OT Request</SheetTitle>
           <SheetDescription>
-            Review the supervisor's verification and provide optional remarks before confirming.
+            As the instructing supervisor, please verify or deny this OT request. If denied, the employee will need to amend and resubmit.
           </SheetDescription>
         </SheetHeader>
 

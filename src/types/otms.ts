@@ -1,22 +1,22 @@
-// DISABLED: Management role removed - OT process now stops at HR approval
+// Management role re-enabled - Full approval chain: Supervisor → HR → Management
 export type AppRole = 'employee' | 'supervisor' | 'hr' | 'management' | 'admin';
-// Include all database statuses for compatibility
-export type OTStatus = 
-  | 'pending_verification' 
-  | 'verified'
-  | 'supervisor_verified' 
-  | 'approved'
-  | 'hr_certified' 
-  | 'bod_approved'
-  | 'management_approved' 
-  | 'reviewed'
-  | 'rejected' 
-  | 'pending_hr_recertification' 
-  | 'pending_supervisor_confirmation' 
-  | 'supervisor_confirmed' 
-  | 'pending_respective_supervisor_confirmation' 
-  | 'respective_supervisor_confirmed' 
-  | 'pending_supervisor_review';
+
+// Clean minimal OT status enum - 9 statuses for clearer Route A/B separation
+export type OTStatus =
+  // Route A: Direct Supervisor Only
+  | 'pending_verification'                        // Awaiting direct SV review
+  | 'supervisor_confirmed'                        // Direct SV approved
+
+  // Route B: Respective Supervisor First
+  | 'pending_respective_supervisor_confirmation'  // Awaiting resp SV confirmation
+  | 'respective_supervisor_confirmed'             // Resp SV approved
+  | 'pending_supervisor_verification'             // Awaiting direct SV verification
+  | 'supervisor_verified'                         // Direct SV verified
+
+  // HR & Management (Both Routes Converge)
+  | 'hr_certified'                                // HR certification complete
+  | 'management_approved'                         // Management final approval
+  | 'rejected';                                   // Rejected at any stage
 export type DayType = 'weekday' | 'saturday' | 'sunday' | 'public_holiday';
 
 export interface OTRequest {
@@ -120,7 +120,9 @@ export interface Profile {
   position_id: string | null;
   supervisor_id: string | null;
   joining_date: string | null;
+  /** Foreign key to company_locations.id - UUID of the employee's work location */
   work_location: string | null;
+  /** Malaysian state code (e.g., WPKL, KUL, JHR) - auto-synced from work_location */
   state: string | null;
   status: string;
   is_ot_eligible: boolean;
@@ -186,7 +188,7 @@ export interface ConfirmRequestResponse {
 }
 
 /**
- * Valid status transitions for supervisor confirmation workflow
+ * Valid status transitions for OT approval workflow
  */
 export type ConfirmationStatusTransition = {
   from: OTStatus;
@@ -196,13 +198,53 @@ export type ConfirmationStatusTransition = {
 
 /**
  * Helper type for validation of status transitions
+ * Defines all valid state transitions in the approval workflow
  */
 export const VALID_CONFIRMATION_TRANSITIONS: ConfirmationStatusTransition[] = [
-  { from: 'pending_supervisor_confirmation', to: 'pending_respective_supervisor_confirmation', role: 'supervisor' },
+  // ============ ROUTE A: Direct Supervisor Only ============
+  { from: 'pending_verification', to: 'supervisor_confirmed', role: 'supervisor' },
+
+  // ============ ROUTE B: Respective Supervisor First ============
+  // Respective supervisor confirms or denies
   { from: 'pending_respective_supervisor_confirmation', to: 'respective_supervisor_confirmed', role: 'supervisor' },
-  { from: 'pending_respective_supervisor_confirmation', to: 'pending_supervisor_review', role: 'supervisor' },
-  { from: 'pending_supervisor_review', to: 'rejected', role: 'supervisor' },
-  { from: 'pending_supervisor_review', to: 'pending_supervisor_confirmation', role: 'supervisor' },
-  { from: 'respective_supervisor_confirmed', to: 'pending_supervisor_confirmation', role: 'supervisor' },
-  { from: 'respective_supervisor_confirmed', to: 'hr_certified', role: 'hr' },
+  { from: 'pending_respective_supervisor_confirmation', to: 'rejected', role: 'supervisor' },
+  // Direct supervisor verifies after respective SV confirms
+  { from: 'respective_supervisor_confirmed', to: 'pending_supervisor_verification', role: 'supervisor' },
+  { from: 'pending_supervisor_verification', to: 'supervisor_verified', role: 'supervisor' },
+
+  // ============ HR CERTIFICATION (Both Routes Converge) ============
+  { from: 'supervisor_confirmed', to: 'hr_certified', role: 'hr' },
+  { from: 'supervisor_verified', to: 'hr_certified', role: 'hr' },
+
+  // HR rejection - reset to start of respective route
+  { from: 'hr_certified', to: 'pending_verification', role: 'hr' }, // Route A reset
+  { from: 'hr_certified', to: 'pending_respective_supervisor_confirmation', role: 'hr' }, // Route B reset
+
+  // ============ MANAGEMENT APPROVAL ============
+  { from: 'hr_certified', to: 'management_approved', role: 'management' },
+  // Management rejection - send back to HR for recertification
+  { from: 'management_approved', to: 'hr_certified', role: 'management' },
 ];
+
+/**
+ * Helper function to determine if a request is Route A or Route B
+ */
+export function getRequestRoute(request: OTRequest): 'A' | 'B' {
+  return request.respective_supervisor_id ? 'B' : 'A';
+}
+
+/**
+ * Helper function to validate if a status transition is allowed
+ */
+export function canTransition(
+  fromStatus: OTStatus,
+  toStatus: OTStatus,
+  role: string
+): boolean {
+  return VALID_CONFIRMATION_TRANSITIONS.some(
+    (transition) =>
+      transition.from === fromStatus &&
+      transition.to === toStatus &&
+      transition.role === role
+  );
+}
