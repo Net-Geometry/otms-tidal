@@ -243,7 +243,7 @@ BEGIN
   SELECT COALESCE(SUM(total_hours), 0) + _requested_hours INTO w
   FROM ot_requests
   WHERE employee_id = _employee_id
-    AND ot_date >= _requested_date - INTERVAL '7 days'
+    AND ot_date >= _requested_date - INTERVAL '8 days'
     AND ot_date <= _requested_date
     AND status <> 'rejected';
     
