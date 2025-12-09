@@ -8,7 +8,7 @@
  *
  * Rules:
  * - Cannot submit for future dates
- * - Can only submit for dates within the last 7 days (from 7 days ago to today inclusive)
+ * - Can only submit for dates within the last 8 days (from 8 days ago to today inclusive)
  *
  * @param otDate - The date the OT was worked
  * @param currentDate - The current date (defaults to today)
@@ -41,14 +41,14 @@ export function canSubmitOTForDate(
     };
   }
 
-  // Check if OT date is within the last 7 days
+  // Check if OT date is within the last 8 days
   const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 8);
 
   if (ot < sevenDaysAgo) {
     return {
       isAllowed: false,
-      message: "OT can only be submitted for work done within the last 7 days",
+      message: "OT can only be submitted for work done within the last 8 days",
     };
   }
 
@@ -125,7 +125,7 @@ export function getAllowedSubmissionMonths(
 
     let isAllowed = false;
 
-    // Current month is always allowed (though with 7-day lookback)
+    // Current month is always allowed (though with 8-day lookback)
     if (
       i === 0 &&
       year === today.getFullYear() &&
@@ -157,7 +157,7 @@ export function getAllowedSubmissionMonths(
  */
 export function getSubmissionRuleMessage(cutoffDay: number = 10): string {
   return `OT submissions follow these rules:\n` +
-    `• Current month: Can be submitted within 7 days of the date worked\n` +
+    `• Current month: Can be submitted within 8 days of the date worked\n` +
     `• Previous months: Can be submitted until the ${cutoffDay}th of the current month\n` +
     `• Older months: Cannot be submitted`;
 }
