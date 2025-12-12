@@ -135,7 +135,7 @@ export function OTApprovalDetailsSheet({
           {/* Employee Info */}
           <div className="space-y-2">
             <h3 className="font-semibold text-lg">Employee Information</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className={`grid gap-4 text-sm ${role === 'hr' ? 'grid-cols-2' : 'grid-cols-3'}`}>
               <div>
                 <p className="text-muted-foreground">Name</p>
                 <p className="font-medium">{profile?.full_name || 'Unknown'}</p>
@@ -148,10 +148,12 @@ export function OTApprovalDetailsSheet({
                 <p className="text-muted-foreground">Department</p>
                 <p className="font-medium">{(profile?.departments as any)?.name || '-'}</p>
               </div>
-              <div>
-                <p className="text-muted-foreground">Basic Salary</p>
-                <p className="font-medium">{formatCurrency(profile?.basic_salary || 0)}</p>
-              </div>
+              {role === 'hr' && (
+                <div>
+                  <p className="text-muted-foreground">Basic Salary</p>
+                  <p className="font-medium">{formatCurrency(profile?.basic_salary || 0)}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -320,11 +322,11 @@ export function OTApprovalDetailsSheet({
             </Alert>
           )}
 
-          {/* Calculation Details - Only visible to HR and Management */}
-          {(role === 'hr' || role === 'management') && (
+          {/* Calculation Details - Only visible to HR (contains salary-derived information) */}
+          {role === 'hr' && (
             <div className="space-y-3 bg-muted/50 p-4 rounded-lg">
               <h4 className="font-semibold text-sm">Calculation Details</h4>
-              
+
               {/* Always show daily totals */}
               <div className="grid grid-cols-3 gap-4 text-sm pb-3 border-b border-border/50">
                 <div>
@@ -336,7 +338,7 @@ export function OTApprovalDetailsSheet({
                   <p className="font-semibold text-lg">{formatCurrency(dailyTotalAmount)}</p>
                 </div>
               </div>
-              
+
               <div>
                 <p className="text-muted-foreground text-xs mb-2">
                   Session Calculation
