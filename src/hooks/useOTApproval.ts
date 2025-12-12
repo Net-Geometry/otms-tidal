@@ -249,18 +249,31 @@ export function useOTApproval(options: UseOTApprovalOptions) {
   const { data, isLoading, error } = useQuery({
     queryKey,
     queryFn: async () => {
+      // Build column selection based on role
+      // Only HR and admin should see basic_salary
+      const isHROrAdmin = role === 'hr';
+      const profileSelect = isHROrAdmin
+        ? `
+          id,
+          employee_id,
+          full_name,
+          department_id,
+          basic_salary,
+          departments(name)
+        `
+        : `
+          id,
+          employee_id,
+          full_name,
+          department_id,
+          departments(name)
+        `;
+
       let query = supabase
         .from('ot_requests')
         .select(`
           *,
-          profiles!ot_requests_employee_id_fkey(
-            id,
-            employee_id,
-            full_name,
-            department_id,
-            basic_salary,
-            departments(name)
-          ),
+          profiles!ot_requests_employee_id_fkey(${profileSelect}),
           supervisor:profiles!ot_requests_supervisor_id_fkey(
             id,
             employee_id,
