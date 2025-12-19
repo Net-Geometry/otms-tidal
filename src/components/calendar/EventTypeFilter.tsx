@@ -3,6 +3,7 @@ import { Label } from "@/components/ui/label";
 
 export interface EventTypeFilters {
   publicHolidays: boolean;
+  nationalHolidays: boolean;
   weeklyHolidays: boolean;
   stateHolidays: boolean;
 }
@@ -39,6 +40,24 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
           >
             <div className="w-3 h-3 rounded-sm bg-gradient-to-br from-red-500 to-red-600" />
             Public Holiday
+          </Label>
+        </div>
+
+        <div className="flex items-center gap-2 cursor-pointer group">
+          <Checkbox
+            id="national-holidays"
+            checked={filters.nationalHolidays}
+            onCheckedChange={(checked) =>
+              handleChange("nationalHolidays", checked as boolean)
+            }
+            className="h-4 w-4"
+          />
+          <Label
+            htmlFor="national-holidays"
+            className="text-sm font-medium cursor-pointer flex items-center gap-2 group-hover:text-primary transition-colors"
+          >
+            <div className="w-3 h-3 rounded-sm bg-gradient-to-br from-orange-500 to-orange-600" />
+            National Holiday
           </Label>
         </div>
 

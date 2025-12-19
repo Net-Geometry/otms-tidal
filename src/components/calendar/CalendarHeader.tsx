@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
-import { format, addDays, addMonths, startOfWeek } from "date-fns";
+import { format, addDays, addMonths, startOfWeek, setMonth, setYear, getDaysInMonth } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
 
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
@@ -31,6 +37,32 @@ export function CalendarHeader({
   const weekStart = startOfWeek(selectedDate);
   const weekEnd = addDays(weekStart, 6);
 
+  const handleMonthChange = (monthValue: string) => {
+    const monthIndex = parseInt(monthValue) - 1; // Convert 1-12 to 0-11
+    const newDate = setMonth(selectedDate, monthIndex);
+
+    // Preserve day, or use last day of month if target month has fewer days
+    const daysInNewMonth = getDaysInMonth(newDate);
+    if (selectedDate.getDate() > daysInNewMonth) {
+      const lastDayDate = new Date(newDate.getFullYear(), monthIndex + 1, 0);
+      onDateChange(lastDayDate);
+    } else {
+      onDateChange(newDate);
+    }
+  };
+
+  const handleYearChange = (yearValue: string) => {
+    const newDate = setYear(selectedDate, parseInt(yearValue));
+
+    // Preserve day, or use last day of month if February has fewer days
+    const daysInNewMonth = getDaysInMonth(newDate);
+    if (selectedDate.getDate() > daysInNewMonth) {
+      const lastDayDate = new Date(newDate.getFullYear(), newDate.getMonth() + 1, 0);
+      onDateChange(lastDayDate);
+    } else {
+      onDateChange(newDate);
+    }
+  };
 
   const getDateLabel = () => {
     if (viewMode === "month") {
@@ -54,11 +86,32 @@ export function CalendarHeader({
 
   return (
     <div className={`flex items-center justify-between gap-2 py-2 flex-wrap ${isMobile ? "gap-3" : ""}`}>
+      <div className={`flex items-center gap-2 ${isMobile ? "w-full justify-center" : ""}`}>
+        <Select value={(selectedDate.getMonth() + 1).toString()} onValueChange={handleMonthChange}>
+          <SelectTrigger className={`border-border focus:border-primary focus:ring-primary ${isMobile ? "w-[100px]" : "w-[140px]"}`}>
+            <SelectValue placeholder="Month" />
+          </SelectTrigger>
+          <SelectContent className="z-50">
+            {MONTHS.map((month, index) => (
+              <SelectItem key={index} value={(index + 1).toString()}>
+                {isMobile ? month.slice(0, 3) : month}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-      <div className={`flex-1 min-w-0 ${isMobile ? "flex-basis-100 order-3 w-full" : ""}`}>
-        <h2 className={`font-semibold text-foreground text-center truncate ${isMobile ? "text-xs" : "text-sm"}`}>
-          {getDateLabel()}
-        </h2>
+        <Select value={selectedDate.getFullYear().toString()} onValueChange={handleYearChange}>
+          <SelectTrigger className={`border-border focus:border-primary focus:ring-primary ${isMobile ? "w-[90px]" : "w-[110px]"}`}>
+            <SelectValue placeholder="Year" />
+          </SelectTrigger>
+          <SelectContent className="z-50">
+            {Array.from({ length: 11 }, (_, i) => selectedDate.getFullYear() - 5 + i).map((year) => (
+              <SelectItem key={year} value={year.toString()}>
+                {year}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className={`flex items-center ${isMobile ? "h-10" : ""}`}>

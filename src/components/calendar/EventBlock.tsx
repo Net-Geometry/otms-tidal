@@ -10,13 +10,16 @@ interface EventBlockProps {
 
 export function EventBlock({ holiday, onClick, isFullDay = false }: EventBlockProps) {
   const isWeeklyOff = holiday.description.toLowerCase().includes("weekly off");
+  const isNationalHoliday = holiday.state_code === "ALL";
   const isStateHoliday = holiday.state_code && holiday.state_code !== "ALL";
 
   const colorClasses = isWeeklyOff
     ? "from-indigo-500 to-indigo-600 border-indigo-400 dark:border-indigo-500"
-    : isStateHoliday
-      ? "from-yellow-500 to-yellow-600 border-yellow-400 dark:border-yellow-500"
-      : "from-red-500 to-red-600 border-red-400 dark:border-red-500";
+    : isNationalHoliday
+      ? "from-orange-500 to-orange-600 border-orange-400 dark:border-orange-500"
+      : isStateHoliday
+        ? "from-yellow-500 to-yellow-600 border-yellow-400 dark:border-yellow-500"
+        : "from-red-500 to-red-600 border-red-400 dark:border-red-500";
 
   const textClass = "text-white dark:text-white";
 

@@ -142,14 +142,39 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayOfWeek = date.getDay();
 
-    // Check if public holiday
-    const { data: holiday } = await supabase
-      .from('public_holidays')
-      .select('*')
-      .eq('holiday_date', dateStr)
+    // Get employee's state for state-specific holiday detection
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('state')
+      .eq('id', employeeId)
       .single();
 
-    if (holiday) {
+    const employeeState = profile?.state || null;
+
+    // Check holiday_overrides first (manual company overrides)
+    const { data: override } = await supabase
+      .from('holiday_overrides')
+      .select('*')
+      .eq('date', dateStr)
+      .single();
+
+    if (override) {
+      setDayType('public_holiday');
+      return;
+    }
+
+    // Check malaysian_holidays (includes federal and state-specific holidays)
+    const { data: holidays } = await supabase
+      .from('malaysian_holidays')
+      .select('*')
+      .eq('date', dateStr);
+
+    // Filter for applicable holidays (federal or employee's state)
+    const applicableHoliday = holidays?.find(h =>
+      h.state === 'ALL' || (employeeState && h.state === employeeState)
+    );
+
+    if (applicableHoliday) {
       setDayType('public_holiday');
     } else if (dayOfWeek === 0) {
       setDayType('sunday');

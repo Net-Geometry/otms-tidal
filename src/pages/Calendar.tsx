@@ -24,12 +24,13 @@ export default function Calendar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [eventFilters, setEventFilters] = useState<EventTypeFilters>({
     publicHolidays: true,
+    nationalHolidays: true,
     weeklyHolidays: true,
     stateHolidays: true,
   });
 
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { hasRole } = useAuth();
 
   // Get the employee's assigned calendar (auto-matched to location or manually assigned)
@@ -41,7 +42,10 @@ export default function Calendar() {
   // Use employee's assigned calendar, or fall back to active calendar for admin
   const calendarToUse = assignedCalendar?.calendar_id || activeCalendar?.id;
 
-  const { data: holidays, isLoading, error } = useHolidayCalendarView(calendarToUse);
+  // Get user's state from profile for filtering state-specific holidays
+  const userState = profile?.state;
+
+  const { data: holidays, isLoading, error } = useHolidayCalendarView(calendarToUse, userState);
 
   // Get dates with holidays for navigation and mini calendar
   const datesWithHolidays = holidays?.map(h => parseISO(h.holiday_date)) || [];
