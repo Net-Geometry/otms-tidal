@@ -43,11 +43,13 @@ export function MonthlyGridView({
   // Filter holidays based on selected filters
   const filteredHolidays = holidays.filter((h) => {
     const isWeeklyOff = h.description.toLowerCase().includes("weekly off");
+    const isNationalHoliday = h.state_code === "ALL";
     const isStateHoliday = h.state_code && h.state_code !== "ALL";
 
     if (isWeeklyOff && !filters.weeklyHolidays) return false;
+    if (isNationalHoliday && !filters.nationalHolidays) return false;
     if (isStateHoliday && !filters.stateHolidays) return false;
-    if (!isWeeklyOff && !isStateHoliday && !filters.publicHolidays) return false;
+    if (!isWeeklyOff && !isNationalHoliday && !isStateHoliday && !filters.publicHolidays) return false;
 
     return true;
   });
