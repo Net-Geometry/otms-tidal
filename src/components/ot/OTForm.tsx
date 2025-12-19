@@ -142,14 +142,14 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayOfWeek = date.getDay();
 
-    // Get employee's location/state
+    // Get employee's state for state-specific holiday detection
     const { data: profile } = await supabase
       .from('profiles')
-      .select('work_location')
+      .select('state')
       .eq('id', employeeId)
       .single();
 
-    const employeeState = profile?.work_location || null;
+    const employeeState = profile?.state || null;
 
     // Check holiday_overrides first (manual company overrides)
     const { data: override } = await supabase
