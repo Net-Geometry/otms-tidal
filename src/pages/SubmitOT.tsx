@@ -20,7 +20,7 @@ export default function SubmitOT() {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('employee_id, full_name')
+        .select('employee_id, full_name, state')
         .eq('id', user.id)
         .single();
 
@@ -66,6 +66,9 @@ export default function SubmitOT() {
                 employeeId={profile?.employee_id || ''}
                 fullName={profile?.full_name || ''}
                 onCancel={handleCancel}
+                defaultValues={{
+                  ot_location_state: profile?.state || '',
+                }}
               />
             </CardContent>
           </Card>

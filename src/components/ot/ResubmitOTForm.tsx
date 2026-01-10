@@ -14,6 +14,7 @@ export function ResubmitOTForm({ request, onSuccess }: ResubmitOTFormProps) {
   // Pre-populate form with existing data
   const defaultValues = {
     ot_date: new Date(request.ot_date),
+    ot_location_state: request.ot_location_state || '',
     start_time: request.start_time,
     end_time: request.end_time,
     reason: request.reason,
@@ -22,8 +23,9 @@ export function ResubmitOTForm({ request, onSuccess }: ResubmitOTFormProps) {
   
   const handleResubmit = (data: any) => {
     resubmitOT({
-      originalRequestId: request.id,
+      parentRequestId: request.id,
       ot_date: data.ot_date,
+      ot_location_state: data.ot_location_state,
       start_time: data.start_time,
       end_time: data.end_time,
       total_hours: data.total_hours,

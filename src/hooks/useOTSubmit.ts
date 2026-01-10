@@ -6,6 +6,7 @@ import { canSubmitOTForDate } from '@/utils/otValidation';
 
 interface OTSubmitData {
   ot_date: string;
+  ot_location_state: string;
   start_time: string;
   end_time: string;
   total_hours: number;
@@ -134,6 +135,7 @@ export function useOTSubmit() {
           employee_id: user.id,
           supervisor_id: profile.supervisor_id || null,
           ot_date: data.ot_date,
+          ot_location_state: data.ot_location_state,
           start_time: data.start_time,
           end_time: data.end_time,
           total_hours: data.total_hours,

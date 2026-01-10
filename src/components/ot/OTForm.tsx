@@ -21,12 +21,15 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupervisors } from '@/hooks/useSupervisors';
 import { canSubmitOTForDate } from '@/utils/otValidation';
+import { StateSelector } from '@/components/hr/StateSelector';
+import { useAuth } from '@/hooks/useAuth';
 
 // Fixed schema with optional attachments for all employees
 const OTFormSchema = z.object({
   ot_date: z.date({
     required_error: 'OT date is required',
   }),
+  ot_location_state: z.string().min(1, 'OT location is required'),
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
   reason: z.string()
@@ -84,8 +87,10 @@ interface OTFormProps {
 export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel, defaultValues }: OTFormProps) {
   const [totalHours, setTotalHours] = useState<number>(0);
   const [dayType, setDayType] = useState<string>('weekday');
+  const [holidayLabel, setHolidayLabel] = useState<string | null>(null);
   const [cutoffDay, setCutoffDay] = useState<number>(10);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const { profile: authProfile } = useAuth();
 
   // Use the custom hook to fetch supervisors, excluding the employee's direct supervisor
   const { data: supervisors = [] } = useSupervisors({ employeeId });
@@ -114,16 +119,26 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
   const form = useForm<OTFormValues>({
     resolver: zodResolver(OTFormSchema),
-    defaultValues: defaultValues || {
+    defaultValues: {
       reason: '',
       respective_supervisor_id: 'none',
       attachment_urls: [],
+      ot_location_state: authProfile?.state || '',
+      ...defaultValues,
     },
   });
 
   const startTime = form.watch('start_time');
   const endTime = form.watch('end_time');
   const otDate = form.watch('ot_date');
+  const otLocationState = form.watch('ot_location_state');
+
+  useEffect(() => {
+    const current = form.getValues('ot_location_state');
+    if ((!current || current.trim() === '') && authProfile?.state) {
+      form.setValue('ot_location_state', authProfile.state, { shouldValidate: true });
+    }
+  }, [authProfile?.state, form]);
 
   useEffect(() => {
     if (startTime && endTime) {
@@ -133,23 +148,14 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   }, [startTime, endTime]);
 
   useEffect(() => {
-    if (otDate) {
-      determineDayType(otDate);
+    if (otDate && otLocationState) {
+      determineDayType(otDate, otLocationState);
     }
-  }, [otDate]);
+  }, [otDate, otLocationState]);
 
-  const determineDayType = async (date: Date) => {
+  const determineDayType = async (date: Date, locationState: string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayOfWeek = date.getDay();
-
-    // Get employee's state for state-specific holiday detection
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('state')
-      .eq('id', employeeId)
-      .single();
-
-    const employeeState = profile?.state || null;
 
     // Check holiday_overrides first (manual company overrides)
     const { data: override } = await supabase
@@ -160,6 +166,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
     if (override) {
       setDayType('public_holiday');
+      setHolidayLabel('Public Holiday');
       return;
     }
 
@@ -169,19 +176,21 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
       .select('*')
       .eq('date', dateStr);
 
-    // Filter for applicable holidays (federal or employee's state)
-    const applicableHoliday = holidays?.find(h =>
-      h.state === 'ALL' || (employeeState && h.state === employeeState)
-    );
+    const isFederalHoliday = holidays?.some(h => h.state === 'ALL');
+    const isStateHoliday = holidays?.some(h => h.state === locationState);
 
-    if (applicableHoliday) {
+    if (isFederalHoliday || isStateHoliday) {
       setDayType('public_holiday');
+      setHolidayLabel(isFederalHoliday ? 'Public Holiday' : 'State Holiday');
     } else if (dayOfWeek === 0) {
       setDayType('sunday');
+      setHolidayLabel(null);
     } else if (dayOfWeek === 6) {
       setDayType('saturday');
+      setHolidayLabel(null);
     } else {
       setDayType('weekday');
+      setHolidayLabel(null);
     }
   };
 
@@ -192,6 +201,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
     onSubmit({
       ot_date: format(values.ot_date, 'yyyy-MM-dd'),
+      ot_location_state: values.ot_location_state,
       start_time: values.start_time,
       end_time: values.end_time,
       total_hours: totalHours,
@@ -233,7 +243,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           </div>
         </Card>
 
-        <div className="grid grid-cols-1 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           <FormField
             control={form.control}
             name="ot_date"
@@ -289,6 +299,28 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
               </FormItem>
             )}
           />
+
+          <FormField
+            control={form.control}
+            name="ot_location_state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>OT Location (State) *</FormLabel>
+                <FormControl>
+                  <StateSelector
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={isSubmitting}
+                    showStateName={false}
+                  />
+                </FormControl>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Defaults to your profile state. Change this if the OT is performed in a different state.
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
@@ -336,8 +368,10 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
             </div>
             <div className="flex flex-col items-start sm:items-end">
               <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Day Type</p>
-              <Badge className={getDayTypeColor(dayType)}>
-                {getDayTypeLabel(dayType)}
+              <Badge
+                className={getDayTypeColor(holidayLabel === 'State Holiday' ? 'state_holiday' : dayType)}
+              >
+                {holidayLabel || getDayTypeLabel(dayType)}
               </Badge>
             </div>
           </div>

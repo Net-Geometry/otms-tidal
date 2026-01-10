@@ -228,6 +228,7 @@ export type Database = {
           orp: number | null
           ot_amount: number | null
           ot_date: string
+          ot_location_state: string | null
           parent_request_id: string | null
           reason: string
           rejection_stage: string | null
@@ -268,6 +269,7 @@ export type Database = {
           orp?: number | null
           ot_amount?: number | null
           ot_date: string
+          ot_location_state?: string | null
           parent_request_id?: string | null
           reason: string
           rejection_stage?: string | null
@@ -308,6 +310,7 @@ export type Database = {
           orp?: number | null
           ot_amount?: number | null
           ot_date?: string
+          ot_location_state?: string | null
           parent_request_id?: string | null
           reason?: string
           rejection_stage?: string | null
@@ -370,6 +373,7 @@ export type Database = {
       profiles: {
         Row: {
           basic_salary: number
+          ot_base: number | null
           company_id: string | null
           created_at: string | null
           deleted_at: string | null
@@ -400,6 +404,7 @@ export type Database = {
         }
         Insert: {
           basic_salary: number
+          ot_base?: number | null
           company_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
@@ -430,6 +435,7 @@ export type Database = {
         }
         Update: {
           basic_salary?: number
+          ot_base?: number | null
           company_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
