@@ -14,6 +14,7 @@ export function EditOTForm({ request, onSuccess, onCancel }: EditOTFormProps) {
   // Pre-populate form with existing data
   const defaultValues = {
     ot_date: new Date(request.ot_date),
+    ot_location_state: request.ot_location_state || '',
     start_time: request.start_time,
     end_time: request.end_time,
     reason: request.reason,

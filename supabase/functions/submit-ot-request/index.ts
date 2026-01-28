@@ -6,7 +6,7 @@
  * Route B: Respective supervisor confirmation first
  *
  * @endpoint POST /functions/v1/submit-ot-request
- * @payload {OTSubmissionPayload} ot_date, start_time, end_time, total_hours, day_type, reason, respective_supervisor_id, attachment_urls
+ * @payload {OTSubmissionPayload} ot_date, ot_location_state, start_time, end_time, total_hours, day_type, reason, respective_supervisor_id, attachment_urls
  * @returns {OTRequest} Created OT request with ticket number
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.77.0';
@@ -93,6 +93,7 @@ Deno.serve(async (req) => {
         employee_id: user.id,
         supervisor_id: profile.supervisor_id || null,
         ot_date: payload.ot_date,
+        ot_location_state: payload.ot_location_state,
         start_time: payload.start_time,
         end_time: payload.end_time,
         total_hours: payload.total_hours,

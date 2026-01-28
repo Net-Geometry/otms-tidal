@@ -24,6 +24,7 @@ export interface OTRequest {
   ticket_number: string;
   employee_id: string;
   ot_date: string;
+  ot_location_state?: string | null;
   start_time: string;
   end_time: string;
   total_hours: number;
@@ -111,6 +112,8 @@ export interface Profile {
   company_id: string | null;
   department_id: string | null;
   basic_salary: number;
+  /** Optional OT base salary override. If set, used instead of basic_salary for OT calculations */
+  ot_base?: number | null;
   epf_no: string | null;
   socso_no: string | null;
   income_tax_no: string | null;

@@ -6,6 +6,7 @@ import { canSubmitOTForDate } from '@/utils/otValidation';
 
 interface OTSubmitData {
   ot_date: string;
+  ot_location_state: string;
   start_time: string;
   end_time: string;
   total_hours: number;
@@ -70,7 +71,7 @@ export function useOTSubmit() {
       // Get submission cutoff day from settings
       const { data: settings, error: settingsError } = await supabase
         .from('ot_settings')
-        .select('ot_submission_cutoff_day')
+        .select('ot_submission_cutoff_day, grace_period_enabled')
         .limit(1)
         .single();
 
@@ -79,10 +80,11 @@ export function useOTSubmit() {
       }
 
       const cutoffDay = settings?.ot_submission_cutoff_day || 10;
+      const gracePeriodEnabled = settings?.grace_period_enabled ?? false;
 
       // Validate OT date against submission deadline rules
       const otDateObj = new Date(data.ot_date);
-      const validation = canSubmitOTForDate(otDateObj, new Date(), cutoffDay);
+      const validation = canSubmitOTForDate(otDateObj, new Date(), cutoffDay, gracePeriodEnabled);
       if (!validation.isAllowed) {
         throw new Error(validation.message || 'This date is not allowed for OT submission');
       }
@@ -134,6 +136,7 @@ export function useOTSubmit() {
           employee_id: user.id,
           supervisor_id: profile.supervisor_id || null,
           ot_date: data.ot_date,
+          ot_location_state: data.ot_location_state,
           start_time: data.start_time,
           end_time: data.end_time,
           total_hours: data.total_hours,

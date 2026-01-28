@@ -359,7 +359,7 @@ export function EmployeeDetailsSheet({
               )}
             </div>
 
-            {/* Row 5: Basic Salary + Employment Type */}
+            {/* Row 5: Basic Salary + OT Base Salary */}
             <div className="grid gap-2">
               <Label htmlFor="basic_salary">Basic Salary (RM)</Label>
               {isEditing ? (
@@ -382,6 +382,37 @@ export function EmployeeDetailsSheet({
               )}
             </div>
 
+            <div className="grid gap-2">
+              <Label htmlFor="ot_base">OT Base Salary (RM)</Label>
+              {isEditing ? (
+                <div className="space-y-1">
+                  <Input
+                    id="ot_base"
+                    type="number"
+                    step="0.01"
+                    value={formData.ot_base || ''}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        ot_base: e.target.value ? parseFloat(e.target.value) : null,
+                      })
+                    }
+                    placeholder="Uses Basic Salary if empty"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Optional override for OT calculations
+                  </p>
+                </div>
+              ) : (
+                <div className="text-sm">
+                  {employee.ot_base ? formatCurrency(employee.ot_base) : (
+                    <span className="text-muted-foreground">Using Basic Salary</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Row 6: Employment Type + Joining Date */}
             <div className="grid gap-2">
               <Label htmlFor="employment_type">Employment Type</Label>
               {isEditing ? (
@@ -407,7 +438,6 @@ export function EmployeeDetailsSheet({
               )}
             </div>
 
-            {/* Row 6: Joining Date */}
             <div className="grid gap-2">
               <Label htmlFor="joining_date">Joining Date</Label>
               {isEditing ? (
