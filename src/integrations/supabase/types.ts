@@ -488,6 +488,10 @@ export type Database = {
           },
         ]
       }
+
+      // Allow access to tables not yet included in this generated typing.
+      // This keeps the Supabase client usable even when the schema has moved on.
+      [key: string]: any
     }
     Views: {
       [_ in never]: never

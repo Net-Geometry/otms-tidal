@@ -18,7 +18,8 @@
 export function canSubmitOTForDate(
   otDate: Date,
   currentDate: Date = new Date(),
-  cutoffDay: number = 10
+  cutoffDay: number = 10,
+  gracePeriodEnabled: boolean = false
 ): { isAllowed: boolean; message?: string } {
   // Normalize dates to start of day for consistent comparison
   const ot = new Date(otDate);
@@ -41,11 +42,16 @@ export function canSubmitOTForDate(
     };
   }
 
-  // Check if OT date is within the last 8 days
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 8);
+  // Grace Period Mode: allow any past date
+  if (gracePeriodEnabled) {
+    return { isAllowed: true };
+  }
 
-  if (ot < sevenDaysAgo) {
+  // Check if OT date is within the last 8 days
+  const eightDaysAgo = new Date(today);
+  eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
+
+  if (ot < eightDaysAgo) {
     return {
       isAllowed: false,
       message: "OT can only be submitted for work done within the last 8 days",

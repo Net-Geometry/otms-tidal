@@ -89,6 +89,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   const [dayType, setDayType] = useState<string>('weekday');
   const [holidayLabel, setHolidayLabel] = useState<string | null>(null);
   const [cutoffDay, setCutoffDay] = useState<number>(10);
+  const [gracePeriodEnabled, setGracePeriodEnabled] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const { profile: authProfile } = useAuth();
 
@@ -101,16 +102,21 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
       try {
         const { data, error } = await supabase
           .from('ot_settings')
-          .select('ot_submission_cutoff_day')
+          .select('ot_submission_cutoff_day, grace_period_enabled')
           .single();
 
         if (error) {
           setCutoffDay(10); // Fallback to default
+          setGracePeriodEnabled(false);
         } else if (data?.ot_submission_cutoff_day) {
           setCutoffDay(data.ot_submission_cutoff_day);
+          setGracePeriodEnabled(data?.grace_period_enabled ?? false);
+        } else {
+          setGracePeriodEnabled(data?.grace_period_enabled ?? false);
         }
       } catch (err) {
         setCutoffDay(10); // Fallback to default
+        setGracePeriodEnabled(false);
       }
     };
 
@@ -249,7 +255,14 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
             name="ot_date"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>OT Date *</FormLabel>
+                <FormLabel className="flex items-center justify-between gap-2">
+                  <span>OT Date *</span>
+                  {gracePeriodEnabled && (
+                    <Badge variant="warning" className="whitespace-nowrap">
+                      Grace Period Active
+                    </Badge>
+                  )}
+                </FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -271,7 +284,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                       selected={field.value}
                       onSelect={(date) => {
                         if (date) {
-                          const validation = canSubmitOTForDate(date, new Date(), cutoffDay);
+                          const validation = canSubmitOTForDate(date, new Date(), cutoffDay, gracePeriodEnabled);
                           if (validation.isAllowed) {
                             field.onChange(date);
                             setSubmissionError(null);
@@ -281,7 +294,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                         }
                       }}
                       disabled={(date) => {
-                        const validation = canSubmitOTForDate(date, new Date(), cutoffDay);
+                        const validation = canSubmitOTForDate(date, new Date(), cutoffDay, gracePeriodEnabled);
                         return !validation.isAllowed;
                       }}
                       initialFocus

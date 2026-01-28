@@ -30,7 +30,7 @@ export function useOTUpdate() {
       // Get submission cutoff day from settings
       const { data: settings, error: settingsError } = await supabase
         .from('ot_settings')
-        .select('ot_submission_cutoff_day')
+        .select('ot_submission_cutoff_day, grace_period_enabled')
         .single();
 
       if (settingsError) {
@@ -39,10 +39,11 @@ export function useOTUpdate() {
       }
 
       const cutoffDay = settings?.ot_submission_cutoff_day || 10;
+      const gracePeriodEnabled = settings?.grace_period_enabled ?? false;
 
       // Validate OT date against submission deadline rules
       const otDateObj = new Date(data.ot_date);
-      const validation = canSubmitOTForDate(otDateObj, new Date(), cutoffDay);
+      const validation = canSubmitOTForDate(otDateObj, new Date(), cutoffDay, gracePeriodEnabled);
       if (!validation.isAllowed) {
         throw new Error(validation.message || 'This date is not allowed for OT submission');
       }
