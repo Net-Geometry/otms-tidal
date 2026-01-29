@@ -9,6 +9,9 @@ import type { MalaysianStateKey } from '@/config/malaysia-states';
 // Re-export holiday override types
 export * from './holiday-overrides';
 
+// Re-export holiday scheduling / automation types
+export * from './holiday-scheduling';
+
 /**
  * Company configuration for holiday calendar settings
  */

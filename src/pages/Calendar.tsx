@@ -27,6 +27,8 @@ export default function Calendar() {
     nationalHolidays: true,
     weeklyHolidays: true,
     stateHolidays: true,
+    personalLeave: true,
+    replacementHolidays: true,
   });
 
   const isMobile = useMediaQuery("(max-width: 768px)");

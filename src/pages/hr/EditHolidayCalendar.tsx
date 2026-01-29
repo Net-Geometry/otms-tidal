@@ -10,6 +10,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { HolidayItemsTable, HolidayItem } from '@/components/hr/calendar/HolidayItemsTable';
 import { WeeklyOffSelector } from '@/components/hr/calendar/WeeklyOffSelector';
 import { StateHolidayGenerator } from '@/components/hr/calendar/StateHolidayGenerator';
+import { ReplacementHolidayManager } from '@/components/hr/calendar/ReplacementHolidayManager';
+import { EmployeeLeavePanel } from '@/components/hr/calendar/EmployeeLeavePanel';
 import { useHolidayCalendar } from '@/hooks/hr/useHolidayCalendar';
 import { useUpdateHolidayCalendar } from '@/hooks/hr/useUpdateHolidayCalendar';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -249,6 +251,24 @@ export default function EditHolidayCalendar() {
                 year={year}
                 onGenerate={handleStateHolidaysGenerate}
               />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="replacement" className="border rounded-lg px-6">
+            <AccordionTrigger className="hover:no-underline">
+              <span className="text-lg font-semibold">Replacement Holidays (Cuti Ganti)</span>
+            </AccordionTrigger>
+            <AccordionContent className="pt-4">
+              <ReplacementHolidayManager initialYear={year} />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="leave" className="border rounded-lg px-6">
+            <AccordionTrigger className="hover:no-underline">
+              <span className="text-lg font-semibold">Employee Leave (Display Only)</span>
+            </AccordionTrigger>
+            <AccordionContent className="pt-4">
+              <EmployeeLeavePanel year={year} />
             </AccordionContent>
           </AccordionItem>
         </Accordion>

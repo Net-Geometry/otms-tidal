@@ -9,6 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileUpload } from './FileUpload';
 import { TimePickerInput } from './TimePickerInput';
-import { calculateTotalHours, getDayTypeCode, getDayTypeColor } from '@/lib/otCalculations';
+import { calculateTotalHours, getDayTypeCode, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupervisors } from '@/hooks/useSupervisors';
@@ -233,6 +234,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   };
 
   const displayDayType = holidayLabel === 'State Holiday' ? 'state_holiday' : dayType;
+  const dayTypeTooltip = getDayTypeLabel(displayDayType);
 
   return (
     <Form {...form}>
@@ -397,11 +399,16 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
             </div>
             <div className="flex flex-col items-start sm:items-end">
               <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Day Type</p>
-              <Badge
-                className={getDayTypeColor(displayDayType)}
-              >
-                {getDayTypeCode(displayDayType)}
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge tabIndex={0} className={getDayTypeColor(displayDayType)}>
+                    {getDayTypeCode(displayDayType)}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {dayTypeTooltip}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </Card>

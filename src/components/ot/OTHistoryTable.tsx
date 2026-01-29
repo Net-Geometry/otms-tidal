@@ -6,7 +6,8 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { ResubmissionBadge } from './ResubmissionBadge';
 import { useIsMobile, useIsTablet, useDeviceType } from '@/hooks/use-mobile';
 import { OTRequest, OTStatus, DayType } from '@/types/otms';
-import { formatCurrency, formatHours, getDayTypeCode, getDayTypeColor, formatTimeRange } from '@/lib/otCalculations';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatCurrency, formatHours, getDayTypeCode, getDayTypeColor, getDayTypeLabel, formatTimeRange } from '@/lib/otCalculations';
 import { getStatusTooltip } from '@/lib/otStatusTooltip';
 import { Clock, Calendar, User } from 'lucide-react';
 
@@ -222,9 +223,16 @@ export function OTHistoryTable({ requests, onViewDetails }: OTHistoryTableProps)
                 </div>
                 <div className="text-sm">
                   <div className="font-medium">{format(new Date(grouped.date), 'dd MMM yyyy')}</div>
-                  <Badge variant="outline" className={`text-xs ${getDayTypeColor(grouped.dayType)}`}>
-                    {getDayTypeCode(grouped.dayType)}
-                  </Badge>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge tabIndex={0} variant="outline" className={`text-xs ${getDayTypeColor(grouped.dayType)}`}>
+                        {getDayTypeCode(grouped.dayType)}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {getDayTypeLabel(grouped.dayType)}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 <div className="text-right">
                   <div className="font-semibold text-sm">{formatHours(grouped.totalHours)} hrs</div>
