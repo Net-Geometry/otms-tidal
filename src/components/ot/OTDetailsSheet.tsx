@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { StatusBadge } from '@/components/StatusBadge';
 import { OTRequest } from '@/types/otms';
-import { formatCurrency, formatHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
+import { formatCurrency, formatHours, getDayTypeCode, getDayTypeColor } from '@/lib/otCalculations';
 import { getStatusTooltip } from '@/lib/otStatusTooltip';
 
 interface OTDetailsSheetProps {
@@ -81,7 +81,7 @@ export function OTDetailsSheet({ request, open, onOpenChange, onEdit }: OTDetail
             <div>
               <p className="text-sm font-medium text-muted-foreground">Day Type</p>
               <Badge className={getDayTypeColor(request.day_type)}>
-                {getDayTypeLabel(request.day_type)}
+                {getDayTypeCode(request.day_type)}
               </Badge>
             </div>
             <div>

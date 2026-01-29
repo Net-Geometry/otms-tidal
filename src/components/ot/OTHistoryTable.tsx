@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { ResubmissionBadge } from './ResubmissionBadge';
 import { useIsMobile, useIsTablet, useDeviceType } from '@/hooks/use-mobile';
 import { OTRequest, OTStatus, DayType } from '@/types/otms';
-import { formatCurrency, formatHours, getDayTypeColor, getDayTypeLabel, formatTimeRange } from '@/lib/otCalculations';
+import { formatCurrency, formatHours, getDayTypeCode, getDayTypeColor, formatTimeRange } from '@/lib/otCalculations';
 import { getStatusTooltip } from '@/lib/otStatusTooltip';
 import { Clock, Calendar, User } from 'lucide-react';
 
@@ -223,7 +223,7 @@ export function OTHistoryTable({ requests, onViewDetails }: OTHistoryTableProps)
                 <div className="text-sm">
                   <div className="font-medium">{format(new Date(grouped.date), 'dd MMM yyyy')}</div>
                   <Badge variant="outline" className={`text-xs ${getDayTypeColor(grouped.dayType)}`}>
-                    {getDayTypeLabel(grouped.dayType)}
+                    {getDayTypeCode(grouped.dayType)}
                   </Badge>
                 </div>
                 <div className="text-right">
