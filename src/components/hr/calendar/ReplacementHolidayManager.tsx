@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { StateCodeBadge } from '@/components/hr/calendar/StateCodeBadge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type Action = 'approve' | 'modify' | 'delete';
@@ -84,7 +85,7 @@ export function ReplacementHolidayManager({ initialYear }: { initialYear?: numbe
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div className="space-y-1">
-          <div className="text-sm font-semibold">Replacement Holidays (Cuti Ganti)</div>
+          <div className="text-sm font-semibold">Replacement Holidays (Replacement Leave)</div>
           <div className="text-xs text-muted-foreground">Calculated from scraped holidays based on weekend configuration.</div>
         </div>
 
@@ -123,7 +124,7 @@ export function ReplacementHolidayManager({ initialYear }: { initialYear?: numbe
               {items.map((h) => (
                 <tr key={h.id} className="border-t">
                   <td className="p-2 text-xs text-muted-foreground">{h.date ? format(new Date(h.date), 'PP') : '-'}</td>
-                  <td className="p-2">{h.state}</td>
+                  <td className="p-2"><StateCodeBadge code={h.state} /></td>
                   <td className="p-2 font-medium">{h.name}</td>
                   <td className="p-2">
                     {h.hr_override_at ? (

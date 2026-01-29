@@ -61,7 +61,7 @@ export class HolidayConfigService {
   }
 
   /**
-   * Fetch replacement holidays (Cuti Ganti) for a year.
+   * Fetch replacement holidays (Replacement Leave) for a year.
    */
   async getReplacementHolidays(year?: number): Promise<any[]> {
     const targetYear = year || new Date().getFullYear();

@@ -1,4 +1,4 @@
--- Replacement Holiday (Cuti Ganti) support
+-- Replacement Holiday (Replacement Leave) support
 
 -- Extend malaysian_holidays with replacement + HR override metadata
 ALTER TABLE public.malaysian_holidays
@@ -153,7 +153,7 @@ BEGIN
 
       original_holiday_id := h.id;
       replacement_date := v_repl_date;
-      replacement_name := h.name || ' (Cuti Ganti)';
+      replacement_name := h.name || ' (Replacement Leave)';
       replacement_state := h.state;
       replacement_type := h.type;
       replacement_source := 'calculated_replacement';

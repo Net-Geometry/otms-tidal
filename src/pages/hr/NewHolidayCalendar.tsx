@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { HolidayItemsTable, HolidayItem } from '@/components/hr/calendar/HolidayItemsTable';
 import { WeeklyOffSelector } from '@/components/hr/calendar/WeeklyOffSelector';
 import { StateHolidayGenerator } from '@/components/hr/calendar/StateHolidayGenerator';
@@ -14,6 +13,10 @@ import { useCreateHolidayCalendar } from '@/hooks/hr/useCreateHolidayCalendar';
 import { useNavigate } from 'react-router-dom';
 import { CalendarIcon, Save } from 'lucide-react';
 import { toast } from 'sonner';
+
+import { CalendarFormTabs } from '@/components/hr/calendar/CalendarFormTabs';
+import { HolidayPreviewSidebar } from '@/components/hr/calendar/HolidayPreviewSidebar';
+import { CalendarValidation, UnsavedIndicator, getValidationIssues } from '@/components/hr/calendar/CalendarValidation';
 
 export default function NewHolidayCalendar() {
   const navigate = useNavigate();
@@ -30,6 +33,11 @@ export default function NewHolidayCalendar() {
 
   const totalHolidays = items.length;
 
+  const hasUnsavedChanges = useMemo(() => {
+     // If user entered name, added items, or changed dates from default
+     return !!name || items.length > 0 || dateFrom !== `${currentYear}-01-01` || dateTo !== `${currentYear}-12-31`;
+  }, [name, items.length, dateFrom, dateTo, currentYear]);
+
   const handleWeeklyOffsGenerate = (dates: string[]) => {
     const newItems = dates.map(date => ({
       holiday_date: date,
@@ -38,15 +46,24 @@ export default function NewHolidayCalendar() {
       temp_id: `temp-${Date.now()}-${Math.random()}`,
     }));
 
+    const beforeCount = items.length;
     // Merge and remove duplicates
     const merged = [...items, ...newItems];
     const unique = merged.filter((item, index, self) =>
       index === self.findIndex(t => t.holiday_date === item.holiday_date)
     );
-    
+
+    const addedCount = unique.length - beforeCount;
     setItems(unique);
-    setWeeklyOffDays([0]); // Reset to default after generation
-    toast.success(`Added ${dates.length} weekly offs`);
+
+    if (addedCount > 0) {
+      toast.success(`Added ${addedCount} weekly off${addedCount !== 1 ? 's' : ''}`, {
+        description: 'Check the Basic Info tab to see all holidays'
+      });
+      setWeeklyOffDays([]); // Clear selection after successful generation
+    } else {
+      toast.info('No new weekly offs added (all already exist)');
+    }
   };
 
   const handleStateHolidaysGenerate = (holidays: Array<{ holiday_date: string; description: string; state_code: string }>) => {
@@ -82,14 +99,15 @@ export default function NewHolidayCalendar() {
   };
 
   const handleSave = () => {
-    if (!name.trim()) {
-      toast.error('Please enter a calendar name');
+    const { errors, warnings } = getValidationIssues(name, dateFrom, dateTo, totalHolidays, items.filter(i => i.description === 'Weekly Off').length);
+
+    if (errors.length > 0) {
+      errors.forEach(e => toast.error(e));
       return;
     }
-
-    if (!dateFrom || !dateTo) {
-      toast.error('Please select date range');
-      return;
+    
+    if (warnings.length > 0) {
+      warnings.forEach(w => toast.warning(w));
     }
 
     if (new Date(dateFrom) > new Date(dateTo)) {
@@ -122,74 +140,75 @@ export default function NewHolidayCalendar() {
     }
   }, [dateFrom]);
 
+  const basicInfo = (
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="name">Calendar Name *</Label>
+          <Input
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., 2026 Johor Calendar"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Total Holidays</Label>
+          <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
+            <Badge variant="secondary" className="text-lg">
+              {totalHolidays}
+            </Badge>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="date-from">From Date *</Label>
+          <Input
+            id="date-from"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="date-to">To Date *</Label>
+          <Input
+            id="date-to"
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Holidays</h2>
+        <HolidayItemsTable items={items} onRemove={handleRemoveItem} />
+      </div>
+    </div>
+  );
+
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="max-w-[1600px] mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
               <CalendarIcon className="h-8 w-8" />
               New Holiday Calendar
+              <UnsavedIndicator show={hasUnsavedChanges} />
             </h1>
             <p className="text-muted-foreground mt-1">
-              Create a new holiday calendar for OT calculations
+              Create a calendar and generate holidays for the year. Users will view this calendar at <span className="font-mono text-primary">/calendar</span>
             </p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate('/hr/calendar')}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={isPending}>
-              <Save className="mr-2 h-4 w-4" />
-              Save Calendar
-            </Button>
-          </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="name">Holiday List Name *</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., 2026 Johor Calendar"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Total Holidays</Label>
-            <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
-              <Badge variant="secondary" className="text-lg">
-                {totalHolidays}
-              </Badge>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="date-from">From Date *</Label>
-            <Input
-              id="date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="date-to">To Date *</Label>
-            <Input
-              id="date-to"
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <Accordion type="multiple" defaultValue={['weekly', 'state']} className="space-y-4">
-          <AccordionItem value="weekly" className="border rounded-lg px-6">
-            <AccordionTrigger className="hover:no-underline">
-              <span className="text-lg font-semibold">Add Weekly Holidays</span>
-            </AccordionTrigger>
-            <AccordionContent className="pt-4">
+        <CalendarFormTabs
+          basicInfo={basicInfo}
+          weekly={
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Generate Weekly Offs</h3>
+              <p className="text-sm text-muted-foreground">Select days of the week to automatically generate weekly holidays for the calendar year.</p>
               <WeeklyOffSelector
                 dateFrom={dateFrom}
                 dateTo={dateTo}
@@ -197,44 +216,46 @@ export default function NewHolidayCalendar() {
                 onSelectionChange={setWeeklyOffDays}
                 onGenerate={handleWeeklyOffsGenerate}
               />
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="state" className="border rounded-lg px-6">
-            <AccordionTrigger className="hover:no-underline">
-              <span className="text-lg font-semibold">Add Local Holidays</span>
-            </AccordionTrigger>
-            <AccordionContent className="pt-4">
+            </div>
+          }
+          local={
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Generate State Holidays</h3>
+              <p className="text-sm text-muted-foreground">Add Malaysian public holidays for the selected state to this calendar.</p>
               <StateHolidayGenerator
                 year={year}
                 onGenerate={handleStateHolidaysGenerate}
               />
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="replacement" className="border rounded-lg px-6">
-            <AccordionTrigger className="hover:no-underline">
-              <span className="text-lg font-semibold">Replacement Holidays (Cuti Ganti)</span>
-            </AccordionTrigger>
-            <AccordionContent className="pt-4">
+            </div>
+          }
+          replacement={
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Replacement Holidays (Replacement Leave)</h3>
+              <p className="text-sm text-muted-foreground">Manage replacement days when holidays fall on weekends.</p>
               <ReplacementHolidayManager initialYear={year} />
-            </AccordionContent>
-          </AccordionItem>
-
-          <AccordionItem value="leave" className="border rounded-lg px-6">
-            <AccordionTrigger className="hover:no-underline">
-              <span className="text-lg font-semibold">Employee Leave (Display Only)</span>
-            </AccordionTrigger>
-            <AccordionContent className="pt-4">
+            </div>
+          }
+          leave={
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Employee Leave (View Only)</h3>
+              <p className="text-sm text-muted-foreground">Preview employee leave data for reference.</p>
               <EmployeeLeavePanel year={year} />
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
-        <div className="space-y-4">
-          <h2 className="text-2xl font-semibold">Holidays</h2>
-          <HolidayItemsTable items={items} onRemove={handleRemoveItem} />
-        </div>
+            </div>
+          }
+          sidebar={<HolidayPreviewSidebar items={items} />}
+          actions={
+            <div className="flex gap-2">
+              <CalendarValidation hasUnsavedChanges={hasUnsavedChanges} />
+              <Button variant="outline" onClick={() => navigate('/hr/calendar')}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={isPending}>
+                <Save className="mr-2 h-4 w-4" />
+                Save Calendar
+              </Button>
+            </div>
+          }
+        />
       </div>
     </AppLayout>
   );

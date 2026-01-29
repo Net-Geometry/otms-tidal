@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { HolidayItem } from "@/hooks/useHolidayCalendarView";
+import { StateCodeBadge } from "@/components/hr/calendar/StateCodeBadge";
 
 interface HolidayDetailsSheetProps {
   open: boolean;
@@ -85,7 +86,7 @@ export function HolidayDetailsSheet({
               <div className="space-y-3">
                 {holidays.map((holiday) => {
                   const isPersonalLeave = holiday.event_source === 'leave' || holiday.is_personal_leave;
-                  const isReplacement = Boolean(holiday.is_replacement) || holiday.description.toLowerCase().includes('cuti ganti');
+                  const isReplacement = Boolean(holiday.is_replacement) || holiday.description.toLowerCase().includes('Replacement Leave');
                   const isWeeklyOff = holiday.description
                     .toLowerCase()
                     .includes("weekly off");
@@ -113,15 +114,15 @@ export function HolidayDetailsSheet({
                           ? "from-yellow-500 to-yellow-600"
                           : "from-red-500 to-red-600";
 
-                  const badgeText = isPersonalLeave
-                    ? `Personal Leave${holiday.leave_type ? ` (${holiday.leave_type})` : ''}${holiday.leave_status ? ` - ${holiday.leave_status}` : ''}`
+                  const badgeElement = isPersonalLeave
+                    ? <span>{`Personal Leave${holiday.leave_type ? ` (${holiday.leave_type})` : ''}${holiday.leave_status ? ` - ${holiday.leave_status}` : ''}`}</span>
                     : isWeeklyOff
-                      ? "Weekly Holiday"
+                      ? <span>Weekly Holiday</span>
                       : isNationalHoliday
-                        ? "National Holiday"
+                        ? <span>National Holiday</span>
                         : isStateHoliday
-                          ? `State Holiday (${holiday.state_code})`
-                          : "Public Holiday";
+                          ? <span className="flex items-center gap-1">State Holiday <StateCodeBadge code={holiday.state_code!} /></span>
+                          : <span>Public Holiday</span>;
 
                   return (
                     <div
@@ -136,13 +137,13 @@ export function HolidayDetailsSheet({
                           {holiday.description}
                           {isReplacement && !isPersonalLeave && (
                             <span className="ml-2 inline-flex items-center rounded-full bg-purple-600/10 text-purple-700 dark:text-purple-300 px-2 py-0.5 text-[10px] font-semibold align-middle">
-                              Cuti Ganti
+                              Replacement Leave
                             </span>
                           )}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {badgeText}
-                        </p>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {badgeElement}
+                        </div>
                       </div>
                     </div>
                   );

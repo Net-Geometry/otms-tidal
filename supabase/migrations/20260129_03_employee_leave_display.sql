@@ -75,7 +75,7 @@ CREATE OR REPLACE VIEW public.employee_calendar_events AS
     hci.state_code,
     'holiday'::text AS event_source,
     false AS is_personal_leave,
-    (hci.description ILIKE '%cuti ganti%') AS is_replacement,
+    (hci.description ILIKE '%Replacement Leave%') AS is_replacement,
     NULL::text AS leave_type,
     NULL::text AS leave_status
   FROM public.holiday_calendar_items hci

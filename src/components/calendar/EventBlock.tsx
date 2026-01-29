@@ -1,6 +1,7 @@
 import { format, isToday } from "date-fns";
 import { HolidayItem } from "@/hooks/useHolidayCalendarView";
 import { cn } from "@/lib/utils";
+import { StateCodeBadge } from "@/components/hr/calendar/StateCodeBadge";
 
 interface EventBlockProps {
   holiday: HolidayItem;
@@ -10,7 +11,7 @@ interface EventBlockProps {
 
 export function EventBlock({ holiday, onClick, isFullDay = false }: EventBlockProps) {
   const isPersonalLeave = holiday.event_source === 'leave' || holiday.is_personal_leave;
-  const isReplacement = Boolean(holiday.is_replacement) || holiday.description.toLowerCase().includes('cuti ganti');
+  const isReplacement = Boolean(holiday.is_replacement) || holiday.description.toLowerCase().includes('Replacement Leave');
   const isWeeklyOff = holiday.description.toLowerCase().includes("weekly off");
   const isNationalHoliday = holiday.state_code === "ALL";
   const isStateHoliday = holiday.state_code && holiday.state_code !== "ALL";
@@ -40,13 +41,15 @@ export function EventBlock({ holiday, onClick, isFullDay = false }: EventBlockPr
       >
         <div className="truncate">{holiday.description}</div>
         {isReplacement && !isPersonalLeave && (
-          <div className="text-[10px] opacity-90">Cuti Ganti</div>
+          <div className="text-[10px] opacity-90">Replacement Leave</div>
         )}
         {isPersonalLeave && holiday.leave_status && (
           <div className="text-[10px] opacity-90">{holiday.leave_status}</div>
         )}
         {holiday.state_code && holiday.state_code !== "ALL" && (
-          <div className="text-[10px] opacity-80">{holiday.state_code}</div>
+          <div className="text-[10px] opacity-80 mt-0.5">
+             <StateCodeBadge code={holiday.state_code} />
+          </div>
         )}
       </button>
     );
@@ -62,17 +65,19 @@ export function EventBlock({ holiday, onClick, isFullDay = false }: EventBlockPr
         "hover:shadow-lg hover:z-20 cursor-pointer transition-all duration-200",
         "border border-opacity-50"
       )}
-      title={`${holiday.description}${isReplacement && !isPersonalLeave ? ' (Cuti Ganti)' : ''} - Click for details`}
+      title={`${holiday.description}${isReplacement && !isPersonalLeave ? ' (Replacement Leave)' : ''} - Click for details`}
     >
       <div className="truncate">{holiday.description}</div>
       {isReplacement && !isPersonalLeave && (
-        <div className="text-[10px] opacity-90 truncate">(Cuti Ganti)</div>
+        <div className="text-[10px] opacity-90 truncate">(Replacement Leave)</div>
       )}
       {isPersonalLeave && holiday.leave_status && (
         <div className="text-[10px] opacity-90 truncate">({holiday.leave_status})</div>
       )}
       {holiday.state_code && holiday.state_code !== "ALL" && (
-        <div className="text-[10px] opacity-80 truncate">({holiday.state_code})</div>
+        <div className="text-[10px] opacity-80 mt-0.5 scale-90 origin-left">
+           <StateCodeBadge code={holiday.state_code} />
+        </div>
       )}
     </button>
   );

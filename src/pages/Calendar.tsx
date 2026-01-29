@@ -18,7 +18,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<"week" | "day" | "month">("week");
+  const [viewMode, setViewMode] = useState<"week" | "day" | "month">("month");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedHoliday, setSelectedHoliday] = useState<any>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);

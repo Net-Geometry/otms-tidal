@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { calendarAssignmentKeys } from '@/hooks/hr/useEmployeeCalendarAssignment';
 
 interface HolidayItem {
   id?: string;
@@ -85,6 +86,8 @@ export function useUpdateHolidayCalendar() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holiday-calendars'] });
       queryClient.invalidateQueries({ queryKey: ['holiday-calendar'] });
+      queryClient.invalidateQueries({ queryKey: ['holiday-calendar-view'] });
+      queryClient.invalidateQueries({ queryKey: calendarAssignmentKeys.all });
       toast.success('Holiday calendar updated successfully');
     },
     onError: (error: Error) => {

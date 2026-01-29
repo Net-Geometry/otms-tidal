@@ -3,13 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { MALAYSIA_STATES } from '@/lib/malaysiaStates';
 import { holidayConfigService } from '@/services/HolidayConfigService';
 import { HolidayRefreshHistory } from '@/components/hr/calendar/HolidayRefreshHistory';
-import { Loader2, Save, Settings2, Clock, Download, History, RefreshCcw } from 'lucide-react';
+import { Loader2, Plus, Download, History, Save, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface StateHolidayGeneratorProps {
   year: number;
@@ -21,14 +23,11 @@ export function StateHolidayGenerator({ year, onGenerate }: StateHolidayGenerato
   const [manualDate, setManualDate] = useState('');
   const [manualDescription, setManualDescription] = useState('');
   const [savedCompanyState, setSavedCompanyState] = useState<string | null>(null);
-  const [configUpdatedAt, setConfigUpdatedAt] = useState<string | null>(null);
   const [lastRefreshAt, setLastRefreshAt] = useState<string | null>(null);
-  const [loadingConfig, setLoadingConfig] = useState(true);
-  const [savingConfig, setSavingConfig] = useState(false);
-  const [scrapingHolidays, setScrapingHolidays] = useState(false);
-  const [refreshingDataset, setRefreshingDataset] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
 
-  // Load saved company state configuration on mount
   useEffect(() => {
     loadCompanyState();
   }, []);
@@ -38,18 +37,14 @@ export function StateHolidayGenerator({ year, onGenerate }: StateHolidayGenerato
   }, [year]);
 
   const loadCompanyState = async () => {
-    setLoadingConfig(true);
     try {
       const config = await holidayConfigService.getCompanyConfig();
       if (config) {
         setSavedCompanyState(config.selected_state);
-        setConfigUpdatedAt(config.updated_at);
-        setStateCode(config.selected_state); // Pre-select the saved state
+        setStateCode(config.selected_state);
       }
     } catch (error) {
       console.error('Error loading company state:', error);
-    } finally {
-      setLoadingConfig(false);
     }
   };
 
@@ -63,73 +58,77 @@ export function StateHolidayGenerator({ year, onGenerate }: StateHolidayGenerato
     }
   };
 
-  const getNextMonthlyRefreshUTC = () => {
-    // Cron: 0 2 1 * * (2 AM UTC on the 1st)
-    const now = new Date();
-    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 2, 0, 0));
-    if (now >= next) {
-      next.setUTCMonth(next.getUTCMonth() + 1);
-    }
-    return next;
-  };
-
-  const getNextQ4RefreshUTC = () => {
-    // Cron: 0 3 1 10 * (3 AM UTC on Oct 1)
-    const now = new Date();
-    const yearNow = now.getUTCFullYear();
-    const octThisYear = new Date(Date.UTC(yearNow, 9, 1, 3, 0, 0));
-    return now < octThisYear ? octThisYear : new Date(Date.UTC(yearNow + 1, 9, 1, 3, 0, 0));
-  };
-
   const handleSaveCompanyState = async () => {
     if (stateCode === 'ALL') {
       toast.error('Please select a specific state to save as company default');
       return;
     }
 
-    setSavingConfig(true);
+    setIsSavingConfig(true);
     try {
       await holidayConfigService.saveCompanyState(stateCode);
       setSavedCompanyState(stateCode);
       const stateName = MALAYSIA_STATES.find(s => s.value === stateCode)?.label;
-      toast.success(`Company state saved: ${stateName}`, {
-        description: 'This state will be used as the default for future holiday generation'
-      });
+      toast.success(`Company state saved: ${stateName}`);
     } catch (error) {
-      console.error('Error saving company state:', error);
       toast.error('Failed to save company state configuration');
     } finally {
-      setSavingConfig(false);
+      setIsSavingConfig(false);
     }
   };
 
   const handleRefreshDataset = async () => {
-    setRefreshingDataset(true);
+    setIsRefreshing(true);
     try {
       const resp = await holidayConfigService.manualRefresh(year);
       if (!resp.success) {
         toast.error('Holiday refresh failed', { description: resp.error });
       } else {
-        toast.success('Holiday refresh triggered');
+        toast.success('Holiday dataset updated');
+        await loadLastRefresh();
       }
-      await loadLastRefresh();
     } catch (error) {
-      console.error('Error triggering refresh:', error);
       toast.error('Failed to trigger holiday refresh');
     } finally {
-      setRefreshingDataset(false);
+      setIsRefreshing(false);
     }
   };
 
   const handleFetchHolidays = async () => {
-    setScrapingHolidays(true);
+    // Auto-check freshness
+    if (lastRefreshAt && differenceInDays(new Date(), new Date(lastRefreshAt)) > 30) {
+       toast.message("Refreshing dataset first...", { description: "Data is older than 30 days" });
+       await handleRefreshDataset();
+    }
+
+    setIsLoading(true);
     try {
       const holidays = await holidayConfigService.getHolidaysForState(stateCode as any, year);
+      
       if (!holidays || holidays.length === 0) {
-        toast.warning('No holidays found in database (try Refresh Dataset)');
+        // Try to refresh if empty
+        const refreshResp = await holidayConfigService.manualRefresh(year);
+        if (refreshResp.success) {
+           const retryHolidays = await holidayConfigService.getHolidaysForState(stateCode as any, year);
+           if (retryHolidays && retryHolidays.length > 0) {
+             processHolidays(retryHolidays);
+             return;
+           }
+        }
+        toast.warning('No holidays found. Please check the year or try refreshing the dataset.');
         return;
       }
 
+      processHolidays(holidays);
+    } catch (error) {
+      console.error('Error fetching holidays:', error);
+      toast.error('Failed to fetch holidays');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const processHolidays = (holidays: any[]) => {
       const mapped = holidays.map((h: any) => ({
         holiday_date: h.date,
         description: h.name,
@@ -137,13 +136,7 @@ export function StateHolidayGenerator({ year, onGenerate }: StateHolidayGenerato
       }));
 
       onGenerate(mapped);
-      toast.success(`Added ${mapped.length} holiday${mapped.length !== 1 ? 's' : ''} from holiday dataset`);
-    } catch (error) {
-      console.error('Error fetching holidays:', error);
-      toast.error('Failed to fetch holidays');
-    } finally {
-      setScrapingHolidays(false);
-    }
+      toast.success(`Added ${mapped.length} holidays`);
   };
 
   const handleAddManual = () => {
@@ -156,7 +149,9 @@ export function StateHolidayGenerator({ year, onGenerate }: StateHolidayGenerato
       {
         holiday_date: manualDate,
         description: manualDescription,
-        state_code: stateCode,
+        state_code: stateCode === 'ALL' ? null : stateCode, // If ALL, maybe null or ALL? Original code used stateCode. Let's use null if ALL to be generic?
+        // Actually original code used stateCode. Let's stick to it, but typically manual holidays might be specific or general.
+        // If I select 'Johor' and add manual, it is likely for Johor.
       },
     ]);
 
@@ -165,166 +160,88 @@ export function StateHolidayGenerator({ year, onGenerate }: StateHolidayGenerato
     toast.success('Holiday added');
   };
 
+  const isStale = !lastRefreshAt || differenceInDays(new Date(), new Date(lastRefreshAt)) > 7;
+  const selectedStateLabel = MALAYSIA_STATES.find(s => s.value === stateCode)?.label || stateCode;
+
   return (
     <div className="space-y-6">
-      {/* Company State Configuration Section */}
-      {savedCompanyState && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950 p-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-blue-900 dark:text-blue-100">
-              <Settings2 className="h-4 w-4" />
-              <span>
-                <strong>Company Default State:</strong>{' '}
-                {MALAYSIA_STATES.find(s => s.value === savedCompanyState)?.label}
-              </span>
-            </div>
-            {configUpdatedAt && (
-              <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-200">
-                <Clock className="h-3 w-3" />
-                <span>Last updated: {format(new Date(configUpdatedAt), 'PPp')}</span>
-              </div>
-            )}
+       <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-end gap-4">
+             <div className="flex-1 space-y-2 w-full">
+                <div className="flex justify-between">
+                  <Label>Select State</Label>
+                  {stateCode !== 'ALL' && stateCode !== savedCompanyState && (
+                    <Button 
+                      variant="link" 
+                      className="h-auto p-0 text-xs text-muted-foreground hover:text-primary"
+                      onClick={handleSaveCompanyState}
+                      disabled={isSavingConfig}
+                    >
+                      {isSavingConfig ? "Saving..." : "Set as Default"}
+                    </Button>
+                  )}
+                </div>
+                <Select value={stateCode} onValueChange={setStateCode}>
+                   <SelectTrigger>
+                      <SelectValue placeholder="Select state" />
+                   </SelectTrigger>
+                   <SelectContent>
+                      {MALAYSIA_STATES.map((state) => (
+                        <SelectItem key={state.value} value={state.value}>
+                          {state.label}
+                          {state.value === savedCompanyState && " (Default)"}
+                        </SelectItem>
+                      ))}
+                   </SelectContent>
+                </Select>
+             </div>
+             <Button onClick={handleFetchHolidays} disabled={isLoading} className="w-full sm:w-auto min-w-[200px]">
+                {isLoading ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <Download className="mr-2 h-4 w-4" />}
+                Add Holidays for State
+             </Button>
           </div>
-        </div>
-      )}
-
-      <div className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm text-foreground">
-              <RefreshCcw className="h-4 w-4" />
-              <span className="font-semibold">Holiday Dataset</span>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {lastRefreshAt ? `Last refresh: ${format(new Date(lastRefreshAt), 'PPp')}` : 'Last refresh: (no audit data)'}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Next monthly refresh (UTC): {format(getNextMonthlyRefreshUTC(), 'PPp')}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              Next Q4 population (UTC): {format(getNextQ4RefreshUTC(), 'PPp')}
-            </div>
+          
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground bg-muted/50 p-2 rounded-md">
+             <Info className="h-3 w-3" />
+             <span>Dataset updated: {lastRefreshAt ? format(new Date(lastRefreshAt), 'd MMM yyyy HH:mm') : 'Unknown'}</span>
+             {isStale && (
+                <span className="text-amber-500 font-medium ml-1">(Stale)</span>
+             )}
+             
+             <div className="ml-auto flex items-center gap-2">
+               <Button variant="link" size="sm" className="h-auto p-0 text-primary" onClick={handleRefreshDataset} disabled={isRefreshing}>
+                  {isRefreshing ? "Refreshing..." : "Refresh Now"}
+               </Button>
+               
+               <Popover>
+                  <PopoverTrigger asChild>
+                     <Button variant="ghost" size="sm" className="h-6 w-6 p-0 rounded-full hover:bg-muted"><History className="h-3 w-3" /></Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[450px] p-0" align="end">
+                     <div className="p-3 border-b bg-muted/30"><h4 className="font-medium text-sm">Dataset Refresh History</h4></div>
+                     <HolidayRefreshHistory />
+                  </PopoverContent>
+               </Popover>
+             </div>
           </div>
-
-          <div className="flex gap-2">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button type="button" variant="outline" size="sm">
-                  <History className="mr-2 h-4 w-4" />
-                  Refresh History
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-3xl">
-                <DialogHeader>
-                  <DialogTitle>Holiday Refresh History</DialogTitle>
-                </DialogHeader>
-                <HolidayRefreshHistory />
-              </DialogContent>
-            </Dialog>
-
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={handleRefreshDataset}
-              disabled={refreshingDataset}
-            >
-              {refreshingDataset ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Refreshing...</>
-              ) : (
-                <><RefreshCcw className="mr-2 h-4 w-4" />Refresh Dataset</>
-              )}
-            </Button>
+       </div>
+       
+       <div className="border-t pt-4">
+          <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Add Single Holiday
+          </h4>
+          <div className="flex flex-col sm:flex-row gap-3 items-end">
+             <div className="space-y-1.5 w-full sm:w-auto">
+                <Label className="text-xs">Date</Label>
+                <Input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)} />
+             </div>
+             <div className="space-y-1.5 flex-1 w-full sm:w-auto">
+                <Label className="text-xs">Description</Label>
+                <Input value={manualDescription} onChange={e => setManualDescription(e.target.value)} placeholder="Holiday Name" />
+             </div>
+             <Button variant="secondary" onClick={handleAddManual} className="w-full sm:w-auto">Add</Button>
           </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label>Malaysia State</Label>
-          <Select value={stateCode} onValueChange={setStateCode} disabled={loadingConfig}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select state" />
-            </SelectTrigger>
-            <SelectContent>
-              {MALAYSIA_STATES.map((state) => (
-                <SelectItem key={state.value} value={state.value}>
-                  {state.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {stateCode !== 'ALL' && stateCode !== savedCompanyState && (
-            <Button
-              type="button"
-              variant="link"
-              size="sm"
-              onClick={handleSaveCompanyState}
-              disabled={savingConfig}
-              className="h-auto p-0 text-xs"
-            >
-              {savingConfig ? (
-                <><Loader2 className="mr-1 h-3 w-3 animate-spin" /> Saving...</>
-              ) : (
-                <><Save className="mr-1 h-3 w-3" /> Save as company default</>
-              )}
-            </Button>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label>Year</Label>
-          <Input type="number" value={year} disabled />
-        </div>
-        <div className="flex items-end">
-          <Button
-            type="button"
-            variant="default"
-            onClick={handleFetchHolidays}
-            disabled={scrapingHolidays || loadingConfig}
-            className="w-full"
-          >
-            {scrapingHolidays ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Fetching...</>
-            ) : (
-              <><Download className="mr-2 h-4 w-4" />Fetch Holidays</>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      <div className="border-t pt-4">
-        <Label className="text-base mb-4 block">Add Manual Holiday</Label>
-        <div className="grid gap-4 md:grid-cols-[1fr_2fr_auto]">
-          <div className="space-y-2">
-            <Label htmlFor="manual-date">Date</Label>
-            <Input
-              id="manual-date"
-              type="date"
-              value={manualDate}
-              onChange={(e) => setManualDate(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="manual-desc">Description</Label>
-            <Input
-              id="manual-desc"
-              type="text"
-              value={manualDescription}
-              onChange={(e) => setManualDescription(e.target.value)}
-              placeholder="Holiday name"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleAddManual}
-            >
-              Add Holiday
-            </Button>
-          </div>
-        </div>
-      </div>
+       </div>
     </div>
   );
 }

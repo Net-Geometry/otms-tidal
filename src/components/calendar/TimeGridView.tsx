@@ -48,7 +48,7 @@ export function TimeGridView({
   // Filter holidays based on selected filters
   const filteredHolidays = holidays.filter((h) => {
     const isPersonalLeave = h.event_source === 'leave' || h.is_personal_leave;
-    const isReplacement = Boolean(h.is_replacement) || h.description.toLowerCase().includes('cuti ganti');
+    const isReplacement = Boolean(h.is_replacement) || h.description.toLowerCase().includes('Replacement Leave');
     const isWeeklyOff = h.description.toLowerCase().includes("weekly off");
     const isNationalHoliday = h.state_code === "ALL";
     const isStateHoliday = h.state_code && h.state_code !== "ALL";

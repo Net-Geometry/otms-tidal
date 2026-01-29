@@ -1,6 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { StateCodeBadge } from '@/components/hr/calendar/StateCodeBadge';
 import { Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -53,7 +53,7 @@ export function HolidayItemsTable({ items, onRemove, readOnly = false }: Holiday
               <TableCell>{item.description}</TableCell>
               <TableCell>
                 {item.state_code && (
-                  <Badge variant="secondary">{item.state_code}</Badge>
+                  <StateCodeBadge code={item.state_code} />
                 )}
               </TableCell>
               {!readOnly && (
