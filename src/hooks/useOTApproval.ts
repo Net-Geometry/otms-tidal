@@ -309,6 +309,12 @@ export function useOTApproval(options: UseOTApprovalOptions) {
         }
       }
 
+      // For management's default view (Awaiting Approval), exclude hr_certified requests with management_remarks
+      // These are requests that management has already rejected and sent back to HR
+      if (role === 'management' && (!status || status === 'all')) {
+        query = query.is('management_remarks', null);
+      }
+
       // Apply role-specific filters
       if (role === 'supervisor') {
         const { data: { user } } = await supabase.auth.getUser();
