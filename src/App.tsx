@@ -53,9 +53,6 @@ const ArchivedEmployees = lazy(() => import("./pages/hr/ArchivedEmployees"));
 const Departments = lazy(() => import("./pages/hr/Departments"));
 const HRSettings = lazy(() => import("./pages/hr/Settings"));
 const OTReports = lazy(() => import("./pages/hr/OTReports"));
-const HolidayCalendars = lazy(() => import("./pages/hr/HolidayCalendars"));
-const NewHolidayCalendar = lazy(() => import("./pages/hr/NewHolidayCalendar"));
-const EditHolidayCalendar = lazy(() => import("./pages/hr/EditHolidayCalendar"));
 
 const ReviewOT = lazy(() => import("./pages/management/ReviewOT"));
 const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
@@ -110,9 +107,6 @@ const App = () => (
                 <Route path="/hr/employees" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Employees /></ProtectedRoute>} />
                 <Route path="/hr/employees/archived" element={<ProtectedRoute requiredRole={['hr', 'admin']}><ArchivedEmployees /></ProtectedRoute>} />
                 <Route path="/hr/departments" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Departments /></ProtectedRoute>} />
-                <Route path="/hr/calendar" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HolidayCalendars /></ProtectedRoute>} />
-                <Route path="/hr/calendar/new" element={<ProtectedRoute requiredRole={['hr', 'admin']}><NewHolidayCalendar /></ProtectedRoute>} />
-                <Route path="/hr/calendar/:id/edit" element={<ProtectedRoute requiredRole={['hr', 'admin']}><EditHolidayCalendar /></ProtectedRoute>} />
                 <Route path="/hr/holidays" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HolidayManagement /></ProtectedRoute>} />
                 <Route path="/hr/settings" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRSettings /></ProtectedRoute>} />
                 <Route path="/hr/ot-reports" element={<ProtectedRoute requiredRole={['hr', 'admin']}><OTReports /></ProtectedRoute>} />

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { consolidateHolidays, type CalendarEventItem } from '@/utils/consolidateHolidays';
 
 export interface HolidayItem {
   id: string;
@@ -7,40 +8,47 @@ export interface HolidayItem {
   holiday_date: string;
   description: string;
   state_code?: string | null;
-  event_source?: 'holiday' | 'leave' | string;
+  state_codes?: string[];
+  source_ids?: string[];
+  event_source?: 'holiday' | 'company' | 'leave' | string;
   is_personal_leave?: boolean;
   is_replacement?: boolean;
+  holiday_type?: string | null;
   leave_type?: string | null;
   leave_status?: string | null;
+  is_hr_modified?: boolean;
 }
 
-export function useHolidayCalendarView(calendarId?: string, userStateCode?: string | null) {
+export function useHolidayCalendarView(userStateCode?: string | null) {
   return useQuery({
-    queryKey: ['holiday-calendar-view', calendarId, userStateCode],
+    queryKey: ['holiday-calendar-view', userStateCode],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('employee_calendar_events')
-        .select('*');
-
-      if (calendarId) {
-        // Include calendar events + personal leave (leave rows are already scoped to auth.uid() in the view)
-        query = query.or(`calendar_id.eq.${calendarId},event_source.eq.leave`);
-      } else {
-        // No calendar assigned: still show personal leave
-        query = query.eq('event_source', 'leave');
-      }
-
-      const { data, error } = await query.order('holiday_date', { ascending: true });
+        .select('*')
+        .order('holiday_date', { ascending: true });
 
       if (error) throw error;
 
+      const consolidated = consolidateHolidays((data as unknown as CalendarEventItem[]) || []);
+
       // Filter holiday rows by state; always include personal leave rows.
-      const holidays = (data as unknown as HolidayItem[]).filter((item) => {
-        if (item.event_source === 'leave' || item.is_personal_leave) return true;
-        return item.state_code === null || item.state_code === 'ALL' || item.state_code === userStateCode;
+      const filtered = (consolidated as unknown as HolidayItem[]).filter((item) => {
+        const source = item.event_source;
+        const isLeave = source === 'leave' || item.is_personal_leave;
+        if (isLeave) return true;
+
+        const states = item.state_codes || (item.state_code ? [item.state_code] : []);
+
+        // If user state is unknown, show only federal/company events (ALL) + any events without a state.
+        if (!userStateCode) {
+          return states.length === 0 || states.includes('ALL') || item.state_code === null;
+        }
+
+        return states.length === 0 || states.includes('ALL') || states.includes(userStateCode);
       });
 
-      return holidays;
+      return filtered;
     },
   });
 }

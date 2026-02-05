@@ -500,7 +500,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       if (!user) throw new Error('User not authenticated');
 
       // Management rejection sends back to HR for recertification, others get final rejection
-      const status = role === 'management' ? 'pending_hr_recertification' : 'rejected';
+      const status = role === 'management' ? 'hr_certified' : 'rejected';
 
       const updateData: any = {
         status: status,

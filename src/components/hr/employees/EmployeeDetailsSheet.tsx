@@ -36,7 +36,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/otCalculations';
 import { KeyRound, AlertTriangle, Copy, Check } from 'lucide-react';
 import { RoleSelector } from '@/components/RoleSelector';
-import { CalendarAssignmentSelector } from '@/components/hr/CalendarAssignmentSelector';
 import { StateSelector } from '@/components/hr/StateSelector';
 
 interface EmployeeDetailsSheetProps {
@@ -633,23 +632,6 @@ export function EmployeeDetailsSheet({
                 </Badge>
               )}
             </div>
-          </div>
-
-          {/* Calendar Assignment Section */}
-          <div className="border-t pt-6">
-            <Label className="text-base font-semibold mb-3 block">Calendar Assignment</Label>
-            {isEditing ? (
-              <CalendarAssignmentSelector
-                employeeId={employee.id}
-                state={formData.state || employee.state}
-              />
-            ) : (
-              <CalendarAssignmentSelector
-                employeeId={employee.id}
-                state={employee.state}
-                disabled
-              />
-            )}
           </div>
 
           <div className="flex gap-2 justify-end">

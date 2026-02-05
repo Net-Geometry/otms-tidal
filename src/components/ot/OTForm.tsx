@@ -21,7 +21,7 @@ import { calculateTotalHours, getDayTypeCode, getDayTypeColor, getDayTypeLabel }
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupervisors } from '@/hooks/useSupervisors';
-import { canSubmitOTForDate } from '@/utils/otValidation';
+import { canSubmitOTForDate, validateOTTimeForWorkDay } from '@/utils/otValidation';
 import { StateSelector } from '@/components/hr/StateSelector';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -101,6 +101,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   const [cutoffDay, setCutoffDay] = useState<number>(10);
   const [gracePeriodEnabled, setGracePeriodEnabled] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [businessHoursError, setBusinessHoursError] = useState<string | null>(null);
   const { profile: authProfile } = useAuth();
 
   // Use the custom hook to fetch supervisors, excluding the employee's direct supervisor
@@ -142,7 +143,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
       reason: '',
       respective_supervisor_id: 'none',
       attachment_urls: [],
-      ot_location_state: authProfile?.state || '',
+      ot_location_state: 'SGR',
       ...defaultValues,
     },
   });
@@ -154,10 +155,10 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
   useEffect(() => {
     const current = form.getValues('ot_location_state');
-    if ((!current || current.trim() === '') && authProfile?.state) {
-      form.setValue('ot_location_state', authProfile.state, { shouldValidate: true });
+    if (!current || current.trim() === '') {
+      form.setValue('ot_location_state', 'SGR', { shouldValidate: true });
     }
-  }, [authProfile?.state, form]);
+  }, [form]);
 
   useEffect(() => {
     if (startTime && endTime) {
@@ -171,6 +172,20 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
       determineDayType(otDate, otLocationState);
     }
   }, [otDate, otLocationState]);
+
+  // Validate business hours restriction for work days
+  useEffect(() => {
+    if (startTime && endTime && dayType) {
+      const validation = validateOTTimeForWorkDay(startTime, endTime, dayType);
+      if (!validation.isAllowed) {
+        setBusinessHoursError(validation.message || 'Invalid time for work day');
+      } else {
+        setBusinessHoursError(null);
+      }
+    } else {
+      setBusinessHoursError(null);
+    }
+  }, [startTime, endTime, dayType]);
 
   const determineDayType = async (date: Date, locationState: string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -216,6 +231,13 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   };
 
   const handleSubmit = (values: OTFormValues) => {
+    // Validate business hours for work days
+    const timeValidation = validateOTTimeForWorkDay(values.start_time, values.end_time, dayType);
+    if (!timeValidation.isAllowed) {
+      setBusinessHoursError(timeValidation.message || 'Invalid time for work day');
+      return; // Block submission
+    }
+
     const finalReason = values.reason_dropdown === 'Other'
       ? values.reason?.trim() || 'Other'
       : values.reason_dropdown;
@@ -346,7 +368,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                   />
                 </FormControl>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Defaults to your profile state. Change this if the OT is performed in a different state.
+                  Defaults to Selangor (SGR). Change this if the OT is performed in a different state.
                 </p>
                 <FormMessage />
               </FormItem>
@@ -390,6 +412,13 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
             )}
           />
         </div>
+
+        {businessHoursError && dayType === 'weekday' && (
+          <Alert variant="destructive" className="col-span-1 md:col-span-2">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{businessHoursError}</AlertDescription>
+          </Alert>
+        )}
 
         <Card className="p-3 sm:p-4 bg-muted/50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

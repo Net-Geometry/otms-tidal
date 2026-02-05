@@ -94,7 +94,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
 
   // Helper function to get calendar path based on role
   const getCalendarPath = (role: string | null) => {
-    return role === 'hr' || role === 'admin' ? '/hr/calendar' : '/calendar';
+    return '/calendar';
   };
 
   // Organized menu groups

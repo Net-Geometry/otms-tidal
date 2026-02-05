@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { canSubmitOTForDate } from '@/utils/otValidation';
+import { canSubmitOTForDate, validateOTTimeForWorkDay } from '@/utils/otValidation';
 
 interface OTSubmitData {
   ot_date: string;
@@ -87,6 +87,12 @@ export function useOTSubmit() {
       const validation = canSubmitOTForDate(otDateObj, new Date(), cutoffDay, gracePeriodEnabled);
       if (!validation.isAllowed) {
         throw new Error(validation.message || 'This date is not allowed for OT submission');
+      }
+
+      // Validate business hours for work days (weekdays only)
+      const timeValidation = validateOTTimeForWorkDay(data.start_time, data.end_time, data.day_type);
+      if (!timeValidation.isAllowed) {
+        throw new Error(timeValidation.message || 'OT cannot be submitted during work hours on work days');
       }
 
       // Check for duplicate or overlapping OT requests

@@ -1,16 +1,28 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { RotateCcw, Save } from 'lucide-react';
+import { RotateCcw, Save, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { CompanyLogoUpload } from './CompanyLogoUpload';
 import { useCompanyProfile } from '@/hooks/hr/useCompanyProfile';
 import { useUpdateCompanyProfile, uploadCompanyLogo, deleteCompanyLogo } from '@/hooks/hr/useUpdateCompanyProfile';
+import { HolidayConfigService } from '@/services/HolidayConfigService';
+import { getAllStates, getStateLabel } from '@/config/malaysia-states';
 import { toast } from 'sonner';
+
+const configService = new HolidayConfigService();
 
 const companyProfileSchema = z.object({
   name: z.string().min(1, 'Company name is required'),
@@ -25,6 +37,40 @@ export function CompanyProfileTab() {
   const { data: company, isLoading } = useCompanyProfile();
   const updateProfile = useUpdateCompanyProfile();
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [companyState, setCompanyState] = useState<string | null>(null);
+  const [isLoadingState, setIsLoadingState] = useState(true);
+  const [isSavingState, setIsSavingState] = useState(false);
+
+  // Load company state on mount
+  useEffect(() => {
+    const loadCompanyState = async () => {
+      try {
+        const state = await configService.getCompanyState();
+        setCompanyState(state);
+      } catch (error) {
+        console.error('Error loading company state:', error);
+      } finally {
+        setIsLoadingState(false);
+      }
+    };
+    loadCompanyState();
+  }, []);
+
+  const handleStateChange = async (value: string) => {
+    setIsSavingState(true);
+    try {
+      await configService.saveCompanyState(value);
+      setCompanyState(value);
+      toast.success('Company state updated', {
+        description: `State set to ${getStateLabel(value)}`
+      });
+    } catch (error) {
+      console.error('Error saving company state:', error);
+      toast.error('Failed to update company state');
+    } finally {
+      setIsSavingState(false);
+    }
+  };
 
   const {
     register,
@@ -135,6 +181,49 @@ export function CompanyProfileTab() {
             Reset to Default Logo
           </Button>
         )}
+      </div>
+
+      {/* Company State Selection */}
+      <div className="space-y-3 pt-6 border-t">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Company Location
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Select your company's primary Malaysian state. This determines which state holidays apply to your company calendar.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="company-state">Malaysian State</Label>
+          <Select
+            value={companyState || undefined}
+            onValueChange={handleStateChange}
+            disabled={isLoadingState || isSavingState}
+          >
+            <SelectTrigger id="company-state" className="w-full max-w-md">
+              <SelectValue placeholder={isLoadingState ? "Loading..." : "Select company state"} />
+            </SelectTrigger>
+            <SelectContent>
+              {getAllStates().map((state) => (
+                <SelectItem key={state.value} value={state.value}>
+                  <div className="flex items-center gap-2">
+                    <span>{state.label}</span>
+                    <Badge variant="outline" className="text-xs">
+                      {state.value}
+                    </Badge>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {companyState && (
+            <p className="text-xs text-muted-foreground">
+              Current state: <span className="font-semibold">{getStateLabel(companyState)}</span> ({companyState})
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Company Details Form */}

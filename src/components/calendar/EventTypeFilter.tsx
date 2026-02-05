@@ -6,12 +6,10 @@ import { Filter } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 export interface EventTypeFilters {
-  publicHolidays: boolean;
-  nationalHolidays: boolean;
-  weeklyHolidays: boolean;
-  stateHolidays: boolean;
-  personalLeave: boolean;
-  replacementHolidays: boolean;
+  public: boolean;
+  state: boolean;
+  company: boolean;
+  leave: boolean;
 }
 
 interface EventTypeFilterProps {
@@ -27,21 +25,31 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
     onChange({ ...filters, [key]: value });
   };
 
-  const filtersList = [
-    { id: "public-holidays", key: "publicHolidays", label: "Public Holiday", color: "from-red-500 to-red-600" },
-    { id: "national-holidays", key: "nationalHolidays", label: "National Holiday", color: "from-orange-500 to-orange-600" },
-    { id: "weekly-holidays", key: "weeklyHolidays", label: "Weekly Holiday", color: "from-indigo-500 to-indigo-600" },
-    { id: "state-holidays", key: "stateHolidays", label: "State Holiday", color: "from-yellow-500 to-yellow-600" },
-    { id: "replacement-holidays", key: "replacementHolidays", label: "Replacement Leave", color: "from-purple-500 to-purple-600" },
-    { id: "personal-leave", key: "personalLeave", label: "Personal Leave", color: "from-emerald-500 to-emerald-600" },
+  const filtersList: Array<{ id: string; key: keyof EventTypeFilters; label: string; color: string }> = [
+    { id: "public", key: "public", label: "Public", color: "from-red-500 to-red-600" },
+    { id: "state", key: "state", label: "State", color: "from-yellow-500 to-yellow-600" },
+    { id: "company", key: "company", label: "Company", color: "from-indigo-500 to-indigo-600" },
+    { id: "leave", key: "leave", label: "Leave", color: "from-emerald-500 to-emerald-600" },
   ];
 
-  const FilterItem = ({ id, label, colorClass, checked, onChange }: any) => (
+  const FilterItem = ({
+    id,
+    label,
+    colorClass,
+    checked,
+    onToggle,
+  }: {
+    id: string;
+    label: string;
+    colorClass: string;
+    checked: boolean;
+    onToggle: (checked: boolean) => void;
+  }) => (
     <div className="flex items-center gap-2 cursor-pointer group">
       <Checkbox
         id={id}
         checked={checked}
-        onCheckedChange={onChange}
+        onCheckedChange={(c) => onToggle(c === true)}
         className="h-4 w-4"
       />
       <Label
@@ -67,8 +75,8 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
               id={f.id}
               label={f.label}
               colorClass={f.color}
-              checked={filters[f.key as keyof EventTypeFilters]}
-              onChange={(c: boolean) => handleChange(f.key as keyof EventTypeFilters, c)}
+              checked={filters[f.key]}
+              onToggle={(c) => handleChange(f.key, c)}
             />
           ))}
         </div>
@@ -89,8 +97,8 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
               id={f.id}
               label={f.label}
               colorClass={f.color}
-              checked={filters[f.key as keyof EventTypeFilters]}
-              onChange={(c: boolean) => handleChange(f.key as keyof EventTypeFilters, c)}
+              checked={filters[f.key]}
+              onToggle={(c) => handleChange(f.key, c)}
             />
           ))}
         </div>
@@ -114,8 +122,8 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
             <div key={f.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-muted/50">
               <Checkbox
                 id={`mobile-${f.id}`}
-                checked={filters[f.key as keyof EventTypeFilters]}
-                onCheckedChange={(c) => handleChange(f.key as keyof EventTypeFilters, c as boolean)}
+                checked={filters[f.key]}
+                onCheckedChange={(c) => handleChange(f.key, c === true)}
                 className="h-5 w-5"
               />
               <Label htmlFor={`mobile-${f.id}`} className="flex items-center gap-3 font-medium text-base flex-1">

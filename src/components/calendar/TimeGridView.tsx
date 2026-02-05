@@ -1,4 +1,4 @@
-import { format, addDays, startOfWeek, isSameDay, parseISO, startOfDay, endOfDay } from "date-fns";
+import { format, addDays, startOfWeek, isSameDay, parseISO } from "date-fns";
 import { useState, useEffect } from "react";
 import { EventBlock } from "./EventBlock";
 import { HolidayItem } from "@/hooks/useHolidayCalendarView";
@@ -47,21 +47,12 @@ export function TimeGridView({
 
   // Filter holidays based on selected filters
   const filteredHolidays = holidays.filter((h) => {
-    const isPersonalLeave = h.event_source === 'leave' || h.is_personal_leave;
-    const isReplacement = Boolean(h.is_replacement) || h.description.toLowerCase().includes('Replacement Leave');
-    const isWeeklyOff = h.description.toLowerCase().includes("weekly off");
-    const isNationalHoliday = h.state_code === "ALL";
-    const isStateHoliday = h.state_code && h.state_code !== "ALL";
-
-    if (isPersonalLeave) return filters.personalLeave;
-    if (isReplacement && !filters.replacementHolidays) return false;
-
-    if (isWeeklyOff && !filters.weeklyHolidays) return false;
-    if (isNationalHoliday && !filters.nationalHolidays) return false;
-    if (isStateHoliday && !filters.stateHolidays) return false;
-    if (!isWeeklyOff && !isNationalHoliday && !isStateHoliday && !filters.publicHolidays) return false;
-
-    return true;
+    const source = h.event_source;
+    const isLeave = source === 'leave' || h.is_personal_leave;
+    if (isLeave) return filters.leave;
+    if (source === 'company') return filters.company;
+    if (h.state_code === 'ALL') return filters.public;
+    return filters.state;
   });
 
   // Get holidays for each day

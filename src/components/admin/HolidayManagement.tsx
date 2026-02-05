@@ -216,20 +216,20 @@ export function HolidayManagement() {
         </div>
 
         {/* Year Tabs */}
-        <Tabs value={currentYear.toString()} onValueChange={(year) => setCurrentYear(parseInt(year))}>
-          <TabsList>
-            <TabsTrigger value={(currentYear - 1).toString()}>
-              {currentYear - 1}
-            </TabsTrigger>
-            <TabsTrigger value={currentYear.toString()}>
-              {currentYear}
-            </TabsTrigger>
-            <TabsTrigger value={(currentYear + 1).toString()}>
-              {currentYear + 1}
-            </TabsTrigger>
-          </TabsList>
+        {(() => {
+          const baseYear = new Date().getFullYear();
+          const years = [baseYear - 1, baseYear, baseYear + 1];
+          return (
+            <Tabs value={currentYear.toString()} onValueChange={(year) => setCurrentYear(parseInt(year))}>
+              <TabsList>
+                {years.map((year) => (
+                  <TabsTrigger key={year} value={year.toString()}>
+                    {year}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
 
-          <TabsContent value={currentYear.toString()} className="mt-6">
+              <TabsContent value={currentYear.toString()} className="mt-6">
             {/* Holiday List */}
             {loading ? (
               <div className="space-y-3">
@@ -304,7 +304,9 @@ export function HolidayManagement() {
               </div>
             )}
           </TabsContent>
-        </Tabs>
+            </Tabs>
+          );
+        })()}
 
         {/* Add/Edit Holiday Dialog */}
         {showAddForm && (

@@ -11,17 +11,17 @@ interface EventBlockProps {
 
 export function EventBlock({ holiday, onClick, isFullDay = false }: EventBlockProps) {
   const isPersonalLeave = holiday.event_source === 'leave' || holiday.is_personal_leave;
+  const isCompany = holiday.event_source === 'company';
   const isReplacement = Boolean(holiday.is_replacement) || holiday.description.toLowerCase().includes('Replacement Leave');
-  const isWeeklyOff = holiday.description.toLowerCase().includes("weekly off");
-  const isNationalHoliday = holiday.state_code === "ALL";
+  const isPublicHoliday = holiday.state_code === "ALL";
   const isStateHoliday = holiday.state_code && holiday.state_code !== "ALL";
 
   const colorClasses = isPersonalLeave
     ? "from-emerald-500 to-emerald-600 border-emerald-400 dark:border-emerald-500"
-    : isWeeklyOff
+    : isCompany
       ? "from-indigo-500 to-indigo-600 border-indigo-400 dark:border-indigo-500"
-      : isNationalHoliday
-        ? "from-orange-500 to-orange-600 border-orange-400 dark:border-orange-500"
+      : isPublicHoliday
+        ? "from-red-500 to-red-600 border-red-400 dark:border-red-500"
         : isStateHoliday
           ? "from-yellow-500 to-yellow-600 border-yellow-400 dark:border-yellow-500"
           : "from-red-500 to-red-600 border-red-400 dark:border-red-500";
@@ -46,10 +46,13 @@ export function EventBlock({ holiday, onClick, isFullDay = false }: EventBlockPr
         {isPersonalLeave && holiday.leave_status && (
           <div className="text-[10px] opacity-90">{holiday.leave_status}</div>
         )}
-        {holiday.state_code && holiday.state_code !== "ALL" && (
+        {holiday.state_code && holiday.state_code !== "ALL" && holiday.state_code !== 'MULTI' && (
           <div className="text-[10px] opacity-80 mt-0.5">
              <StateCodeBadge code={holiday.state_code} />
           </div>
+        )}
+        {holiday.state_code === 'MULTI' && (
+          <div className="text-[10px] opacity-80 mt-0.5">Multiple states</div>
         )}
       </button>
     );
@@ -74,10 +77,13 @@ export function EventBlock({ holiday, onClick, isFullDay = false }: EventBlockPr
       {isPersonalLeave && holiday.leave_status && (
         <div className="text-[10px] opacity-90 truncate">({holiday.leave_status})</div>
       )}
-      {holiday.state_code && holiday.state_code !== "ALL" && (
+      {holiday.state_code && holiday.state_code !== "ALL" && holiday.state_code !== 'MULTI' && (
         <div className="text-[10px] opacity-80 mt-0.5 scale-90 origin-left">
            <StateCodeBadge code={holiday.state_code} />
         </div>
+      )}
+      {holiday.state_code === 'MULTI' && (
+        <div className="text-[10px] opacity-80 mt-0.5 scale-90 origin-left">Multiple states</div>
       )}
     </button>
   );
