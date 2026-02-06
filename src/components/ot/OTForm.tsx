@@ -9,6 +9,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,13 +17,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FileUpload } from './FileUpload';
 import { TimePickerInput } from './TimePickerInput';
-import { calculateTotalHours, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
+import { calculateTotalHours, getDayTypeCode, getDayTypeColor, getDayTypeLabel } from '@/lib/otCalculations';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useSupervisors } from '@/hooks/useSupervisors';
-import { canSubmitOTForDate } from '@/utils/otValidation';
+import { canSubmitOTForDate, validateOTTimeForWorkDay } from '@/utils/otValidation';
 import { StateSelector } from '@/components/hr/StateSelector';
 import { useAuth } from '@/hooks/useAuth';
+
+type OTSettingsRow = {
+  ot_submission_cutoff_day: number | null;
+  grace_period_enabled: boolean | null;
+};
+
+type MalaysianHolidayRow = {
+  state: string | null;
+};
 
 // Fixed schema with optional attachments for all employees
 const OTFormSchema = z.object({
@@ -91,6 +101,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   const [cutoffDay, setCutoffDay] = useState<number>(10);
   const [gracePeriodEnabled, setGracePeriodEnabled] = useState<boolean>(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [businessHoursError, setBusinessHoursError] = useState<string | null>(null);
   const { profile: authProfile } = useAuth();
 
   // Use the custom hook to fetch supervisors, excluding the employee's direct supervisor
@@ -103,16 +114,19 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
         const { data, error } = await supabase
           .from('ot_settings')
           .select('ot_submission_cutoff_day, grace_period_enabled')
+          .limit(1)
           .single();
+
+        const settings = data as unknown as OTSettingsRow | null;
 
         if (error) {
           setCutoffDay(10); // Fallback to default
           setGracePeriodEnabled(false);
-        } else if (data?.ot_submission_cutoff_day) {
-          setCutoffDay(data.ot_submission_cutoff_day);
-          setGracePeriodEnabled(data?.grace_period_enabled ?? false);
+        } else if (settings?.ot_submission_cutoff_day) {
+          setCutoffDay(settings.ot_submission_cutoff_day);
+          setGracePeriodEnabled(settings?.grace_period_enabled ?? false);
         } else {
-          setGracePeriodEnabled(data?.grace_period_enabled ?? false);
+          setGracePeriodEnabled(settings?.grace_period_enabled ?? false);
         }
       } catch (err) {
         setCutoffDay(10); // Fallback to default
@@ -129,7 +143,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
       reason: '',
       respective_supervisor_id: 'none',
       attachment_urls: [],
-      ot_location_state: authProfile?.state || '',
+      ot_location_state: 'SGR',
       ...defaultValues,
     },
   });
@@ -141,10 +155,10 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
 
   useEffect(() => {
     const current = form.getValues('ot_location_state');
-    if ((!current || current.trim() === '') && authProfile?.state) {
-      form.setValue('ot_location_state', authProfile.state, { shouldValidate: true });
+    if (!current || current.trim() === '') {
+      form.setValue('ot_location_state', 'SGR', { shouldValidate: true });
     }
-  }, [authProfile?.state, form]);
+  }, [form]);
 
   useEffect(() => {
     if (startTime && endTime) {
@@ -158,6 +172,20 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
       determineDayType(otDate, otLocationState);
     }
   }, [otDate, otLocationState]);
+
+  // Validate business hours restriction for work days
+  useEffect(() => {
+    if (startTime && endTime && dayType) {
+      const validation = validateOTTimeForWorkDay(startTime, endTime, dayType);
+      if (!validation.isAllowed) {
+        setBusinessHoursError(validation.message || 'Invalid time for work day');
+      } else {
+        setBusinessHoursError(null);
+      }
+    } else {
+      setBusinessHoursError(null);
+    }
+  }, [startTime, endTime, dayType]);
 
   const determineDayType = async (date: Date, locationState: string) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -179,11 +207,13 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
     // Check malaysian_holidays (includes federal and state-specific holidays)
     const { data: holidays } = await supabase
       .from('malaysian_holidays')
-      .select('*')
+      .select('state')
       .eq('date', dateStr);
 
-    const isFederalHoliday = holidays?.some(h => h.state === 'ALL');
-    const isStateHoliday = holidays?.some(h => h.state === locationState);
+    const holidayRows = (holidays as unknown as MalaysianHolidayRow[] | null) ?? [];
+
+    const isFederalHoliday = holidayRows.some((h) => h.state === 'ALL');
+    const isStateHoliday = holidayRows.some((h) => h.state === locationState);
 
     if (isFederalHoliday || isStateHoliday) {
       setDayType('public_holiday');
@@ -201,6 +231,13 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
   };
 
   const handleSubmit = (values: OTFormValues) => {
+    // Validate business hours for work days
+    const timeValidation = validateOTTimeForWorkDay(values.start_time, values.end_time, dayType);
+    if (!timeValidation.isAllowed) {
+      setBusinessHoursError(timeValidation.message || 'Invalid time for work day');
+      return; // Block submission
+    }
+
     const finalReason = values.reason_dropdown === 'Other'
       ? values.reason?.trim() || 'Other'
       : values.reason_dropdown;
@@ -217,6 +254,9 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
       attachment_urls: values.attachment_urls,
     });
   };
+
+  const displayDayType = holidayLabel === 'State Holiday' ? 'state_holiday' : dayType;
+  const dayTypeTooltip = getDayTypeLabel(displayDayType);
 
   return (
     <Form {...form}>
@@ -328,7 +368,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
                   />
                 </FormControl>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  Defaults to your profile state. Change this if the OT is performed in a different state.
+                  Defaults to Selangor (SGR). Change this if the OT is performed in a different state.
                 </p>
                 <FormMessage />
               </FormItem>
@@ -373,6 +413,13 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           />
         </div>
 
+        {businessHoursError && dayType === 'weekday' && (
+          <Alert variant="destructive" className="col-span-1 md:col-span-2">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{businessHoursError}</AlertDescription>
+          </Alert>
+        )}
+
         <Card className="p-3 sm:p-4 bg-muted/50">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -381,11 +428,16 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
             </div>
             <div className="flex flex-col items-start sm:items-end">
               <p className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">Day Type</p>
-              <Badge
-                className={getDayTypeColor(holidayLabel === 'State Holiday' ? 'state_holiday' : dayType)}
-              >
-                {holidayLabel || getDayTypeLabel(dayType)}
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge tabIndex={0} className={getDayTypeColor(displayDayType)}>
+                    {getDayTypeCode(displayDayType)}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  {dayTypeTooltip}
+                </TooltipContent>
+              </Tooltip>
             </div>
           </div>
         </Card>

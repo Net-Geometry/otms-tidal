@@ -95,8 +95,12 @@ function normalizeStateCode(stateName) {
     'johor': 'JHR',
     'kedah': 'KDH',
     'kelantan': 'KTN',
-    'kuala lumpur': 'KUL',
-    'labuan': 'LBN',
+    'kuala lumpur': 'WPKL',
+    'kul': 'WPKL',
+    'wpkl': 'WPKL',
+    'labuan': 'WPLB',
+    'lbn': 'WPLB',
+    'wplb': 'WPLB',
     'melaka': 'MLK',
     'malacca': 'MLK',
     'negeri sembilan': 'NSN',
@@ -105,7 +109,9 @@ function normalizeStateCode(stateName) {
     'pulau pinang': 'PNG',
     'perak': 'PRK',
     'perlis': 'PLS',
-    'putrajaya': 'PJY',
+    'putrajaya': 'WPPJ',
+    'pjy': 'WPPJ',
+    'wppj': 'WPPJ',
     'sabah': 'SBH',
     'sarawak': 'SWK',
     'selangor': 'SGR',
@@ -115,6 +121,40 @@ function normalizeStateCode(stateName) {
     'malaysia': 'ALL'
   };
   return stateMap[lowerState] || stateName.toUpperCase().substring(0, 3);
+}
+
+function officeholidaysUrl(stateCode, year) {
+  const code = normalizeStateCode(stateCode);
+
+  const slugMap = {
+    JHR: 'johor',
+    KDH: 'kedah',
+    KTN: 'kelantan',
+    WPKL: 'kuala-lumpur',
+    WPLB: 'labuan',
+    MLK: 'melaka',
+    NSN: 'negeri-sembilan',
+    PHG: 'pahang',
+    PNG: 'penang',
+    PRK: 'perak',
+    PLS: 'perlis',
+    WPPJ: 'putrajaya',
+    SBH: 'sabah',
+    SWK: 'sarawak',
+    SGR: 'selangor',
+    TRG: 'terengganu',
+  };
+
+  if (code === 'ALL') {
+    return `https://www.officeholidays.com/countries/malaysia/${year}`;
+  }
+
+  const slug = slugMap[code];
+  if (!slug) {
+    throw new Error(`Unsupported state code for officeholidays: ${stateCode}`);
+  }
+
+  return `https://www.officeholidays.com/countries/malaysia/${slug}/${year}`;
 }
 async function respectfulDelay(ms = 2500) {
   await new Promise((resolve)=>setTimeout(resolve, ms));
@@ -183,7 +223,7 @@ function parseDate(dateStr, year) {
   }
 }
 async function scrapeOfficeholidays(state, year) {
-  const url = `https://www.officeholidays.com/countries/malaysia/regional.php?list_year=${year}&list_region=${state}`;
+  const url = officeholidaysUrl(state, year);
   console.log(`Scraping officeholidays.com for ${state} ${year}...`);
   // Respectful scraping delay
   await respectfulDelay(2000);
@@ -198,23 +238,34 @@ async function scrapeOfficeholidays(state, year) {
     }
     const html = await response.text();
     const holidays = [];
-    // Parse HTML for holiday data
+    // Parse holiday table rows
     const tableRowPattern = /<tr[^>]*>(.*?)<\/tr>/gs;
     const rows = html.match(tableRowPattern) || [];
     for (const row of rows){
       const cellPattern = /<td[^>]*>(.*?)<\/td>/gs;
       const cells = Array.from(row.matchAll(cellPattern)).map((m)=>m[1].replace(/<[^>]+>/g, '').trim());
-      if (cells.length >= 2) {
-        const dateStr = cells[0];
-        const nameStr = cells[1];
+      // Expected format: Day | Date | Holiday Name | Type | Comments
+      if (cells.length >= 4) {
+        const dateStr = cells[1];
+        const nameStr = cells[2];
+        const pageTypeStr = cells[3] || '';
+
+        if (pageTypeStr.toLowerCase().includes('not a public holiday')) {
+          continue;
+        }
+
         const date = parseDate(dateStr, year);
         const name = normalizeHolidayName(nameStr);
         if (date && isValidHolidayName(name)) {
+          const stateCode = normalizeStateCode(state);
+          const isNational = pageTypeStr.toLowerCase().includes('national holiday');
+          const holidayType = isNational ? 'federal' : classifyHoliday(name);
+
           holidays.push({
             date,
             name,
-            state: normalizeStateCode(state),
-            type: classifyHoliday(name),
+            state: isNational ? 'ALL' : stateCode,
+            type: holidayType,
             source: url,
             year
           });
@@ -257,19 +308,20 @@ async function scrapePublicholidays(state, year) {
           'ALL'
         ];
         if (states.includes('ALL') || states.includes(state) || states.includes(normalizeStateCode(state))) {
-          if (isValidHolidayName(name)) {
-            holidays.push({
-              date,
-              name,
-              state: normalizeStateCode(state),
-              type: classifyHoliday(name),
-              source: url,
-              year
-            });
-          }
-        }
+           if (isValidHolidayName(name)) {
+             const holidayType = classifyHoliday(name);
+             holidays.push({
+               date,
+               name,
+               state: holidayType === 'federal' ? 'ALL' : normalizeStateCode(state),
+               type: holidayType,
+               source: url,
+               year
+             });
+           }
+         }
+       }
       }
-    }
     console.log(`Scraped ${holidays.length} holidays from publicholidays.my`);
     return holidays;
   } catch (error) {
@@ -394,30 +446,29 @@ Deno.serve(async (req)=>{
     let statesToScrape = [];
     if (states && Array.isArray(states)) {
       statesToScrape = states;
-    } else if (state) {
+    } else if (state && String(state).toUpperCase() !== 'ALL') {
       statesToScrape = [
         state
       ];
     } else {
       // Default to all Malaysian states
       statesToScrape = [
-        'ALL',
         'JHR',
         'KDH',
         'KTN',
-        'KUL',
-        'LBN',
         'MLK',
         'NSN',
         'PHG',
         'PNG',
         'PRK',
         'PLS',
-        'PJY',
         'SBH',
         'SWK',
         'SGR',
-        'TRG'
+        'TRG',
+        'WPKL',
+        'WPPJ',
+        'WPLB'
       ];
     }
     console.log(`Starting holiday scraping for ${statesToScrape.length} states for year ${targetYear}`);

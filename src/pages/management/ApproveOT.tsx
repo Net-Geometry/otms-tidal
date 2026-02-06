@@ -47,14 +47,17 @@ export default function ApproveOT() {
   const { bulkApprove, isApproving: isBulkApproving } = useManagementBulkApproval();
 
   // Helper function to determine which "logical" tab a request belongs to
-  const getTabForStatus = (status: string): string => {
-    const pendingStatuses = ['hr_certified'];
+  // For hr_certified requests, checks management_remarks to determine if rejected
+  const getTabForStatus = (status: string, hasManagementRemarks?: boolean): string => {
     const approvedStatuses = ['management_approved'];
-    const rejectedStatuses = ['rejected'];
 
-    if (pendingStatuses.includes(status)) return 'pending';
+    if (status === 'hr_certified') {
+      // hr_certified with management_remarks = rejected (sent back to HR)
+      // hr_certified without management_remarks = pending approval
+      return hasManagementRemarks ? 'rejected' : 'pending';
+    }
     if (approvedStatuses.includes(status)) return 'approved';
-    if (rejectedStatuses.includes(status)) return 'rejected';
+    if (status === 'rejected') return 'rejected';
     return 'all';
   };
 
@@ -62,17 +65,17 @@ export default function ApproveOT() {
   const filterRequestsByTab = (requests: typeof requests, tab: string) => {
     if (tab === 'all') return requests;
 
-    const pendingStatuses = ['hr_certified'];
     const approvedStatuses = ['management_approved'];
-    const rejectedStatuses = ['rejected'];
 
     switch (tab) {
       case 'pending':
-        return requests.filter(r => pendingStatuses.includes(r.status));
+        // Show hr_certified requests that do NOT have management_remarks (not yet rejected)
+        return requests.filter(r => r.status === 'hr_certified' && !r.management_remarks);
       case 'approved':
         return requests.filter(r => approvedStatuses.includes(r.status));
       case 'rejected':
-        return requests.filter(r => rejectedStatuses.includes(r.status));
+        // Show fully rejected requests AND hr_certified requests with management_remarks (sent back to HR)
+        return requests.filter(r => r.status === 'rejected' || (r.status === 'hr_certified' && r.management_remarks));
       default:
         return requests;
     }
@@ -96,12 +99,12 @@ export default function ApproveOT() {
       const fetchRequestStatus = async () => {
         const { data } = await supabase
           .from('ot_requests')
-          .select('status')
+          .select('status, management_remarks')
           .eq('id', requestId)
           .maybeSingle();
 
         if (data) {
-          setActiveTab(getTabForStatus(data.status));
+          setActiveTab(getTabForStatus(data.status, !!data.management_remarks));
         }
       };
 

@@ -123,12 +123,11 @@ export function WeeklyOffSelector({ dateFrom, dateTo, selectedDays, onSelectionC
       <div className="flex gap-2">
         <Button
           type="button"
-          variant="secondary"
           onClick={handleGenerate}
           disabled={!dateFrom || !dateTo || selectedDays.length === 0}
           className="flex-1"
         >
-          Add {totalDates > 0 ? `${totalDates}` : ''} Weekly Off{totalDates !== 1 ? 's' : ''} to Holidays
+          Generate {totalDates > 0 ? `${totalDates}` : ''} Weekly Off{totalDates !== 1 ? 's' : ''}
         </Button>
         {onRemove && (
           <Button

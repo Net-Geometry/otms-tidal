@@ -92,6 +92,11 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     return 'general';
   };
 
+  // Helper function to get calendar path based on role
+  const getCalendarPath = (role: string | null) => {
+    return '/calendar';
+  };
+
   // Organized menu groups
   const menuGroups = {
     dashboards: {
@@ -131,7 +136,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     general: {
       label: 'General',
       items: [
-        { path: '/calendar', label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', 'supervisor', 'employee', 'management'] },
+        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', 'supervisor', 'employee', 'management'] },
         { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', 'supervisor', 'employee', 'management'] },
       ],
     },
@@ -246,15 +251,30 @@ export function AppLayout({ children }: AppLayoutProps) {
       'submit': 'Submit OT',
       'history': 'OT History',
       'settings': 'Settings',
-      'calendar': 'Calendar',
+      'calendar': 'Holiday Calendars',
       'profile': 'Profile',
+      'new': 'New',
+      'edit': 'Edit',
     };
 
-    return paths.map((path, index) => {
-      const fullPath = '/' + paths.slice(0, index + 1).join('/');
-      const label = breadcrumbLabels[path] || path.charAt(0).toUpperCase() + path.slice(1);
-      return { path: fullPath, label, isLast: index === paths.length - 1 };
-    });
+    return paths
+      .filter((path, index) => {
+        // Filter out UUID-like paths (calendar IDs)
+        if (index > 0 && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path)) {
+          return false;
+        }
+        // Filter out numeric IDs
+        if (index > 0 && /^\d+$/.test(path)) {
+          return false;
+        }
+        return true;
+      })
+      .map((path, index, filteredPaths) => {
+        const originalIndex = paths.indexOf(path);
+        const fullPath = '/' + paths.slice(0, originalIndex + 1).join('/');
+        const label = breadcrumbLabels[path] || path.charAt(0).toUpperCase() + path.slice(1);
+        return { path: fullPath, label, isLast: index === filteredPaths.length - 1 };
+      });
   };
 
   const breadcrumbs = generateBreadcrumbs();
@@ -272,6 +292,25 @@ export function AppLayout({ children }: AppLayoutProps) {
             <div className="flex items-center gap-2">
               <SidebarTrigger />
               <DashboardSwitcher />
+              
+              <Breadcrumb className="hidden md:flex ml-4">
+                <BreadcrumbList>
+                  {breadcrumbs.map((item, index) => (
+                    <BreadcrumbItem key={item.path}>
+                      {!item.isLast ? (
+                        <>
+                          <BreadcrumbLink asChild>
+                             <NavLink to={item.path}>{item.label}</NavLink>
+                          </BreadcrumbLink>
+                          <BreadcrumbSeparator />
+                        </>
+                      ) : (
+                        <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                      )}
+                    </BreadcrumbItem>
+                  ))}
+                </BreadcrumbList>
+              </Breadcrumb>
             </div>
             <div className={`flex items-center ${deviceType === 'mobile' ? 'gap-2' : deviceType === 'tablet' ? 'gap-3' : 'gap-4'}`}>
               <NotificationBell />

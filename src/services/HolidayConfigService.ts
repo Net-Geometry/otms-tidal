@@ -23,6 +23,117 @@ import { isValidStateKey } from '@/config/malaysia-states';
 
 export class HolidayConfigService {
   /**
+   * Manually trigger a full holiday refresh for a year (audit logged).
+   */
+  async manualRefresh(year?: number): Promise<{ success: boolean; error?: string }> {
+    const targetYear = year || new Date().getFullYear();
+
+    const { data, error } = await supabase.functions.invoke('scheduled-holiday-refresh', {
+      body: {
+        job_type: 'manual_refresh',
+        year: targetYear,
+      },
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: Boolean((data as any)?.success ?? true) };
+  }
+
+  /**
+   * Fetch recent refresh history for HR/admin dashboards.
+   */
+  async getRefreshHistory(limit = 25): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('holiday_refresh_log')
+      .select('*')
+      .order('started_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching refresh history:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  /**
+   * Fetch replacement holidays (Replacement Leave) for a year.
+   */
+  async getReplacementHolidays(year?: number): Promise<any[]> {
+    const targetYear = year || new Date().getFullYear();
+    const startDate = `${targetYear}-01-01`;
+    const endDate = `${targetYear}-12-31`;
+
+    const { data, error } = await supabase
+      .from('malaysian_holidays')
+      .select('*')
+      .eq('is_replacement', true)
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching replacement holidays:', error);
+      return [];
+    }
+
+    return data || [];
+  }
+
+  /**
+   * HR override for a calculated replacement holiday.
+   *
+   * Supported actions:
+   * - approve: keep entry, record HR override metadata
+   * - delete: remove replacement entry
+   */
+  async overrideReplacementHoliday(
+    id: string,
+    action: 'approve' | 'delete',
+    reason: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const { error } = await (supabase as any).rpc('hr_override_replacement_holiday', {
+      p_holiday_id: id,
+      p_action: action,
+      p_reason: reason,
+    });
+
+    if (error) {
+      console.error('Error overriding replacement holiday:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  }
+
+  /**
+   * HR modify a replacement holiday (date/name) with audit fields.
+   */
+  async modifyReplacementHoliday(
+    id: string,
+    updates: { date?: string; name?: string },
+    reason: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const { error } = await (supabase as any).rpc('hr_modify_replacement_holiday', {
+      p_holiday_id: id,
+      p_new_date: updates.date ?? null,
+      p_new_name: updates.name ?? null,
+      p_reason: reason,
+    });
+
+    if (error) {
+      console.error('Error modifying replacement holiday:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  }
+
+  /**
    * Save or update company's selected Malaysian state
    *
    * This method:

@@ -167,3 +167,64 @@ export function getSubmissionRuleMessage(cutoffDay: number = 10): string {
     `• Previous months: Can be submitted until the ${cutoffDay}th of the current month\n` +
     `• Older months: Cannot be submitted`;
 }
+
+/**
+ * Business hours constants for work day restrictions
+ */
+export const BUSINESS_HOURS = {
+  START: '09:00',
+  END: '18:00',
+  START_MINUTES: 9 * 60,   // 540 minutes from midnight
+  END_MINUTES: 18 * 60,    // 1080 minutes from midnight
+};
+
+/**
+ * Checks if OT time overlaps with business hours (9am-6pm)
+ * @returns Object with { overlaps: boolean, message?: string }
+ */
+export function overlapsWithBusinessHours(
+  startTime: string,
+  endTime: string
+): { overlaps: boolean; message?: string } {
+  const [startHour, startMinute] = startTime.split(':').map(Number);
+  const [endHour, endMinute] = endTime.split(':').map(Number);
+
+  const startMinutes = startHour * 60 + startMinute;
+  const endMinutes = endHour * 60 + endMinute;
+
+  // Overlap: OT starts before 6pm AND ends after 9am
+  const overlaps = startMinutes < BUSINESS_HOURS.END_MINUTES &&
+                   endMinutes > BUSINESS_HOURS.START_MINUTES;
+
+  if (overlaps) {
+    return {
+      overlaps: true,
+      message: 'OT cannot be submitted during work hours (9:00 AM - 6:00 PM) on work days. Please submit OT only for hours before 9:00 AM or after 6:00 PM.',
+    };
+  }
+
+  return { overlaps: false };
+}
+
+/**
+ * Validates OT time for work days (weekdays that are not holidays)
+ * Only blocks business hours on weekdays - weekends/holidays are unrestricted
+ */
+export function validateOTTimeForWorkDay(
+  startTime: string,
+  endTime: string,
+  dayType: string
+): { isAllowed: boolean; message?: string } {
+  // Only restrict business hours on weekdays
+  if (dayType !== 'weekday') {
+    return { isAllowed: true };
+  }
+
+  const check = overlapsWithBusinessHours(startTime, endTime);
+
+  if (check.overlaps) {
+    return { isAllowed: false, message: check.message };
+  }
+
+  return { isAllowed: true };
+}

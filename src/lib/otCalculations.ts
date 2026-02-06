@@ -45,6 +45,23 @@ export function getDayTypeLabel(dayType: string): string {
   return labels[dayType] || dayType;
 }
 
+export function getDayTypeCode(dayType: string): string {
+  const normalized = (dayType || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_');
+
+  const codes: Record<string, string> = {
+    weekday: 'W',
+    saturday: 'Sat',
+    sunday: 'Sun',
+    public_holiday: 'PH',
+    state_holiday: 'PH',
+  };
+
+  return codes[normalized] || 'W';
+}
+
 export function formatTime12Hour(time: string): string {
   const [hours, minutes] = time.split(':').map(Number);
   const period = hours >= 12 ? 'PM' : 'AM';

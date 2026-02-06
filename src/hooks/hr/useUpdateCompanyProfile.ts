@@ -15,15 +15,42 @@ export function useUpdateCompanyProfile() {
 
   return useMutation({
     mutationFn: async (data: UpdateCompanyProfileData) => {
-      const { data: profile, error } = await supabase
+      // First check if a profile exists
+      const { data: existing } = await supabase
         .from('company_profile')
-        .update({
-          ...data,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', (await supabase.from('company_profile').select('id').single()).data?.id)
-        .select()
-        .single();
+        .select('id')
+        .maybeSingle();
+
+      let profile;
+      let error;
+
+      if (existing?.id) {
+        // Update existing profile
+        const result = await supabase
+          .from('company_profile')
+          .update({
+            ...data,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id)
+          .select()
+          .single();
+        profile = result.data;
+        error = result.error;
+      } else {
+        // Insert new profile
+        const result = await supabase
+          .from('company_profile')
+          .insert({
+            ...data,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+        profile = result.data;
+        error = result.error;
+      }
 
       if (error) throw error;
       return profile;

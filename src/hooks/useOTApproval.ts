@@ -153,6 +153,13 @@ const getStatusFilter = (role: ApprovalRole, statusFilter?: string): OTStatus[] 
         return ['rejected'];
       }
     }
+    // Handle management-specific tab names
+    if (role === 'management') {
+      if (statusFilter === 'rejected') {
+        // Show both fully rejected and sent back for recertification (hr_certified with management_remarks)
+        return ['rejected', 'hr_certified'];
+      }
+    }
     return [statusFilter as OTStatus];
   }
 
@@ -302,6 +309,12 @@ export function useOTApproval(options: UseOTApprovalOptions) {
         }
       }
 
+      // For management's default view (Awaiting Approval), exclude hr_certified requests with management_remarks
+      // These are requests that management has already rejected and sent back to HR
+      if (role === 'management' && (!status || status === 'all')) {
+        query = query.is('management_remarks', null);
+      }
+
       // Apply role-specific filters
       if (role === 'supervisor') {
         const { data: { user } } = await supabase.auth.getUser();
@@ -356,6 +369,13 @@ export function useOTApproval(options: UseOTApprovalOptions) {
             }
           }
         }
+      }
+
+      // Apply management-specific filters for rejected tab
+      // When showing rejected requests, only show hr_certified ones that have management_remarks
+      // (these are requests sent back to HR for recertification)
+      if (role === 'management' && status === 'rejected') {
+        query = query.or('status.eq.rejected,and(status.eq.hr_certified,management_remarks.not.is.null)');
       }
 
       const { data, error } = await query;
@@ -500,7 +520,7 @@ export function useOTApproval(options: UseOTApprovalOptions) {
       if (!user) throw new Error('User not authenticated');
 
       // Management rejection sends back to HR for recertification, others get final rejection
-      const status = role === 'management' ? 'pending_hr_recertification' : 'rejected';
+      const status = role === 'management' ? 'hr_certified' : 'rejected';
 
       const updateData: any = {
         status: status,

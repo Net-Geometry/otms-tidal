@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { HolidayItem } from "@/hooks/useHolidayCalendarView";
+import { StateCodeBadge } from "@/components/hr/calendar/StateCodeBadge";
 
 interface HolidayDetailsSheetProps {
   open: boolean;
@@ -84,6 +85,8 @@ export function HolidayDetailsSheet({
               </p>
               <div className="space-y-3">
                 {holidays.map((holiday) => {
+                  const isPersonalLeave = holiday.event_source === 'leave' || holiday.is_personal_leave;
+                  const isReplacement = Boolean(holiday.is_replacement) || holiday.description.toLowerCase().includes('Replacement Leave');
                   const isWeeklyOff = holiday.description
                     .toLowerCase()
                     .includes("weekly off");
@@ -91,29 +94,35 @@ export function HolidayDetailsSheet({
                   const isStateHoliday =
                     holiday.state_code && holiday.state_code !== "ALL";
 
-                  const bgColor = isWeeklyOff
-                    ? "from-indigo-100 dark:from-indigo-900 to-indigo-50 dark:to-indigo-800 border-indigo-200 dark:border-indigo-700"
-                    : isNationalHoliday
-                      ? "from-orange-100 dark:from-orange-900 to-orange-50 dark:to-orange-800 border-orange-200 dark:border-orange-700"
-                      : isStateHoliday
-                        ? "from-yellow-100 dark:from-yellow-900 to-yellow-50 dark:to-yellow-800 border-yellow-200 dark:border-yellow-700"
-                        : "from-red-100 dark:from-red-900 to-pink-50 dark:to-red-800 border-red-200 dark:border-red-700";
+                  const bgColor = isPersonalLeave
+                    ? "from-emerald-100 dark:from-emerald-900 to-emerald-50 dark:to-emerald-800 border-emerald-200 dark:border-emerald-700"
+                    : isWeeklyOff
+                      ? "from-indigo-100 dark:from-indigo-900 to-indigo-50 dark:to-indigo-800 border-indigo-200 dark:border-indigo-700"
+                      : isNationalHoliday
+                        ? "from-orange-100 dark:from-orange-900 to-orange-50 dark:to-orange-800 border-orange-200 dark:border-orange-700"
+                        : isStateHoliday
+                          ? "from-yellow-100 dark:from-yellow-900 to-yellow-50 dark:to-yellow-800 border-yellow-200 dark:border-yellow-700"
+                          : "from-red-100 dark:from-red-900 to-pink-50 dark:to-red-800 border-red-200 dark:border-red-700";
 
-                  const dotColor = isWeeklyOff
-                    ? "from-indigo-500 to-indigo-600"
-                    : isNationalHoliday
-                      ? "from-orange-500 to-orange-600"
-                      : isStateHoliday
-                        ? "from-yellow-500 to-yellow-600"
-                        : "from-red-500 to-red-600";
+                  const dotColor = isPersonalLeave
+                    ? "from-emerald-500 to-emerald-600"
+                    : isWeeklyOff
+                      ? "from-indigo-500 to-indigo-600"
+                      : isNationalHoliday
+                        ? "from-orange-500 to-orange-600"
+                        : isStateHoliday
+                          ? "from-yellow-500 to-yellow-600"
+                          : "from-red-500 to-red-600";
 
-                  const badgeText = isWeeklyOff
-                    ? "Weekly Holiday"
-                    : isNationalHoliday
-                      ? "National Holiday"
-                      : isStateHoliday
-                        ? `State Holiday (${holiday.state_code})`
-                        : "Public Holiday";
+                  const badgeElement = isPersonalLeave
+                    ? <span>{`Personal Leave${holiday.leave_type ? ` (${holiday.leave_type})` : ''}${holiday.leave_status ? ` - ${holiday.leave_status}` : ''}`}</span>
+                    : isWeeklyOff
+                      ? <span>Weekly Holiday</span>
+                      : isNationalHoliday
+                        ? <span>National Holiday</span>
+                        : isStateHoliday
+                          ? <span className="flex items-center gap-1">State Holiday <StateCodeBadge code={holiday.state_code!} /></span>
+                          : <span>Public Holiday</span>;
 
                   return (
                     <div
@@ -126,10 +135,15 @@ export function HolidayDetailsSheet({
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-foreground text-sm break-words">
                           {holiday.description}
+                          {isReplacement && !isPersonalLeave && (
+                            <span className="ml-2 inline-flex items-center rounded-full bg-purple-600/10 text-purple-700 dark:text-purple-300 px-2 py-0.5 text-[10px] font-semibold align-middle">
+                              Replacement Leave
+                            </span>
+                          )}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {badgeText}
-                        </p>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {badgeElement}
+                        </div>
                       </div>
                     </div>
                   );

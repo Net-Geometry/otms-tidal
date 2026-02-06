@@ -1,58 +1,59 @@
-import { useState, useEffect } from "react";
-import { isSameDay, parseISO, addDays, addMonths } from "date-fns";
-import { Link } from "react-router-dom";
-import { Edit } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { isSameDay, parseISO } from "date-fns";
 import { AppLayout } from "@/components/AppLayout";
-import { Button } from "@/components/ui/button";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
-import { MiniCalendarSidebar } from "@/components/calendar/MiniCalendarSidebar";
 import { TimeGridView } from "@/components/calendar/TimeGridView";
 import { MonthlyGridView } from "@/components/calendar/MonthlyGridView";
 import { EventTypeFilter, type EventTypeFilters } from "@/components/calendar/EventTypeFilter";
-import { HolidayDetailsSheet } from "@/components/calendar/HolidayDetailsSheet";
+import { CalendarSidebar } from "@/components/calendar/CalendarSidebar";
+import { ManageHolidaysPanel } from "@/components/calendar/ManageHolidaysPanel";
+import { StatePreviewSelector, type StatePreviewValue } from "@/components/calendar/StatePreviewSelector";
 import { useHolidayCalendarView } from "@/hooks/useHolidayCalendarView";
 import { useAuth } from "@/hooks/useAuth";
-import { useActiveHolidayCalendar } from "@/hooks/hr/useActiveHolidayCalendar";
-import { useEmployeeCalendarAssignment } from "@/hooks/hr/useEmployeeCalendarAssignment";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [viewMode, setViewMode] = useState<"week" | "day" | "month">("week");
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedHoliday, setSelectedHoliday] = useState<any>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [viewMode, setViewMode] = useState<"week" | "day" | "month">("month");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [eventFilters, setEventFilters] = useState<EventTypeFilters>({
-    publicHolidays: true,
-    nationalHolidays: true,
-    weeklyHolidays: true,
-    stateHolidays: true,
+    public: true,
+    state: true,
+    company: true,
+    leave: true,
   });
 
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const { user, profile } = useAuth();
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const { profile } = useAuth();
   const { hasRole } = useAuth();
 
-  // Get the employee's assigned calendar (auto-matched to location or manually assigned)
-  const { data: assignedCalendar, isLoading: isAssignmentLoading } = useEmployeeCalendarAssignment(user?.id);
+  const canManage = hasRole("hr") || hasRole("admin");
+  const [statePreview, setStatePreview] = useState<StatePreviewValue>("AUTO");
 
-  // For HR/admin, also show the active calendar option
-  const { data: activeCalendar, isLoading: isCalendarLoading } = useActiveHolidayCalendar();
+  const effectiveState = useMemo(() => {
+    if (!canManage) return profile?.state;
+    if (statePreview === "AUTO") return profile?.state;
+    return statePreview;
+  }, [canManage, profile?.state, statePreview]);
 
-  // Use employee's assigned calendar, or fall back to active calendar for admin
-  const calendarToUse = assignedCalendar?.calendar_id || activeCalendar?.id;
+  const { data: holidays, isLoading, error } = useHolidayCalendarView(effectiveState);
 
-  // Get user's state from profile for filtering state-specific holidays
-  const userState = profile?.state;
+  const visibleHolidays = useMemo(() => {
+    return (holidays || []).filter((h) => {
+      const source = h.event_source;
+      const isLeave = source === 'leave' || h.is_personal_leave;
+      if (isLeave) return eventFilters.leave;
+      if (source === 'company') return eventFilters.company;
+      if (h.state_code === 'ALL') return eventFilters.public;
+      return eventFilters.state;
+    });
+  }, [eventFilters, holidays]);
 
-  const { data: holidays, isLoading, error } = useHolidayCalendarView(calendarToUse, userState);
-
-  // Get dates with holidays for navigation and mini calendar
-  const datesWithHolidays = holidays?.map(h => parseISO(h.holiday_date)) || [];
-
-  const selectedHolidays = holidays?.filter(h =>
-    isSameDay(parseISO(h.holiday_date), selectedDate)
-  ) || [];
+  const selectedHolidays = useMemo(() => {
+    return visibleHolidays.filter((h) => isSameDay(parseISO(h.holiday_date), selectedDate));
+  }, [selectedDate, visibleHolidays]);
 
   // Close sidebar on mobile automatically
   useEffect(() => {
@@ -61,59 +62,14 @@ export default function Calendar() {
     }
   }, [isMobile]);
 
-  const findPreviousHolidayDate = (currentDate: Date): Date | null => {
-    let checkDate = addDays(currentDate, -1);
-    while (checkDate > addDays(new Date(), -365)) {
-      if (datesWithHolidays.some(d => isSameDay(d, checkDate))) {
-        return checkDate;
-      }
-      checkDate = addDays(checkDate, -1);
-    }
-    return null;
-  };
-
-  const findNextHolidayDate = (currentDate: Date): Date | null => {
-    let checkDate = addDays(currentDate, 1);
-    while (checkDate < addDays(new Date(), 365)) {
-      if (datesWithHolidays.some(d => isSameDay(d, checkDate))) {
-        return checkDate;
-      }
-      checkDate = addDays(checkDate, 1);
-    }
-    return null;
-  };
-
-  const handlePreviousDay = () => {
-    const previousDate = findPreviousHolidayDate(selectedDate);
-    if (previousDate) {
-      setSelectedDate(previousDate);
-    }
-  };
-
-  const handleNextDay = () => {
-    const nextDate = findNextHolidayDate(selectedDate);
-    if (nextDate) {
-      setSelectedDate(nextDate);
-    }
-  };
-
-  const hasPreviousHolidays = findPreviousHolidayDate(selectedDate) !== null;
-  const hasNextHolidays = findNextHolidayDate(selectedDate) !== null;
-
-  const handleEventClick = (holiday: any, date: Date) => {
+  const handleEventClick = (_holiday: unknown, date: Date) => {
     setSelectedDate(date);
-    setSelectedHoliday(holiday);
-    setSheetOpen(true);
-    // Switch to week view when clicking event from month view
-    if (viewMode === "month") {
-      setViewMode("week");
-    }
+    if (isMobile) setSidebarOpen(true);
   };
 
   const handleMonthDateClick = (date: Date) => {
     setSelectedDate(date);
-    // Switch to week view when clicking a date from month view
-    setViewMode("week");
+    if (isMobile) setSidebarOpen(true);
   };
 
   return (
@@ -122,41 +78,32 @@ export default function Calendar() {
         {/* Header - Combined into single row */}
         <div className="border-b border-border flex-shrink-0 px-3 py-2">
           <div className="flex items-center justify-between gap-3 mb-2">
-            <h1 className="text-xl font-bold bg-gradient-to-r from-[#5F26B4] to-[#8B5CF6] bg-clip-text text-transparent">
-              Calendar
-              {assignedCalendar && (
-                <span className="text-xs text-muted-foreground font-normal block">
-                  {assignedCalendar.calendar_name}
-                </span>
-              )}
-            </h1>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-[#5F26B4] to-[#8B5CF6] bg-clip-text text-transparent">Calendar</h1>
             <CalendarHeader
               selectedDate={selectedDate}
               onDateChange={setSelectedDate}
               viewMode={viewMode}
               onViewModeChange={setViewMode}
             />
-            {(hasRole("hr") || hasRole("admin")) && activeCalendar && (
-              <Button
-                asChild
-                disabled={isAssignmentLoading || isCalendarLoading}
-                size="sm"
-                className="bg-gradient-to-r from-[#5F26B4] to-[#8B5CF6] hover:from-[#4A1D8F] hover:to-[#7C3AED] shadow-[0_2px_8px_rgba(95,38,180,0.2)] transition-all duration-200 flex-shrink-0"
-              >
-                <Link to={`/hr/calendar/${activeCalendar.id}/edit`}>
-                  <Edit className="mr-1 h-3 w-3" />
-                  Edit
-                </Link>
-              </Button>
-            )}
+            {canManage ? <ManageHolidaysPanel /> : <div className="w-8" />}
           </div>
 
           {/* Filters inline with header */}
-          <EventTypeFilter filters={eventFilters} onChange={setEventFilters} />
+          <div className="flex flex-col gap-2">
+            <EventTypeFilter filters={eventFilters} onChange={setEventFilters} />
+            {canManage && (
+              <div className="flex items-center justify-between gap-2">
+                <StatePreviewSelector value={statePreview} onChange={setStatePreview} />
+                <div className="text-xs text-muted-foreground">
+                  Previewing: {statePreview === 'AUTO' ? (profile?.state || 'N/A') : statePreview}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Main Content */}
-        {isAssignmentLoading || isLoading ? (
+        {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-muted-foreground">Loading calendar...</div>
           </div>
@@ -166,37 +113,58 @@ export default function Calendar() {
               Failed to load calendar data. Please try again later.
             </div>
           </div>
-        ) : viewMode === "month" ? (
-          <MonthlyGridView
-            selectedDate={selectedDate}
-            holidays={holidays || []}
-            filters={eventFilters}
-            onDateClick={handleMonthDateClick}
-            onEventClick={handleEventClick}
-          />
         ) : (
-          <TimeGridView
-            viewMode={viewMode}
-            selectedDate={selectedDate}
-            holidays={holidays || []}
-            filters={eventFilters}
-            onEventClick={handleEventClick}
-            startHour={9}
-            endHour={19}
-          />
-        )}
+          <div className="flex-1 overflow-hidden flex">
+            <div className="flex-1 overflow-hidden">
+              {viewMode === "month" ? (
+                <MonthlyGridView
+                  selectedDate={selectedDate}
+                  holidays={visibleHolidays}
+                  filters={eventFilters}
+                  onDateClick={handleMonthDateClick}
+                  onEventClick={handleEventClick}
+                />
+              ) : (
+                <TimeGridView
+                  viewMode={viewMode}
+                  selectedDate={selectedDate}
+                  holidays={visibleHolidays}
+                  filters={eventFilters}
+                  onEventClick={handleEventClick}
+                  startHour={9}
+                  endHour={19}
+                />
+              )}
+            </div>
 
-        {/* Holiday Details Sheet */}
-        <HolidayDetailsSheet
-          open={sheetOpen}
-          onOpenChange={setSheetOpen}
-          selectedDate={selectedDate}
-          holidays={selectedHoliday ? [selectedHoliday] : selectedHolidays}
-          onPreviousDay={handlePreviousDay}
-          onNextDay={handleNextDay}
-          hasPreviousHolidays={hasPreviousHolidays}
-          hasNextHolidays={hasNextHolidays}
-        />
+            {isDesktop && (
+              <div className="w-[380px] border-l bg-background">
+                <CalendarSidebar
+                  selectedDate={selectedDate}
+                  holidays={selectedHolidays}
+                  canManage={canManage}
+                />
+              </div>
+            )}
+
+            {!isDesktop && (
+              <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+                <SheetContent side="bottom" className="max-h-[80vh] p-0">
+                  <SheetHeader className="px-4 pt-4">
+                    <SheetTitle>Details</SheetTitle>
+                  </SheetHeader>
+                  <div className="h-[70vh]">
+                    <CalendarSidebar
+                      selectedDate={selectedDate}
+                      holidays={selectedHolidays}
+                      canManage={canManage}
+                    />
+                  </div>
+                </SheetContent>
+              </Sheet>
+            )}
+          </div>
+        )}
       </div>
     </AppLayout>
   );

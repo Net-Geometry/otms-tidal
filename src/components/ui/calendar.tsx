@@ -13,10 +13,10 @@ function Calendar({ className, classNames, showOutsideDays = true, compact = fal
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      className={cn("p-4", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: compact ? "space-y-3" : "space-y-3",
+        months: compact ? "flex flex-col w-full" : "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+        month: compact ? "space-y-3 w-full" : "space-y-3",
         caption: compact
           ? "flex justify-center pt-1 relative items-center mb-3 pb-2 border-b border-border"
           : "flex justify-center pt-1 relative items-center mb-6",
@@ -43,7 +43,7 @@ function Calendar({ className, classNames, showOutsideDays = true, compact = fal
         row: compact ? "flex w-full gap-1 mb-1" : "flex w-full gap-2 mb-2",
         cell: "flex-1 text-center text-base p-0 relative",
         day: compact
-          ? "h-[34px] w-full p-0 font-medium text-[13px] text-foreground border-0 rounded-md hover:bg-secondary hover:text-primary transition-all duration-200 aria-selected:opacity-100 bg-transparent"
+          ? "h-[38px] w-full p-0 font-medium text-sm text-foreground border-0 rounded-md hover:bg-secondary hover:text-primary transition-all duration-200 aria-selected:opacity-100 bg-transparent"
           : "h-12 w-full p-2 font-medium border border-border rounded-lg hover:scale-105 hover:shadow-[0_0_10px_rgba(95,38,180,0.15)] transition-all duration-200 aria-selected:opacity-100 bg-card text-sm",
         day_range_end: "day-range-end",
         day_selected: compact

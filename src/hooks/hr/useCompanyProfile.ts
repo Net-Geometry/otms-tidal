@@ -8,9 +8,10 @@ export function useCompanyProfile() {
       const { data, error } = await supabase
         .from('company_profile')
         .select('*')
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      // Return null if no profile exists yet (not an error)
+      if (error && error.code !== 'PGRST116') throw error;
       return data;
     }
   });

@@ -19,7 +19,8 @@ export function usePendingRecertifications() {
             departments(name)
           )
         `)
-        .eq('status', 'pending_hr_recertification')
+        .eq('status', 'hr_certified')
+        .not('management_remarks', 'is', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
