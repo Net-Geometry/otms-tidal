@@ -8,14 +8,18 @@ export interface Notification {
   message: string;
   link?: string | null;
   is_read: boolean;
-  notification_type: 'ot_approved'
+  notification_type:
+    | 'ot_approved'
     | 'ot_rejected'
     | 'ot_pending_review'
     | 'ot_requests_new'
     | 'ot_requests_approved'
     | 'ot_requests_rejected'
     | 'ot_pending_confirmation'
-    | 'ot_supervisor_confirmed';
+    | 'ot_supervisor_confirmed'
+    | 'leave_pending_review'
+    | 'leave_approved'
+    | 'leave_rejected';
   created_at: string;
 }
 
@@ -32,7 +36,7 @@ export function useNotifications() {
 
       if (error) throw error;
 
-      return (data || []) as Notification[];
+      return (data || []) as unknown as Notification[];
     },
     staleTime: 30000, // Refetch every 30 seconds
     refetchOnWindowFocus: true, // Refetch when user returns to tab

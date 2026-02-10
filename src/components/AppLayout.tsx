@@ -94,8 +94,14 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
   const getActiveGroup = () => {
     if (currentPath.startsWith('/finance/')) return 'financeManagement';
     if (currentPath.includes('/dashboard')) return 'dashboards';
-    if (currentPath.includes('/ot/') || currentPath.includes('/verify') || 
-        currentPath.includes('/approve') || currentPath.includes('/certify')) return 'otManagement';
+    if (
+      currentPath.includes('/ot/') ||
+      currentPath.includes('/leave/') ||
+      currentPath.includes('/attendance/') ||
+      currentPath.includes('/verify') ||
+      currentPath.includes('/approve') ||
+      currentPath.includes('/certify')
+    ) return 'otManagement';
     if (currentPath.includes('/report')) return 'reports';
     if (currentPath.startsWith('/hr/')) return 'hrManagement';
     return 'general';
@@ -123,7 +129,11 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/ot/submit', label: 'Submit OT', icon: PlusCircle, roles: ['employee'] },
         { path: '/ot/history', label: 'OT History', icon: History, roles: ['employee'] },
+        { path: '/leave/request', label: 'Leave Request', icon: CalendarOff, roles: ['employee'] },
+        { path: '/leave/history', label: 'Leave History', icon: History, roles: ['employee'] },
+        { path: '/attendance/history', label: 'My Attendance', icon: Clock, roles: ['employee'] },
         { path: '/supervisor/verify', label: 'Verify OT', icon: CheckCircle, roles: ['supervisor', 'admin'] },
+        { path: '/supervisor/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/hr/approve', label: 'Certify OT', icon: CheckCircle, roles: ['hr', 'admin'] },
         { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['management', 'admin'] },
       ],
@@ -155,6 +165,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       label: 'Reports',
       items: [
         { path: '/hr/ot-reports', label: 'OT Reports', icon: FileText, roles: ['hr', 'admin'] },
+        { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['management', 'admin'] },
         { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['management', 'admin'] },
       ],
     },
@@ -283,7 +294,9 @@ export function AppLayout({ children }: AppLayoutProps) {
       'report': 'Report',
       'ot': 'OT',
       'submit': 'Submit OT',
-      'history': 'OT History',
+      'history': 'History',
+      'request': 'Request',
+      'approve-leave': 'Approve Leave',
       'settings': 'Settings',
       'calendar': 'Holiday Calendars',
       'profile': 'Profile',
@@ -306,7 +319,14 @@ export function AppLayout({ children }: AppLayoutProps) {
       .map((path, index, filteredPaths) => {
         const originalIndex = paths.indexOf(path);
         const fullPath = '/' + paths.slice(0, originalIndex + 1).join('/');
-        const label = breadcrumbLabels[path] || path.charAt(0).toUpperCase() + path.slice(1);
+
+        // Context-aware labels for ambiguous segments
+        const prevSeg = originalIndex > 0 ? paths[originalIndex - 1] : null;
+        let label = breadcrumbLabels[path] || path.charAt(0).toUpperCase() + path.slice(1);
+        if (path === 'history' && prevSeg === 'ot') label = 'OT History';
+        if (path === 'history' && prevSeg === 'leave') label = 'Leave History';
+        if (path === 'history' && prevSeg === 'attendance') label = 'Attendance History';
+
         return { path: fullPath, label, isLast: index === filteredPaths.length - 1 };
       });
   };

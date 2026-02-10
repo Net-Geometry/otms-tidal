@@ -43,9 +43,13 @@ const Calendar = lazy(() => import("./pages/Calendar"));
 // Lazy load employee routes
 const SubmitOT = lazy(() => import("./pages/SubmitOT"));
 const OTHistory = lazy(() => import("./pages/OTHistory"));
+const LeaveRequest = lazy(() => import("./pages/employee/LeaveRequest"));
+const LeaveHistory = lazy(() => import("./pages/employee/LeaveHistory"));
+const MyAttendance = lazy(() => import("./pages/employee/MyAttendance"));
 
 // Lazy load supervisor routes
 const VerifyOT = lazy(() => import("./pages/supervisor/VerifyOT"));
+const SupervisorApproveLeave = lazy(() => import("./pages/supervisor/ApproveLeave"));
 
 // Lazy load HR routes
 const ApproveOT = lazy(() => import("./pages/hr/ApproveOT"));
@@ -71,6 +75,7 @@ const FinanceReports = lazy(() => import("./pages/finance/FinanceReports"));
 
 const ReviewOT = lazy(() => import("./pages/management/ReviewOT"));
 const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
+const ManagementApproveLeave = lazy(() => import("./pages/management/ApproveLeave"));
 
 const queryClient = createQueryClient();
 
@@ -114,9 +119,13 @@ const App = () => (
                 {/* Employee routes */}
                 <Route path="/ot/submit" element={<ProtectedRoute requiredRole="employee"><SubmitOT /></ProtectedRoute>} />
                 <Route path="/ot/history" element={<ProtectedRoute requiredRole="employee"><OTHistory /></ProtectedRoute>} />
-                
+                <Route path="/leave/request" element={<ProtectedRoute requiredRole="employee"><LeaveRequest /></ProtectedRoute>} />
+                <Route path="/leave/history" element={<ProtectedRoute requiredRole="employee"><LeaveHistory /></ProtectedRoute>} />
+                <Route path="/attendance/history" element={<ProtectedRoute requiredRole="employee"><MyAttendance /></ProtectedRoute>} />
+                 
                 {/* Supervisor routes */}
                 <Route path="/supervisor/verify" element={<ProtectedRoute requiredRole="supervisor"><VerifyOT /></ProtectedRoute>} />
+                <Route path="/supervisor/approve-leave" element={<ProtectedRoute requiredRole="supervisor"><SupervisorApproveLeave /></ProtectedRoute>} />
                 
                 {/* HR routes */}
                 <Route path="/hr/approve" element={<ProtectedRoute requiredRole={['hr', 'admin']}><ApproveOT /></ProtectedRoute>} />
@@ -143,6 +152,7 @@ const App = () => (
 
                 {/* Management routes */}
                 <Route path="/management/approve" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveOT /></ProtectedRoute>} />
+                <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveLeave /></ProtectedRoute>} />
                 <Route path="/management/report" element={<ProtectedRoute requiredRole={['management', 'admin']}><ReviewOT /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
