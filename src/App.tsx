@@ -29,6 +29,7 @@ import Unauthorized from "./pages/Unauthorized";
 // Lazy load all dashboard routes
 const EmployeeDashboard = lazy(() => import("./pages/employee/EmployeeDashboard"));
 const HRDashboard = lazy(() => import("./pages/hr/HRDashboard"));
+const FinanceDashboard = lazy(() => import("./pages/finance/FinanceDashboard"));
 const SupervisorDashboard = lazy(() => import("./pages/supervisor/SupervisorDashboard"));
 const ManagementDashboard = lazy(() => import("./pages/management/ManagementDashboard"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
@@ -53,6 +54,20 @@ const ArchivedEmployees = lazy(() => import("./pages/hr/ArchivedEmployees"));
 const Departments = lazy(() => import("./pages/hr/Departments"));
 const HRSettings = lazy(() => import("./pages/hr/Settings"));
 const OTReports = lazy(() => import("./pages/hr/OTReports"));
+
+// Lazy load HR extension routes
+const Payroll = lazy(() => import("./pages/hr/Payroll"));
+const Leave = lazy(() => import("./pages/hr/Leave"));
+const Attendance = lazy(() => import("./pages/hr/Attendance"));
+const HRClaims = lazy(() => import("./pages/hr/Claims"));
+
+// Lazy load Finance routes
+const ChartOfAccounts = lazy(() => import("./pages/finance/ChartOfAccounts"));
+const ClaimsPosting = lazy(() => import("./pages/finance/ClaimsPosting"));
+const PettyCash = lazy(() => import("./pages/finance/PettyCash"));
+const ProjectCosting = lazy(() => import("./pages/finance/ProjectCosting"));
+const Wages = lazy(() => import("./pages/finance/Wages"));
+const FinanceReports = lazy(() => import("./pages/finance/FinanceReports"));
 
 const ReviewOT = lazy(() => import("./pages/management/ReviewOT"));
 const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
@@ -83,6 +98,7 @@ const App = () => (
                 {/* Role-specific dashboards */}
                 <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/hr/dashboard" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRDashboard /></ProtectedRoute>} />
+                <Route path="/finance/dashboard" element={<ProtectedRoute requiredRole={['finance', 'admin']}><FinanceDashboard /></ProtectedRoute>} />
                 <Route path="/supervisor/dashboard" element={<ProtectedRoute requiredRole="supervisor"><SupervisorDashboard /></ProtectedRoute>} />
                 <Route path="/employee/dashboard" element={<ProtectedRoute requiredRole="employee"><EmployeeDashboard /></ProtectedRoute>} />
                 <Route path="/management/dashboard" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementDashboard /></ProtectedRoute>} />
@@ -110,6 +126,20 @@ const App = () => (
                 <Route path="/hr/holidays" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HolidayManagement /></ProtectedRoute>} />
                 <Route path="/hr/settings" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRSettings /></ProtectedRoute>} />
                 <Route path="/hr/ot-reports" element={<ProtectedRoute requiredRole={['hr', 'admin']}><OTReports /></ProtectedRoute>} />
+
+                {/* HR extension routes */}
+                <Route path="/hr/payroll" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Payroll /></ProtectedRoute>} />
+                <Route path="/hr/leave" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Leave /></ProtectedRoute>} />
+                <Route path="/hr/attendance" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Attendance /></ProtectedRoute>} />
+                <Route path="/hr/claims" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRClaims /></ProtectedRoute>} />
+
+                {/* Finance routes */}
+                <Route path="/finance/chart-of-accounts" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ChartOfAccounts /></ProtectedRoute>} />
+                <Route path="/finance/claims" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ClaimsPosting /></ProtectedRoute>} />
+                <Route path="/finance/petty-cash" element={<ProtectedRoute requiredRole={['finance', 'admin']}><PettyCash /></ProtectedRoute>} />
+                <Route path="/finance/project-costing" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ProjectCosting /></ProtectedRoute>} />
+                <Route path="/finance/wages" element={<ProtectedRoute requiredRole={['finance', 'admin']}><Wages /></ProtectedRoute>} />
+                <Route path="/finance/reports" element={<ProtectedRoute requiredRole={['finance', 'admin']}><FinanceReports /></ProtectedRoute>} />
 
                 {/* Management routes */}
                 <Route path="/management/approve" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveOT /></ProtectedRoute>} />

@@ -1,5 +1,5 @@
 // Management role re-enabled - Full approval chain: Supervisor → HR → Management
-export type AppRole = 'employee' | 'supervisor' | 'hr' | 'management' | 'admin';
+export type AppRole = 'employee' | 'supervisor' | 'hr' | 'finance' | 'management' | 'admin';
 
 // Clean minimal OT status enum - 9 statuses for clearer Route A/B separation
 export type OTStatus =

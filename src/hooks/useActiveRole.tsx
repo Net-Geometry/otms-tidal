@@ -30,7 +30,7 @@ export function ActiveRoleProvider({ children }: ActiveRoleProviderProps) {
     }
 
     // Determine default active role based on priority
-    const roleOrder: AppRole[] = ['admin', 'hr', 'management', 'supervisor', 'employee'];
+    const roleOrder: AppRole[] = ['admin', 'hr', 'finance', 'management', 'supervisor', 'employee'];
     const newActiveRole = roleOrder.find((role) => roles.includes(role)) || roles[0] || null;
     setActiveRole(newActiveRole);
   }, [roles, activeRole]);

@@ -23,6 +23,7 @@ interface DashboardOption {
 const DASHBOARD_ROUTES: DashboardOption[] = [
   { role: 'admin', label: 'Admin Dashboard', path: '/admin/dashboard' },
   { role: 'hr', label: 'HR Dashboard', path: '/hr/dashboard' },
+  { role: 'finance', label: 'Finance Dashboard', path: '/finance/dashboard' },
   { role: 'management', label: 'Management Dashboard', path: '/management/dashboard' },
   { role: 'supervisor', label: 'Supervisor Dashboard', path: '/supervisor/dashboard' },
   { role: 'employee', label: 'Employee Dashboard', path: '/employee/dashboard' },

@@ -237,6 +237,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Priority order for role-based routing
     if (roles.includes('admin')) return '/admin/dashboard';
     if (roles.includes('hr')) return '/hr/dashboard';
+    if (roles.includes('finance')) return '/finance/dashboard';
     if (roles.includes('management')) return '/management/dashboard';
     if (roles.includes('supervisor')) return '/supervisor/dashboard';
     if (roles.includes('employee')) return '/employee/dashboard';

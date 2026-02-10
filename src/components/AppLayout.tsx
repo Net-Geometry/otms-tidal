@@ -40,13 +40,20 @@ import {
 import { NotificationBell } from '@/components/NotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DashboardSwitcher } from '@/components/DashboardSwitcher';
-import { 
+import {
   LayoutDashboard, 
   PlusCircle, 
   History, 
   CheckCircle, 
   Users, 
   Building2,
+  Wallet,
+  CalendarOff,
+  Clock,
+  Receipt,
+  BookOpen,
+  BarChart3,
+  Banknote,
   Settings, 
   FileText,
   Eye,
@@ -78,17 +85,19 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     dashboards: false,
     otManagement: false,
     hrManagement: false,
+    financeManagement: false,
     reports: false,
     general: true, // open by default
   });
 
   // Determine which group contains the active route
   const getActiveGroup = () => {
+    if (currentPath.startsWith('/finance/')) return 'financeManagement';
     if (currentPath.includes('/dashboard')) return 'dashboards';
     if (currentPath.includes('/ot/') || currentPath.includes('/verify') || 
         currentPath.includes('/approve') || currentPath.includes('/certify')) return 'otManagement';
-    if (currentPath.includes('/employees') || currentPath.includes('/departments')) return 'hrManagement';
     if (currentPath.includes('/report')) return 'reports';
+    if (currentPath.startsWith('/hr/')) return 'hrManagement';
     return 'general';
   };
 
@@ -124,6 +133,22 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/hr/employees', label: 'Employees', icon: Users, roles: ['hr', 'admin'] },
         { path: '/hr/departments', label: 'Departments', icon: Building2, roles: ['hr', 'admin'] },
+        { path: '/hr/payroll', label: 'Payroll', icon: Wallet, roles: ['hr', 'admin'] },
+        { path: '/hr/leave', label: 'Leave', icon: CalendarOff, roles: ['hr', 'admin'] },
+        { path: '/hr/attendance', label: 'Attendance', icon: Clock, roles: ['hr', 'admin'] },
+        { path: '/hr/claims', label: 'Claims', icon: Receipt, roles: ['hr', 'admin'] },
+      ],
+    },
+    financeManagement: {
+      label: 'Finance',
+      items: [
+        { path: '/finance/dashboard', label: 'Finance Dashboard', icon: LayoutDashboard, roles: ['finance', 'admin'] },
+        { path: '/finance/chart-of-accounts', label: 'Chart of Accounts', icon: BookOpen, roles: ['finance', 'admin'] },
+        { path: '/finance/claims', label: 'Claims Posting', icon: Receipt, roles: ['finance', 'admin'] },
+        { path: '/finance/petty-cash', label: 'Petty Cash', icon: Wallet, roles: ['finance', 'admin'] },
+        { path: '/finance/project-costing', label: 'Project Costing', icon: BarChart3, roles: ['finance', 'admin'] },
+        { path: '/finance/wages', label: 'Wages', icon: Banknote, roles: ['finance', 'admin'] },
+        { path: '/finance/reports', label: 'Finance Reports', icon: FileText, roles: ['finance', 'admin'] },
       ],
     },
     reports: {
@@ -136,8 +161,8 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     general: {
       label: 'General',
       items: [
-        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', 'supervisor', 'employee', 'management'] },
-        { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', 'supervisor', 'employee', 'management'] },
+        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', 'finance', 'supervisor', 'employee', 'management'] },
+        { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', 'finance', 'supervisor', 'employee', 'management'] },
       ],
     },
   };
@@ -236,6 +261,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     const breadcrumbLabels: Record<string, string> = {
       'admin': 'Admin',
       'hr': 'HR',
+      'finance': 'Finance',
       'supervisor': 'Supervisor',
       'employee': 'Employee',
       'management': 'Management',
@@ -245,6 +271,14 @@ export function AppLayout({ children }: AppLayoutProps) {
       'certify': 'Certify OT',
       'employees': 'Employees',
       'departments': 'Departments',
+      'payroll': 'Payroll',
+      'leave': 'Leave',
+      'attendance': 'Attendance',
+      'claims': 'Claims',
+      'chart-of-accounts': 'Chart of Accounts',
+      'petty-cash': 'Petty Cash',
+      'project-costing': 'Project Costing',
+      'wages': 'Wages',
       'ot-reports': 'OT Reports',
       'report': 'Report',
       'ot': 'OT',
