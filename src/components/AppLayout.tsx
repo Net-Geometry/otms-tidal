@@ -97,6 +97,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     if (
       currentPath.includes('/ot/') ||
       currentPath.includes('/leave/') ||
+      currentPath.includes('/claims/') ||
       currentPath.includes('/attendance/') ||
       currentPath.includes('/verify') ||
       currentPath.includes('/approve') ||
@@ -131,9 +132,12 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/ot/history', label: 'OT History', icon: History, roles: ['employee'] },
         { path: '/leave/request', label: 'Leave Request', icon: CalendarOff, roles: ['employee'] },
         { path: '/leave/history', label: 'Leave History', icon: History, roles: ['employee'] },
+        { path: '/claims/submit', label: 'Submit Claim', icon: PlusCircle, roles: ['employee'] },
+        { path: '/claims/history', label: 'Claim History', icon: History, roles: ['employee'] },
         { path: '/attendance/history', label: 'My Attendance', icon: Clock, roles: ['employee'] },
         { path: '/supervisor/verify', label: 'Verify OT', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/supervisor/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['supervisor', 'admin'] },
+        { path: '/supervisor/approve-claims', label: 'Approve Claims', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/hr/approve', label: 'Certify OT', icon: CheckCircle, roles: ['hr', 'admin'] },
         { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['management', 'admin'] },
       ],
@@ -297,6 +301,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       'history': 'History',
       'request': 'Request',
       'approve-leave': 'Approve Leave',
+      'approve-claims': 'Approve Claims',
       'settings': 'Settings',
       'calendar': 'Holiday Calendars',
       'profile': 'Profile',
@@ -326,6 +331,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         if (path === 'history' && prevSeg === 'ot') label = 'OT History';
         if (path === 'history' && prevSeg === 'leave') label = 'Leave History';
         if (path === 'history' && prevSeg === 'attendance') label = 'Attendance History';
+        if (path === 'history' && prevSeg === 'claims') label = 'Claim History';
+        if (path === 'submit' && prevSeg === 'claims') label = 'Submit Claim';
 
         return { path: fullPath, label, isLast: index === filteredPaths.length - 1 };
       });

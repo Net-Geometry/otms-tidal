@@ -45,11 +45,14 @@ const SubmitOT = lazy(() => import("./pages/SubmitOT"));
 const OTHistory = lazy(() => import("./pages/OTHistory"));
 const LeaveRequest = lazy(() => import("./pages/employee/LeaveRequest"));
 const LeaveHistory = lazy(() => import("./pages/employee/LeaveHistory"));
+const ClaimSubmit = lazy(() => import("./pages/employee/ClaimSubmit"));
+const ClaimHistory = lazy(() => import("./pages/employee/ClaimHistory"));
 const MyAttendance = lazy(() => import("./pages/employee/MyAttendance"));
 
 // Lazy load supervisor routes
 const VerifyOT = lazy(() => import("./pages/supervisor/VerifyOT"));
 const SupervisorApproveLeave = lazy(() => import("./pages/supervisor/ApproveLeave"));
+const SupervisorApproveClaims = lazy(() => import("./pages/supervisor/ApproveClaims"));
 
 // Lazy load HR routes
 const ApproveOT = lazy(() => import("./pages/hr/ApproveOT"));
@@ -121,11 +124,14 @@ const App = () => (
                 <Route path="/ot/history" element={<ProtectedRoute requiredRole="employee"><OTHistory /></ProtectedRoute>} />
                 <Route path="/leave/request" element={<ProtectedRoute requiredRole="employee"><LeaveRequest /></ProtectedRoute>} />
                 <Route path="/leave/history" element={<ProtectedRoute requiredRole="employee"><LeaveHistory /></ProtectedRoute>} />
+                <Route path="/claims/submit" element={<ProtectedRoute requiredRole="employee"><ClaimSubmit /></ProtectedRoute>} />
+                <Route path="/claims/history" element={<ProtectedRoute requiredRole="employee"><ClaimHistory /></ProtectedRoute>} />
                 <Route path="/attendance/history" element={<ProtectedRoute requiredRole="employee"><MyAttendance /></ProtectedRoute>} />
                  
                 {/* Supervisor routes */}
                 <Route path="/supervisor/verify" element={<ProtectedRoute requiredRole="supervisor"><VerifyOT /></ProtectedRoute>} />
                 <Route path="/supervisor/approve-leave" element={<ProtectedRoute requiredRole="supervisor"><SupervisorApproveLeave /></ProtectedRoute>} />
+                <Route path="/supervisor/approve-claims" element={<ProtectedRoute requiredRole="supervisor"><SupervisorApproveClaims /></ProtectedRoute>} />
                 
                 {/* HR routes */}
                 <Route path="/hr/approve" element={<ProtectedRoute requiredRole={['hr', 'admin']}><ApproveOT /></ProtectedRoute>} />

@@ -10,6 +10,7 @@ interface FileUploadProps {
   onRemove: (index: number) => void;
   currentFiles?: string[];
   maxFiles?: number;
+  bucket?: string;
 }
 
 interface UploadedFile {
@@ -23,7 +24,8 @@ export function FileUpload({
   onUploadComplete, 
   onRemove, 
   currentFiles = [], 
-  maxFiles = 5 
+  maxFiles = 5,
+  bucket = 'ot-attachments',
 }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -96,13 +98,13 @@ export function FileUpload({
         const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('ot-attachments')
+          .from(bucket)
           .upload(filePath, file);
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('ot-attachments')
+          .from(bucket)
           .getPublicUrl(filePath);
 
         uploadedUrls.push(publicUrl);
