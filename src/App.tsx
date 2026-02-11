@@ -32,6 +32,7 @@ const HRDashboard = lazy(() => import("./pages/hr/HRDashboard"));
 const SupervisorDashboard = lazy(() => import("./pages/supervisor/SupervisorDashboard"));
 const ManagementDashboard = lazy(() => import("./pages/management/ManagementDashboard"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const Companies = lazy(() => import("./pages/admin/Companies"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 
 // Lazy load shared routes
@@ -82,6 +83,7 @@ const App = () => (
                 
                 {/* Role-specific dashboards */}
                 <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/admin/companies" element={<ProtectedRoute requiredRole="admin"><Companies /></ProtectedRoute>} />
                 <Route path="/hr/dashboard" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRDashboard /></ProtectedRoute>} />
                 <Route path="/supervisor/dashboard" element={<ProtectedRoute requiredRole="supervisor"><SupervisorDashboard /></ProtectedRoute>} />
                 <Route path="/employee/dashboard" element={<ProtectedRoute requiredRole="employee"><EmployeeDashboard /></ProtectedRoute>} />

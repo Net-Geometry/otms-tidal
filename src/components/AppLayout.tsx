@@ -47,6 +47,7 @@ import {
   CheckCircle, 
   Users, 
   Building2,
+  Building,
   Settings, 
   FileText,
   Eye,
@@ -79,6 +80,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     otManagement: false,
     hrManagement: false,
     reports: false,
+    adminSettings: false,
     general: true, // open by default
   });
 
@@ -89,6 +91,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         currentPath.includes('/approve') || currentPath.includes('/certify')) return 'otManagement';
     if (currentPath.includes('/employees') || currentPath.includes('/departments')) return 'hrManagement';
     if (currentPath.includes('/report')) return 'reports';
+    if (currentPath.includes('/admin/companies')) return 'adminSettings';
     return 'general';
   };
 
@@ -131,6 +134,12 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/hr/ot-reports', label: 'OT Reports', icon: FileText, roles: ['hr', 'admin'] },
         { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['management', 'admin'] },
+      ],
+    },
+    adminSettings: {
+      label: 'Admin',
+      items: [
+        { path: '/admin/companies', label: 'Companies', icon: Building, roles: ['admin'] },
       ],
     },
     general: {
@@ -245,6 +254,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       'certify': 'Certify OT',
       'employees': 'Employees',
       'departments': 'Departments',
+      'companies': 'Companies',
       'ot-reports': 'OT Reports',
       'report': 'Report',
       'ot': 'OT',

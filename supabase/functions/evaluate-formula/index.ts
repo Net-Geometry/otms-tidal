@@ -59,14 +59,19 @@ Deno.serve(async (req)=>{
 function evaluateFormulaSafe(formula, variables) {
   // Convert IF statements to JavaScript ternary operators
   let jsFormula = convertIFToTernary(formula);
+  // Convert MIN/MAX/ROUND to Math.min/Math.max/Math.round
+  jsFormula = jsFormula.replace(/\bMIN\b/gi, 'Math.min');
+  jsFormula = jsFormula.replace(/\bMAX\b/gi, 'Math.max');
+  jsFormula = jsFormula.replace(/\bROUND\b/gi, 'Math.round');
   // Replace variable names with their values
   for (const [key, value] of Object.entries(variables)){
     const regex = new RegExp(`\\b${key}\\b`, 'g');
     jsFormula = jsFormula.replace(regex, value.toString());
   }
   console.log('Converted formula:', jsFormula);
-  // Validate: only allow numbers, operators, and parentheses
-  if (!/^[\d\s+\-*/()?:.]+$/.test(jsFormula)) {
+  // Validate: only allow numbers, operators, parentheses, commas, and Math.min/max/round
+  const sanitized = jsFormula.replace(/Math\.(min|max|round)/g, '');
+  if (!/^[\d\s+\-*/()?:.,]+$/.test(sanitized)) {
     throw new Error('Formula contains invalid characters after substitution');
   }
   // Evaluate using Function (safer than eval in this controlled context)

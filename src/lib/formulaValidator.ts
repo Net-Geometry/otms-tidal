@@ -15,6 +15,18 @@ export interface FormulaEvaluationResult {
 const ALLOWED_VARIABLES = ['Hours', 'ORP', 'HRP', 'Basic'];
 const ALLOWED_FUNCTIONS = ['IF', 'MIN', 'MAX', 'ROUND'];
 
+function createParser(): Parser {
+  const parser = new Parser();
+  // Register MIN/MAX/ROUND as custom functions since expr-eval doesn't include them by default
+  parser.functions.min = Math.min;
+  parser.functions.max = Math.max;
+  parser.functions.round = Math.round;
+  parser.functions.MIN = Math.min;
+  parser.functions.MAX = Math.max;
+  parser.functions.ROUND = Math.round;
+  return parser;
+}
+
 export function validateFormulaSyntax(formula: string): FormulaValidationResult {
   const errors: string[] = [];
 
@@ -63,7 +75,7 @@ export function validateFormulaSyntax(formula: string): FormulaValidationResult 
 
   // Try to parse with expr-eval
   try {
-    const parser = new Parser();
+    const parser = createParser();
     // Convert IF() to ternary for parsing
     const testFormula = convertIFToTernary(formula);
     parser.parse(testFormula);
@@ -87,7 +99,7 @@ export function evaluateFormula(
   const hrp = orp / 8;
 
   try {
-    const parser = new Parser();
+    const parser = createParser();
     // Convert IF() to ternary for evaluation
     const evaluableFormula = convertIFToTernary(formula);
     const expr = parser.parse(evaluableFormula);
