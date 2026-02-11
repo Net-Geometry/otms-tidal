@@ -11,6 +11,7 @@ import { ClaimRequestTable } from '@/components/claims/ClaimRequestTable';
 import { ClaimTypeSetup } from '@/components/claims/ClaimTypeSetup';
 import { useClaimApproval, type ClaimApprovalTab } from '@/hooks/claims/useClaimApproval';
 import { supabase } from '@/integrations/supabase/client';
+import { formatCurrency } from '@/lib/otCalculations';
 
 export default function Claims() {
   const [section, setSection] = useState<'requests' | 'types'>('requests');
@@ -76,7 +77,7 @@ export default function Claims() {
           />
           <DashboardCard
             title="Approved Amount (Month)"
-            value={stats ? `RM${Number(stats.approvedAmount).toFixed(2)}` : '-'}
+            value={stats ? formatCurrency(Number(stats.approvedAmount)) : '-'}
             subtitle={stats ? `${stats.approvedCount} approved` : 'This month'}
             icon={DollarSign}
           />

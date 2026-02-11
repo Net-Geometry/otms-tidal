@@ -169,7 +169,7 @@ export function ClaimRequestTable({
                   {role !== 'employee' && <TableCell>{employeeName}</TableCell>}
                   <TableCell>{typeName}</TableCell>
                   <TableCell>{r.claim_date ? format(new Date(r.claim_date), 'dd MMM yyyy') : '—'}</TableCell>
-                  <TableCell className="text-right">{Number(r.amount || 0).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">{Number(r.amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Badge variant={statusVariant(r.status) as any}>{String(r.status).replace(/_/g, ' ')}</Badge>

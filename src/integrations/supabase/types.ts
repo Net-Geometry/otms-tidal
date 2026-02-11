@@ -65,6 +65,51 @@ export type Database = {
           },
         ]
       }
+      allowance_types: {
+        Row: {
+          code: string
+          created_at: string | null
+          default_amount: number | null
+          id: string
+          is_active: boolean
+          is_eis_subject: boolean
+          is_epf_subject: boolean
+          is_socso_subject: boolean
+          is_taxable: boolean
+          name: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          default_amount?: number | null
+          id?: string
+          is_active?: boolean
+          is_eis_subject?: boolean
+          is_epf_subject?: boolean
+          is_socso_subject?: boolean
+          is_taxable?: boolean
+          name: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          default_amount?: number | null
+          id?: string
+          is_active?: boolean
+          is_eis_subject?: boolean
+          is_epf_subject?: boolean
+          is_socso_subject?: boolean
+          is_taxable?: boolean
+          name?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       attendance_imports: {
         Row: {
           created_at: string | null
@@ -264,6 +309,242 @@ export type Database = {
         }
         Relationships: []
       }
+      claim_types: {
+        Row: {
+          code: string
+          created_at: string | null
+          final_approver: string
+          id: string
+          is_active: boolean | null
+          limit_amount: number | null
+          limit_period: string | null
+          name: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          final_approver: string
+          id?: string
+          is_active?: boolean | null
+          limit_amount?: number | null
+          limit_period?: string | null
+          name: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          final_approver?: string
+          id?: string
+          is_active?: boolean | null
+          limit_amount?: number | null
+          limit_period?: string | null
+          name?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      claims: {
+        Row: {
+          amount: number
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          claim_date: string
+          claim_type_id: string
+          created_at: string | null
+          employee_id: string
+          finance_approved_at: string | null
+          finance_id: string | null
+          finance_remarks: string | null
+          hr_approved_at: string | null
+          hr_id: string | null
+          hr_remarks: string | null
+          id: string
+          is_posted: boolean
+          limit_warning: string | null
+          posted_at: string | null
+          posted_by: string | null
+          posting_reference: string | null
+          posting_remarks: string | null
+          purpose: string | null
+          receipt_urls: string[] | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_remarks: string | null
+          rejection_stage: string | null
+          status: Database["public"]["Enums"]["claim_request_status"]
+          supervisor_approved_at: string | null
+          supervisor_id: string | null
+          supervisor_remarks: string | null
+          ticket_number: string
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          claim_date: string
+          claim_type_id: string
+          created_at?: string | null
+          employee_id: string
+          finance_approved_at?: string | null
+          finance_id?: string | null
+          finance_remarks?: string | null
+          hr_approved_at?: string | null
+          hr_id?: string | null
+          hr_remarks?: string | null
+          id?: string
+          is_posted?: boolean
+          limit_warning?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          posting_reference?: string | null
+          posting_remarks?: string | null
+          purpose?: string | null
+          receipt_urls?: string[] | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_remarks?: string | null
+          rejection_stage?: string | null
+          status?: Database["public"]["Enums"]["claim_request_status"]
+          supervisor_approved_at?: string | null
+          supervisor_id?: string | null
+          supervisor_remarks?: string | null
+          ticket_number: string
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          claim_date?: string
+          claim_type_id?: string
+          created_at?: string | null
+          employee_id?: string
+          finance_approved_at?: string | null
+          finance_id?: string | null
+          finance_remarks?: string | null
+          hr_approved_at?: string | null
+          hr_id?: string | null
+          hr_remarks?: string | null
+          id?: string
+          is_posted?: boolean
+          limit_warning?: string | null
+          posted_at?: string | null
+          posted_by?: string | null
+          posting_reference?: string | null
+          posting_remarks?: string | null
+          purpose?: string | null
+          receipt_urls?: string[] | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_remarks?: string | null
+          rejection_stage?: string | null
+          status?: Database["public"]["Enums"]["claim_request_status"]
+          supervisor_approved_at?: string | null
+          supervisor_id?: string | null
+          supervisor_remarks?: string | null
+          ticket_number?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "claims_claim_type_id_fkey"
+            columns: ["claim_type_id"]
+            isOneToOne: false
+            referencedRelation: "claim_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_finance_id_fkey"
+            columns: ["finance_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_finance_id_fkey"
+            columns: ["finance_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_hr_id_fkey"
+            columns: ["hr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_hr_id_fkey"
+            columns: ["hr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claims_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           address: string | null
@@ -389,6 +670,39 @@ export type Database = {
           name?: string
           phone?: string
           registration_no?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      deduction_types: {
+        Row: {
+          category: string
+          code: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          code: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          code?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1675,6 +1989,501 @@ export type Database = {
           },
         ]
       }
+      payroll_item_allowances: {
+        Row: {
+          allowance_type_id: string
+          amount: number
+          created_at: string | null
+          id: string
+          payroll_item_id: string
+        }
+        Insert: {
+          allowance_type_id: string
+          amount?: number
+          created_at?: string | null
+          id?: string
+          payroll_item_id: string
+        }
+        Update: {
+          allowance_type_id?: string
+          amount?: number
+          created_at?: string | null
+          id?: string
+          payroll_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_item_allowances_allowance_type_id_fkey"
+            columns: ["allowance_type_id"]
+            isOneToOne: false
+            referencedRelation: "allowance_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_item_allowances_payroll_item_id_fkey"
+            columns: ["payroll_item_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_item_deductions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          deduction_type_id: string
+          id: string
+          payroll_item_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          deduction_type_id: string
+          id?: string
+          payroll_item_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          deduction_type_id?: string
+          id?: string
+          payroll_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_item_deductions_deduction_type_id_fkey"
+            columns: ["deduction_type_id"]
+            isOneToOne: false
+            referencedRelation: "deduction_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_item_deductions_payroll_item_id_fkey"
+            columns: ["payroll_item_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_items: {
+        Row: {
+          basic_salary: number
+          calculation_notes: Json | null
+          claims_amount: number
+          cp38_amount: number
+          created_at: string | null
+          days_worked: number
+          director_fee: number
+          employee_eis: number
+          employee_epf: number
+          employee_id: string
+          employee_socso: number
+          employer_eis: number
+          employer_epf: number
+          employer_hrdc: number
+          employer_socso: number
+          gross_salary: number
+          id: string
+          is_director: boolean
+          is_locked: boolean
+          is_pro_rated: boolean
+          net_director_fee: number
+          net_salary: number
+          ot_amount: number
+          other_deductions: number
+          payroll_run_id: string
+          pcb_amount: number
+          pro_rated_salary: number
+          rental_deduction: number
+          sports_club: number
+          staff_loan: number
+          total_allowances: number
+          total_deductions: number
+          unpaid_leave_days: number
+          unpaid_leave_deduction: number
+          updated_at: string | null
+          working_days: number
+          zakat_amount: number
+        }
+        Insert: {
+          basic_salary?: number
+          calculation_notes?: Json | null
+          claims_amount?: number
+          cp38_amount?: number
+          created_at?: string | null
+          days_worked?: number
+          director_fee?: number
+          employee_eis?: number
+          employee_epf?: number
+          employee_id: string
+          employee_socso?: number
+          employer_eis?: number
+          employer_epf?: number
+          employer_hrdc?: number
+          employer_socso?: number
+          gross_salary?: number
+          id?: string
+          is_director?: boolean
+          is_locked?: boolean
+          is_pro_rated?: boolean
+          net_director_fee?: number
+          net_salary?: number
+          ot_amount?: number
+          other_deductions?: number
+          payroll_run_id: string
+          pcb_amount?: number
+          pro_rated_salary?: number
+          rental_deduction?: number
+          sports_club?: number
+          staff_loan?: number
+          total_allowances?: number
+          total_deductions?: number
+          unpaid_leave_days?: number
+          unpaid_leave_deduction?: number
+          updated_at?: string | null
+          working_days?: number
+          zakat_amount?: number
+        }
+        Update: {
+          basic_salary?: number
+          calculation_notes?: Json | null
+          claims_amount?: number
+          cp38_amount?: number
+          created_at?: string | null
+          days_worked?: number
+          director_fee?: number
+          employee_eis?: number
+          employee_epf?: number
+          employee_id?: string
+          employee_socso?: number
+          employer_eis?: number
+          employer_epf?: number
+          employer_hrdc?: number
+          employer_socso?: number
+          gross_salary?: number
+          id?: string
+          is_director?: boolean
+          is_locked?: boolean
+          is_pro_rated?: boolean
+          net_director_fee?: number
+          net_salary?: number
+          ot_amount?: number
+          other_deductions?: number
+          payroll_run_id?: string
+          pcb_amount?: number
+          pro_rated_salary?: number
+          rental_deduction?: number
+          sports_club?: number
+          staff_loan?: number
+          total_allowances?: number
+          total_deductions?: number
+          unpaid_leave_days?: number
+          unpaid_leave_deduction?: number
+          updated_at?: string | null
+          working_days?: number
+          zakat_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_items_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_items_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_items_payroll_run_id_fkey"
+            columns: ["payroll_run_id"]
+            isOneToOne: false
+            referencedRelation: "payroll_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_runs: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          created_by: string | null
+          director_approved_at: string | null
+          director_id: string | null
+          director_remarks: string | null
+          employee_count: number
+          finance_approved_at: string | null
+          finance_id: string | null
+          finance_remarks: string | null
+          hr_approved_at: string | null
+          hr_id: string | null
+          hr_remarks: string | null
+          id: string
+          is_posted: boolean
+          pay_period_month: number
+          pay_period_year: number
+          posted_at: string | null
+          posted_by: string | null
+          posting_reference: string | null
+          posting_remarks: string | null
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_remarks: string | null
+          rejection_stage: string | null
+          run_number: string
+          status: Database["public"]["Enums"]["payroll_run_status"]
+          total_allowances: number
+          total_deductions: number
+          total_director_fee: number
+          total_employee_eis: number
+          total_employee_epf: number
+          total_employee_socso: number
+          total_employer_eis: number
+          total_employer_epf: number
+          total_employer_socso: number
+          total_gross_salary: number
+          total_hrdc: number
+          total_net_salary: number
+          total_pcb: number
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          created_by?: string | null
+          director_approved_at?: string | null
+          director_id?: string | null
+          director_remarks?: string | null
+          employee_count?: number
+          finance_approved_at?: string | null
+          finance_id?: string | null
+          finance_remarks?: string | null
+          hr_approved_at?: string | null
+          hr_id?: string | null
+          hr_remarks?: string | null
+          id?: string
+          is_posted?: boolean
+          pay_period_month: number
+          pay_period_year: number
+          posted_at?: string | null
+          posted_by?: string | null
+          posting_reference?: string | null
+          posting_remarks?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_remarks?: string | null
+          rejection_stage?: string | null
+          run_number: string
+          status?: Database["public"]["Enums"]["payroll_run_status"]
+          total_allowances?: number
+          total_deductions?: number
+          total_director_fee?: number
+          total_employee_eis?: number
+          total_employee_epf?: number
+          total_employee_socso?: number
+          total_employer_eis?: number
+          total_employer_epf?: number
+          total_employer_socso?: number
+          total_gross_salary?: number
+          total_hrdc?: number
+          total_net_salary?: number
+          total_pcb?: number
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          director_approved_at?: string | null
+          director_id?: string | null
+          director_remarks?: string | null
+          employee_count?: number
+          finance_approved_at?: string | null
+          finance_id?: string | null
+          finance_remarks?: string | null
+          hr_approved_at?: string | null
+          hr_id?: string | null
+          hr_remarks?: string | null
+          id?: string
+          is_posted?: boolean
+          pay_period_month?: number
+          pay_period_year?: number
+          posted_at?: string | null
+          posted_by?: string | null
+          posting_reference?: string | null
+          posting_remarks?: string | null
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_remarks?: string | null
+          rejection_stage?: string | null
+          run_number?: string
+          status?: Database["public"]["Enums"]["payroll_run_status"]
+          total_allowances?: number
+          total_deductions?: number
+          total_director_fee?: number
+          total_employee_eis?: number
+          total_employee_epf?: number
+          total_employee_socso?: number
+          total_employer_eis?: number
+          total_employer_epf?: number
+          total_employer_socso?: number
+          total_gross_salary?: number
+          total_hrdc?: number
+          total_net_salary?: number
+          total_pcb?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payroll_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_director_id_fkey"
+            columns: ["director_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_director_id_fkey"
+            columns: ["director_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_finance_id_fkey"
+            columns: ["finance_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_finance_id_fkey"
+            columns: ["finance_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_hr_id_fkey"
+            columns: ["hr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_hr_id_fkey"
+            columns: ["hr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payroll_runs_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payroll_settings: {
+        Row: {
+          created_at: string | null
+          eis_employee_rate: number
+          eis_employer_rate: number
+          eis_wage_ceiling: number
+          employee_epf_rate_above_60: number
+          employee_epf_rate_below_60: number
+          employer_epf_rate: number
+          hrdc_enabled: boolean
+          hrdc_rate: number
+          id: number
+          payroll_cutoff_day: number
+          socso_scheme: string
+          updated_at: string | null
+          working_days_per_month: number
+        }
+        Insert: {
+          created_at?: string | null
+          eis_employee_rate?: number
+          eis_employer_rate?: number
+          eis_wage_ceiling?: number
+          employee_epf_rate_above_60?: number
+          employee_epf_rate_below_60?: number
+          employer_epf_rate?: number
+          hrdc_enabled?: boolean
+          hrdc_rate?: number
+          id?: number
+          payroll_cutoff_day?: number
+          socso_scheme?: string
+          updated_at?: string | null
+          working_days_per_month?: number
+        }
+        Update: {
+          created_at?: string | null
+          eis_employee_rate?: number
+          eis_employer_rate?: number
+          eis_wage_ceiling?: number
+          employee_epf_rate_above_60?: number
+          employee_epf_rate_below_60?: number
+          employer_epf_rate?: number
+          hrdc_enabled?: boolean
+          hrdc_rate?: number
+          id?: number
+          payroll_cutoff_day?: number
+          socso_scheme?: string
+          updated_at?: string | null
+          working_days_per_month?: number
+        }
+        Relationships: []
+      }
       positions: {
         Row: {
           created_at: string | null
@@ -1718,20 +2527,25 @@ export type Database = {
       }
       profiles: {
         Row: {
+          bank_account_no: string | null
+          bank_name: string | null
           basic_salary: number
           company_id: string | null
           created_at: string | null
           deleted_at: string | null
           department_id: string | null
           designation: string | null
+          director_fee: number | null
           email: string
           employee_id: string
           employment_type: string | null
+          epf_category: string | null
           epf_no: string | null
           full_name: string
           ic_no: string | null
           id: string
           income_tax_no: string | null
+          is_director: boolean | null
           is_ot_eligible: boolean
           joining_date: string | null
           notification_preferences: Json | null
@@ -1749,20 +2563,25 @@ export type Database = {
           work_location: string | null
         }
         Insert: {
+          bank_account_no?: string | null
+          bank_name?: string | null
           basic_salary: number
           company_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
           department_id?: string | null
           designation?: string | null
+          director_fee?: number | null
           email: string
           employee_id: string
           employment_type?: string | null
+          epf_category?: string | null
           epf_no?: string | null
           full_name: string
           ic_no?: string | null
           id: string
           income_tax_no?: string | null
+          is_director?: boolean | null
           is_ot_eligible?: boolean
           joining_date?: string | null
           notification_preferences?: Json | null
@@ -1780,20 +2599,25 @@ export type Database = {
           work_location?: string | null
         }
         Update: {
+          bank_account_no?: string | null
+          bank_name?: string | null
           basic_salary?: number
           company_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
           department_id?: string | null
           designation?: string | null
+          director_fee?: number | null
           email?: string
           employee_id?: string
           employment_type?: string | null
+          epf_category?: string | null
           epf_no?: string | null
           full_name?: string
           ic_no?: string | null
           id?: string
           income_tax_no?: string | null
+          is_director?: boolean | null
           is_ot_eligible?: boolean
           joining_date?: string | null
           notification_preferences?: Json | null
@@ -1996,6 +2820,36 @@ export type Database = {
           sort_order?: number
           start_time?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      socso_contribution_table: {
+        Row: {
+          created_at: string | null
+          employee_first_category: number
+          employer_first_category: number
+          employer_second_category: number
+          id: string
+          wage_from: number
+          wage_to: number
+        }
+        Insert: {
+          created_at?: string | null
+          employee_first_category?: number
+          employer_first_category?: number
+          employer_second_category?: number
+          id?: string
+          wage_from: number
+          wage_to: number
+        }
+        Update: {
+          created_at?: string | null
+          employee_first_category?: number
+          employer_first_category?: number
+          employer_second_category?: number
+          id?: string
+          wage_from?: number
+          wage_to?: number
         }
         Relationships: []
       }
@@ -2402,6 +3256,15 @@ export type Database = {
         | "on_leave"
         | "holiday"
         | "rest_day"
+      claim_request_status:
+        | "pending_supervisor"
+        | "supervisor_approved"
+        | "pending_hr"
+        | "hr_approved"
+        | "pending_finance"
+        | "finance_approved"
+        | "rejected"
+        | "cancelled"
       day_type: "weekday" | "saturday" | "sunday" | "public_holiday"
       leave_request_status:
         | "pending_supervisor"
@@ -2425,6 +3288,17 @@ export type Database = {
         | "hr_certified"
         | "management_approved"
         | "rejected"
+      payroll_run_status:
+        | "draft"
+        | "pending_hr_review"
+        | "hr_approved"
+        | "pending_director"
+        | "director_approved"
+        | "pending_finance"
+        | "finance_approved"
+        | "posted"
+        | "rejected"
+        | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2577,6 +3451,16 @@ export const Constants = {
         "holiday",
         "rest_day",
       ],
+      claim_request_status: [
+        "pending_supervisor",
+        "supervisor_approved",
+        "pending_hr",
+        "hr_approved",
+        "pending_finance",
+        "finance_approved",
+        "rejected",
+        "cancelled",
+      ],
       day_type: ["weekday", "saturday", "sunday", "public_holiday"],
       leave_request_status: [
         "pending_supervisor",
@@ -2602,6 +3486,18 @@ export const Constants = {
         "hr_certified",
         "management_approved",
         "rejected",
+      ],
+      payroll_run_status: [
+        "draft",
+        "pending_hr_review",
+        "hr_approved",
+        "pending_director",
+        "director_approved",
+        "pending_finance",
+        "finance_approved",
+        "posted",
+        "rejected",
+        "cancelled",
       ],
     },
   },

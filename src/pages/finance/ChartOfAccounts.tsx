@@ -1,51 +1,76 @@
+import { useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageLayout } from '@/components/ui/page-layout';
+import { COAFilterBar, type COAFilters } from '@/components/finance/COAFilterBar';
+import { COATreeView } from '@/components/finance/COATreeView';
+import { COAAccountForm } from '@/components/finance/COAAccountForm';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-
-const COA_SECTIONS = ['Assets', 'Liabilities', 'Equity', 'Income', 'Expenses'] as const;
+  useChartOfAccounts,
+  useDeleteAccount,
+  useUpsertAccount,
+} from '@/hooks/finance/useChartOfAccounts';
+import type { ChartOfAccount } from '@/types/finance';
 
 export default function ChartOfAccounts() {
+  const [filters, setFilters] = useState<COAFilters>({
+    accountType: 'all',
+    activity: 'active',
+    search: '',
+  });
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<ChartOfAccount | null>(null);
+
+  const coa = useChartOfAccounts({
+    accountType: filters.accountType,
+    activity: filters.activity,
+    search: filters.search,
+  });
+  const upsert = useUpsertAccount();
+  const deactivate = useDeleteAccount();
+
   return (
     <AppLayout>
-      <PageLayout title="Chart of Accounts" description="Account structure and mapping (scaffold).">
+      <PageLayout title="Chart of Accounts" description="Manage account hierarchy, posting accounts, and finance system mappings.">
+        <COAFilterBar
+          filters={filters}
+          onChange={setFilters}
+          onAddAccount={() => {
+            setEditingAccount(null);
+            setFormOpen(true);
+          }}
+        />
+
         <Card>
-          <CardContent className="p-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Account Code</TableHead>
-                  <TableHead>Account Name</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {COA_SECTIONS.map((section) => (
-                  <TableRow key={section} className="opacity-60">
-                    <TableCell className="font-medium">{section}</TableCell>
-                    <TableCell>-</TableCell>
-                    <TableCell>Coming soon</TableCell>
-                    <TableCell>Scaffold</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+          <CardHeader>
+            <CardTitle className="text-base">Account Tree</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {coa.isLoading ? (
+              <div className="py-10 text-center text-sm text-muted-foreground">Loading chart of accounts...</div>
+            ) : (
+              <COATreeView
+                tree={coa.tree}
+                onEdit={(account) => {
+                  setEditingAccount(account);
+                  setFormOpen(true);
+                }}
+                onDeactivate={async (account) => {
+                  await deactivate.deleteAccount(account.id);
+                }}
+              />
+            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">
-            This page is a placeholder for COA maintenance (create/edit/import, hierarchy, posting rules).
-          </CardContent>
-        </Card>
+        <COAAccountForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          account={editingAccount}
+          accounts={coa.accounts}
+          onSave={upsert.upsertAccount}
+          isSaving={upsert.isSaving}
+        />
       </PageLayout>
     </AppLayout>
   );

@@ -1,12 +1,15 @@
 import { AppLayout } from '@/components/AppLayout';
-import { Card, CardContent } from '@/components/ui/card';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ReportProjectCostSummary } from '@/components/finance/ReportProjectCostSummary';
+import { ReportClaimsReport } from '@/components/finance/ReportClaimsReport';
+import { ReportPettyCashStatement } from '@/components/finance/ReportPettyCashStatement';
+import { ReportPaymentRegister } from '@/components/finance/ReportPaymentRegister';
 
 export default function FinanceReports() {
   return (
     <AppLayout>
-      <PageLayout title="Finance Reports" description="Standard finance reports and exports (scaffold).">
+      <PageLayout title="Finance Reports" description="Generate project, claims, petty cash, and payment register reports.">
         <Tabs defaultValue="project-cost-summary">
           <TabsList className="w-full flex flex-wrap h-auto justify-start">
             <TabsTrigger value="project-cost-summary">Project Cost Summary</TabsTrigger>
@@ -16,27 +19,19 @@ export default function FinanceReports() {
           </TabsList>
 
           <TabsContent value="project-cost-summary">
-            <Card>
-              <CardContent className="p-6 text-sm text-muted-foreground">Coming soon</CardContent>
-            </Card>
+            <ReportProjectCostSummary />
           </TabsContent>
 
           <TabsContent value="claims-report">
-            <Card>
-              <CardContent className="p-6 text-sm text-muted-foreground">Coming soon</CardContent>
-            </Card>
+            <ReportClaimsReport />
           </TabsContent>
 
           <TabsContent value="petty-cash-statement">
-            <Card>
-              <CardContent className="p-6 text-sm text-muted-foreground">Coming soon</CardContent>
-            </Card>
+            <ReportPettyCashStatement />
           </TabsContent>
 
           <TabsContent value="payment-register">
-            <Card>
-              <CardContent className="p-6 text-sm text-muted-foreground">Coming soon</CardContent>
-            </Card>
+            <ReportPaymentRegister />
           </TabsContent>
         </Tabs>
       </PageLayout>

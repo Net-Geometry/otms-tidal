@@ -48,6 +48,7 @@ const LeaveHistory = lazy(() => import("./pages/employee/LeaveHistory"));
 const ClaimSubmit = lazy(() => import("./pages/employee/ClaimSubmit"));
 const ClaimHistory = lazy(() => import("./pages/employee/ClaimHistory"));
 const MyAttendance = lazy(() => import("./pages/employee/MyAttendance"));
+const MyPayslips = lazy(() => import("./pages/employee/MyPayslips"));
 
 // Lazy load supervisor routes
 const VerifyOT = lazy(() => import("./pages/supervisor/VerifyOT"));
@@ -67,6 +68,7 @@ const Payroll = lazy(() => import("./pages/hr/Payroll"));
 const Leave = lazy(() => import("./pages/hr/Leave"));
 const Attendance = lazy(() => import("./pages/hr/Attendance"));
 const HRClaims = lazy(() => import("./pages/hr/Claims"));
+const PayrollRunDetail = lazy(() => import("./pages/hr/PayrollRunDetail"));
 
 // Lazy load Finance routes
 const ChartOfAccounts = lazy(() => import("./pages/finance/ChartOfAccounts"));
@@ -127,6 +129,7 @@ const App = () => (
                 <Route path="/claims/submit" element={<ProtectedRoute requiredRole="employee"><ClaimSubmit /></ProtectedRoute>} />
                 <Route path="/claims/history" element={<ProtectedRoute requiredRole="employee"><ClaimHistory /></ProtectedRoute>} />
                 <Route path="/attendance/history" element={<ProtectedRoute requiredRole="employee"><MyAttendance /></ProtectedRoute>} />
+                <Route path="/employee/payslips" element={<ProtectedRoute requiredRole="employee"><MyPayslips /></ProtectedRoute>} />
                  
                 {/* Supervisor routes */}
                 <Route path="/supervisor/verify" element={<ProtectedRoute requiredRole="supervisor"><VerifyOT /></ProtectedRoute>} />
@@ -144,6 +147,7 @@ const App = () => (
 
                 {/* HR extension routes */}
                 <Route path="/hr/payroll" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Payroll /></ProtectedRoute>} />
+                <Route path="/hr/payroll/:runId" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', 'finance']}><PayrollRunDetail /></ProtectedRoute>} />
                 <Route path="/hr/leave" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Leave /></ProtectedRoute>} />
                 <Route path="/hr/attendance" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Attendance /></ProtectedRoute>} />
                 <Route path="/hr/claims" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRClaims /></ProtectedRoute>} />

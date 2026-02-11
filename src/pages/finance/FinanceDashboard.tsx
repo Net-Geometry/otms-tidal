@@ -4,7 +4,12 @@ import { DashboardCard } from '@/components/DashboardCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageLayout } from '@/components/ui/page-layout';
-import { BarChart3, BookOpen, FileText, Receipt, Wallet } from 'lucide-react';
+import { BarChart3, BookOpen, FileText, Receipt, Wallet, Landmark, PieChart } from 'lucide-react';
+import { formatCurrency } from '@/lib/otCalculations';
+import { FinanceExpenseTrendChart } from '@/components/finance/FinanceExpenseTrendChart';
+import { FinanceProjectCostChart } from '@/components/finance/FinanceProjectCostChart';
+import { FinancePendingActions } from '@/components/finance/FinancePendingActions';
+import { useFinanceDashboard } from '@/hooks/finance/useFinanceDashboard';
 
 const QUICK_ACTIONS = [
   { to: '/finance/chart-of-accounts', label: 'Chart of Accounts', icon: BookOpen },
@@ -15,39 +20,47 @@ const QUICK_ACTIONS = [
 ];
 
 export default function FinanceDashboard() {
+  const dashboard = useFinanceDashboard();
+
   return (
     <AppLayout>
-      <PageLayout title="Finance Dashboard" description="Financial overview and postings (scaffold).">
+      <PageLayout title="Finance Dashboard" description="Financial overview, pending approvals, and month-by-month expense trends.">
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          <DashboardCard title="Total Revenue" value="-" subtitle="Coming soon" icon={BarChart3} />
-          <DashboardCard title="Total Expenses" value="-" subtitle="Coming soon" icon={BarChart3} />
-          <DashboardCard title="Project Costs" value="-" subtitle="Coming soon" icon={BarChart3} />
-          <DashboardCard title="Pending Claims" value="-" subtitle="Coming soon" icon={Receipt} />
+          <DashboardCard
+            title="Total Posted Payroll"
+            value={formatCurrency(Number(dashboard.data?.stats.totalPostedPayroll || 0))}
+            subtitle="All posted payroll runs"
+            icon={Landmark}
+          />
+          <DashboardCard
+            title="Total Posted Claims"
+            value={formatCurrency(Number(dashboard.data?.stats.totalPostedClaims || 0))}
+            subtitle="All posted claim reimbursements"
+            icon={Receipt}
+          />
+          <DashboardCard
+            title="Petty Cash Balance"
+            value={formatCurrency(Number(dashboard.data?.stats.pettyCashBalance || 0))}
+            subtitle="Approved top-ups minus expenditures"
+            icon={Wallet}
+          />
+          <DashboardCard
+            title="Budget Utilization"
+            value={`${Number(dashboard.data?.stats.budgetUtilizationPct || 0).toFixed(1)}%`}
+            subtitle="Project cost against budget"
+            icon={PieChart}
+          />
         </div>
 
         <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Revenue vs Expenses</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-56 rounded-md border border-dashed flex items-center justify-center text-sm text-muted-foreground">
-                Chart placeholder (coming soon)
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Project Cost Trend</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-56 rounded-md border border-dashed flex items-center justify-center text-sm text-muted-foreground">
-                Chart placeholder (coming soon)
-              </div>
-            </CardContent>
-          </Card>
+          <FinanceExpenseTrendChart data={dashboard.data?.charts.expenseTrend || []} />
+          <FinanceProjectCostChart data={dashboard.data?.charts.topProjectsByCost || []} />
         </div>
+
+        <FinancePendingActions
+          pendingPayrollCount={dashboard.data?.pendingActions.pendingPayrollCount || 0}
+          pendingClaimsCount={dashboard.data?.pendingActions.pendingClaimsCount || 0}
+        />
 
         <Card>
           <CardHeader>

@@ -13,6 +13,23 @@ interface ActiveRoleProviderProps {
   children: ReactNode;
 }
 
+// Determine preferred role based on current URL path
+function getPreferredRoleFromPath(roles: AppRole[]): AppRole | null {
+  if (roles.length === 0) return null;
+  
+  const path = window.location.pathname;
+  
+  // Map paths to preferred roles
+  if (path.startsWith('/finance/') && roles.includes('finance')) return 'finance';
+  if (path.startsWith('/hr/') && roles.includes('hr')) return 'hr';
+  if (path.startsWith('/supervisor/') && roles.includes('supervisor')) return 'supervisor';
+  if (path.startsWith('/management/') && roles.includes('management')) return 'management';
+  if (path.startsWith('/employee/') && roles.includes('employee')) return 'employee';
+  if (path.startsWith('/admin/') && roles.includes('admin')) return 'admin';
+  
+  return null;
+}
+
 export function ActiveRoleProvider({ children }: ActiveRoleProviderProps) {
   const { roles } = useAuth();
   const [activeRole, setActiveRole] = useState<AppRole | null>(null);
@@ -29,7 +46,14 @@ export function ActiveRoleProvider({ children }: ActiveRoleProviderProps) {
       return; // Keep current role
     }
 
-    // Determine default active role based on priority
+    // First, try to infer role from current path
+    const pathRole = getPreferredRoleFromPath(roles);
+    if (pathRole) {
+      setActiveRole(pathRole);
+      return;
+    }
+
+    // Fall back to default priority order
     const roleOrder: AppRole[] = ['admin', 'hr', 'finance', 'management', 'supervisor', 'employee'];
     const newActiveRole = roleOrder.find((role) => roles.includes(role)) || roles[0] || null;
     setActiveRole(newActiveRole);

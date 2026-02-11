@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { ClaimApprovalActions } from '@/components/claims/ClaimApprovalActions';
 import type { Claim } from '@/types/claims';
+import { formatCurrency } from '@/lib/otCalculations';
 import {
   Dialog,
   DialogContent,
@@ -134,7 +135,7 @@ export function ClaimDetailsSheet({
             </div>
             <div className="rounded-md border p-3">
               <div className="text-muted-foreground">Amount</div>
-              <div className="font-semibold">RM{Number(request.amount || 0).toFixed(2)}</div>
+              <div className="font-semibold">{formatCurrency(Number(request.amount || 0))}</div>
             </div>
             <div className="rounded-md border p-3">
               <div className="text-muted-foreground">Claim Date</div>
