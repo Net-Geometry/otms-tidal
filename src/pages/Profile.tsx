@@ -7,18 +7,11 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Briefcase, MapPin, DollarSign, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import { InventoryQRCodeCard } from '@/components/profile/InventoryQRCodeCard';
+import { formatCurrency } from '@/lib/otCalculations';
 
 export default function Profile() {
   const { profile } = useAuth();
   const navigate = useNavigate();
-
-  const formatCurrency = (amount: number | null | undefined) => {
-    if (!amount) return 'N/A';
-    return new Intl.NumberFormat('en-MY', {
-      style: 'currency',
-      currency: 'MYR',
-    }).format(amount);
-  };
 
   const formatDate = (date: string | null | undefined) => {
     if (!date) return 'N/A';
@@ -152,7 +145,7 @@ export default function Profile() {
           <CardContent className="space-y-4">
             <div>
               <label className="text-sm font-medium text-muted-foreground">Basic Salary</label>
-              <p className="text-base mt-1 font-semibold">{formatCurrency(profile.basic_salary)}</p>
+              <p className="text-base mt-1 font-semibold">{formatCurrency(profile.basic_salary || null)}</p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">EPF Number</label>
