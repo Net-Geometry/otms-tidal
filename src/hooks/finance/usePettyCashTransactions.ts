@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { PettyCashStatus, PettyCashTransaction, PettyCashTxnType } from '@/types/finance';
+import { canTransitionPettyCash } from '@/types/finance';
 
 interface PettyCashTxnFilters {
   status?: PettyCashStatus | 'all';
@@ -84,7 +85,8 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
           account:chart_of_accounts(id, account_code, account_name),
           project:projects(id, project_code, project_name),
           requester:profiles!petty_cash_transactions_requested_by_fkey(id, employee_id, full_name),
-          approver:profiles!petty_cash_transactions_approved_by_fkey(id, employee_id, full_name)
+          approver:profiles!petty_cash_transactions_approved_by_fkey(id, employee_id, full_name),
+          rejector:profiles!petty_cash_transactions_rejected_by_fkey(id, employee_id, full_name)
         `)
         .order('txn_date', { ascending: false })
         .order('created_at', { ascending: false });
@@ -203,7 +205,8 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
       if (fetchError) throw fetchError;
 
       if (!current) throw new Error('Transaction not found');
-      if (current.status !== 'pending') {
+      const targetStatus = input.approve ? 'approved' : 'rejected';
+      if (!canTransitionPettyCash(current.status, targetStatus, 'finance')) {
         throw new Error('Only pending transactions can be approved/rejected');
       }
 
@@ -214,9 +217,9 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
           .from('petty_cash_transactions')
           .update({
             status: 'rejected',
-            approved_by: userId,
-            approved_at: now,
-            approval_remarks: input.remarks || null,
+            rejected_by: userId,
+            rejected_at: now,
+            rejection_remarks: input.remarks || null,
           })
           .eq('id', input.txnId);
 

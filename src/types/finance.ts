@@ -40,6 +40,25 @@ export const PETTY_CASH_STATUS_LABELS: Record<PettyCashStatus, string> = {
   cancelled: 'Cancelled',
 };
 
+/**
+ * Petty cash workflow transitions.
+ *
+ * Notes:
+ * - Auto-approval during transaction creation can skip these transitions.
+ * - Posting is tracked separately via `is_posted` and is not a status transition.
+ * - `cancelled` is reserved for future workflow extensions.
+ */
+export const PETTY_CASH_TRANSITIONS = [
+  { from: 'pending', to: 'approved', role: 'finance' },
+  { from: 'pending', to: 'rejected', role: 'finance' },
+] as const;
+
+export function canTransitionPettyCash(from: string, to: string, role: string): boolean {
+  return PETTY_CASH_TRANSITIONS.some(
+    (t) => t.from === from && t.to === to && t.role === role,
+  );
+}
+
 export interface PettyCashSettings {
   id: number;
   float_amount: number;
@@ -63,6 +82,9 @@ export interface PettyCashTransaction {
   approved_by: string | null;
   approved_at: string | null;
   approval_remarks: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
+  rejection_remarks: string | null;
   is_posted: boolean;
   posted_by: string | null;
   posted_at: string | null;
@@ -84,6 +106,11 @@ export interface PettyCashTransaction {
     full_name: string;
   } | null;
   approver?: {
+    id: string;
+    employee_id: string;
+    full_name: string;
+  } | null;
+  rejector?: {
     id: string;
     employee_id: string;
     full_name: string;

@@ -28,6 +28,8 @@ export const PAYROLL_STATUS_TRANSITIONS = [
   // Finance approves
   { from: 'pending_finance', to: 'finance_approved', role: 'finance' },
   { from: 'pending_finance', to: 'rejected', role: 'finance' },
+  // Finance posts
+  { from: 'finance_approved', to: 'posted', role: 'finance' },
   // Cancel from draft
   { from: 'draft', to: 'cancelled', role: 'hr' },
 ] as const;

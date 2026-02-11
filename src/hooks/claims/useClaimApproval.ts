@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Claim, ClaimRequestStatus } from '@/types/claims';
-import { CLAIM_STATUS_TRANSITIONS } from '@/types/claims';
+import { canTransitionClaim } from '@/types/claims';
 
 export type ClaimApprovalRole = 'supervisor' | 'hr' | 'finance';
 export type ClaimApprovalTab = 'pending' | 'approved' | 'rejected' | 'all';
@@ -21,10 +21,6 @@ function getStatusFilter(role: ClaimApprovalRole, tab: ClaimApprovalTab): ClaimR
   if (role === 'finance') return ['finance_approved'];
   if (role === 'hr') return ['hr_approved', 'pending_finance', 'finance_approved'];
   return ['supervisor_approved', 'pending_hr', 'hr_approved', 'pending_finance', 'finance_approved'];
-}
-
-function canTransitionClaim(from: string, to: string, role: string): boolean {
-  return CLAIM_STATUS_TRANSITIONS.some((t) => t.from === from && t.to === to && t.role === role);
 }
 
 function baseApproveUpdate(role: ClaimApprovalRole, remarks?: string | null) {

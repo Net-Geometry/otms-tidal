@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/leave';
-import { LEAVE_STATUS_TRANSITIONS } from '@/types/leave';
+import { canTransitionLeave } from '@/types/leave';
 
 export type LeaveApprovalRole = 'supervisor' | 'hr' | 'management';
 export type LeaveApprovalTab = 'pending' | 'approved' | 'rejected' | 'all';
@@ -16,12 +16,6 @@ function getStatusFilter(role: LeaveApprovalRole, tab: LeaveApprovalTab): LeaveR
   if (role === 'supervisor') return ['pending_supervisor'];
   if (role === 'hr') return ['pending_hr', 'supervisor_approved'];
   return ['hr_approved', 'pending_management'];
-}
-
-function canTransitionLeave(from: string, to: string, role: string): boolean {
-  return LEAVE_STATUS_TRANSITIONS.some(
-    (t) => t.from === from && t.to === to && t.role === role,
-  );
 }
 
 function getApproveUpdate(role: LeaveApprovalRole, remarks?: string | null) {

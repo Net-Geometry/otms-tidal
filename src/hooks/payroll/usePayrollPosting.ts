@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { PayrollRun } from '@/types/payroll';
+import { canTransitionPayroll, type PayrollRun } from '@/types/payroll';
 
 export type PayrollPostingTab = 'ready' | 'posted';
 
@@ -20,11 +20,13 @@ export function usePayrollPosting(options?: { tab?: PayrollPostingTab }) {
           *,
           companies:companies!payroll_runs_company_id_fkey(id, name)
         `)
-        .eq('status', 'finance_approved')
         .order('created_at', { ascending: false });
 
-      if (tab === 'ready') q = q.eq('is_posted', false);
-      if (tab === 'posted') q = q.eq('is_posted', true);
+      if (tab === 'posted') {
+        q = q.eq('status', 'posted').eq('is_posted', true);
+      } else {
+        q = q.eq('status', 'finance_approved').eq('is_posted', false);
+      }
 
       const { data, error } = await q;
       if (error) throw error;
@@ -48,7 +50,7 @@ export function usePayrollPosting(options?: { tab?: PayrollPostingTab }) {
       if (fetchErr) throw fetchErr;
 
       const invalid = (current || []).filter(
-        (r: any) => r.status !== 'finance_approved' || r.is_posted
+        (r: any) => !canTransitionPayroll(r.status, 'posted', 'finance') || r.is_posted
       );
       if (invalid.length > 0) {
         throw new Error('Only unposted finance-approved payroll runs can be posted');

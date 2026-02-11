@@ -256,14 +256,14 @@ export function validateManagementApproval(
 }
 
 /**
- * Validates if management can reject and send back to HR for recertification
+ * Validates if management can send an approved request back to HR for recertification
  * Status: management_approved → hr_certified
  *
  * @param request - The OT request to validate
- * @param userId - The ID of the management user attempting rejection (optional, for audit)
+ * @param userId - The ID of the management user sending back (optional, for audit)
  * @returns Validation result
  */
-export function validateManagementRejection(
+export function validateManagementSendBack(
   request: OTRequest,
   userId?: string
 ): ValidationResult {
@@ -277,6 +277,8 @@ export function validateManagementRejection(
 
   return { valid: true };
 }
+
+export const validateManagementRejection = validateManagementSendBack;
 
 /**
  * Generic status transition validator

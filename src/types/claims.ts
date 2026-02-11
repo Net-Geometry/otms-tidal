@@ -77,6 +77,13 @@ export interface Claim {
   claim_type?: ClaimType;
 }
 
+/**
+ * Transition list is intentionally permissive for HR branching.
+ * The actual HR target depends on `claim_type.final_approver`:
+ * - `hr` routes to `hr_approved`
+ * - `finance` routes to `pending_finance`
+ * Hooks enforce the final target per claim type before updating.
+ */
 export const CLAIM_STATUS_TRANSITIONS = [
   { from: 'pending_supervisor', to: 'supervisor_approved', role: 'supervisor' },
   { from: 'pending_supervisor', to: 'rejected', role: 'supervisor' },
@@ -93,3 +100,7 @@ export const CLAIM_STATUS_TRANSITIONS = [
   { from: 'pending_finance', to: 'finance_approved', role: 'finance' },
   { from: 'pending_finance', to: 'rejected', role: 'finance' },
 ] as const;
+
+export function canTransitionClaim(from: string, to: string, role: string): boolean {
+  return CLAIM_STATUS_TRANSITIONS.some((t) => t.from === from && t.to === to && t.role === role);
+}

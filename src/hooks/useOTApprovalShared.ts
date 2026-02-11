@@ -14,7 +14,7 @@ import { OTRequest, GroupedOTRequest, OTStatus, getRequestRoute } from '@/types/
 import { toast } from 'sonner';
 import {
   validateManagementApproval,
-  validateManagementRejection,
+  validateManagementSendBack,
 } from '@/services/ot-workflow';
 
 export function useOTApprovalShared() {
@@ -207,7 +207,7 @@ export function useOTApprovalShared() {
       if (!requestsData) throw new Error('Requests not found');
 
       for (const request of requestsData) {
-        const validation = validateManagementRejection(request);
+        const validation = validateManagementSendBack(request);
         if (!validation.valid) throw new Error(validation.error);
       }
 

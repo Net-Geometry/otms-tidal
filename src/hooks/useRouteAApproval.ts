@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { OTRequest } from '@/types/otms';
 import { toast } from 'sonner';
-import { validateSupervisorApproval, validateHRCertification, validateHRRejection, validateManagementApproval, validateManagementRejection } from '@/services/ot-workflow';
+import { validateSupervisorApproval, validateHRCertification, validateHRRejection, validateManagementApproval, validateManagementSendBack } from '@/services/ot-workflow';
 
 interface UseRouteAApprovalOptions {
   requestIds?: string[];
@@ -259,7 +259,7 @@ export function useRouteAApproval(options?: UseRouteAApprovalOptions) {
       if (!requestsData) throw new Error('Requests not found');
 
       for (const request of requestsData) {
-        const validation = validateManagementRejection(request);
+        const validation = validateManagementSendBack(request);
         if (!validation.valid) throw new Error(validation.error);
       }
 

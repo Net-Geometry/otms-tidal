@@ -90,3 +90,9 @@ export const LEAVE_STATUS_TRANSITIONS = [
   { from: 'pending_management', to: 'management_approved', role: 'management' },
   { from: 'pending_management', to: 'rejected', role: 'management' },
 ] as const;
+
+export function canTransitionLeave(from: string, to: string, role: string): boolean {
+  return LEAVE_STATUS_TRANSITIONS.some(
+    (t) => t.from === from && t.to === to && t.role === role,
+  );
+}
