@@ -9,11 +9,14 @@ import { Search, DollarSign, Clock, Building2, Users, Download, FileText, Filter
 import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { HRReportTable } from '@/components/hr/reports/HRReportTable';
 import { CompanyReportCard } from '@/components/reports/CompanyReportCard';
+import { CompanyFilter } from '@/components/CompanyFilter';
 import { useHRReportData } from '@/hooks/useHRReportData';
+import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useCompanyProfile } from '@/hooks/hr/useCompanyProfile';
 import { exportToCSV } from '@/lib/exportUtils';
 import { generateHRReportPDF } from '@/lib/hrReportPdfGenerator';
-import { groupByCompany, calculateOverallStats } from '@/lib/companyReportUtils';
+import { groupByCompany } from '@/lib/companyReportUtils';
+import { getSelectedCompanyName } from '@/lib/companyFilterUtils';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -33,26 +36,10 @@ export default function OTReports() {
   }, [appliedMonth, appliedYear]);
 
   const { data, isLoading } = useHRReportData(filterDate);
+  const { data: companies = [], isLoading: isCompaniesLoading } = useCompanies();
   const { data: companyProfile } = useCompanyProfile();
 
   const aggregatedData = data?.aggregated || [];
-
-  const uniqueCompanies = useMemo(() => {
-    const companies = new Map<string, { name: string; code: string }>();
-    aggregatedData.forEach(item => {
-      if (!companies.has(item.company_id)) {
-        companies.set(item.company_id, {
-          name: item.company_name,
-          code: item.company_code
-        });
-      }
-    });
-    return Array.from(companies.entries()).map(([id, info]) => ({
-      id,
-      name: info.name,
-      code: info.code
-    }));
-  }, [aggregatedData]);
 
   const filteredData = aggregatedData.filter(item => {
     // Company filter
@@ -127,7 +114,8 @@ export default function OTReports() {
       {
         reportName: 'HR Overtime Report',
         period: format(filterDate, 'MMMM yyyy'),
-        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm')
+        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
+        company: getSelectedCompanyName(selectedCompany, companies),
       }
     );
 
@@ -167,6 +155,7 @@ export default function OTReports() {
         },
         period: format(filterDate, 'MMMM yyyy'),
         generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
+        filterCompanyName: getSelectedCompanyName(selectedCompany, companies),
         summary: {
           totalHours: filteredStats.totalHours,
           totalCost: filteredStats.totalCost,
@@ -269,6 +258,13 @@ export default function OTReports() {
                     })}
                   </SelectContent>
                 </Select>
+
+                <CompanyFilter
+                  companies={companies}
+                  selectedCompanyId={selectedCompany}
+                  onCompanyChange={setSelectedCompany}
+                  isLoading={isCompaniesLoading}
+                />
 
                 <Button
                   onClick={() => {

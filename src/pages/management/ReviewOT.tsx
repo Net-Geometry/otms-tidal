@@ -8,10 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, DollarSign, Clock, Building2, Users, Download, FileText, Filter } from 'lucide-react';
 import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { ManagementReportTable } from '@/components/management/ManagementReportTable';
-import { CompanyReportCard } from '@/components/reports/CompanyReportCard';
+import { CompanyFilter } from '@/components/CompanyFilter';
 import { useManagementReportData } from '@/hooks/useManagementReportData';
+import { useCompanies } from '@/hooks/hr/useCompanies';
 import { exportToCSV } from '@/lib/exportUtils';
-import { groupByCompany, calculateOverallStats } from '@/lib/companyReportUtils';
+import { groupByCompany } from '@/lib/companyReportUtils';
+import { getSelectedCompanyName } from '@/lib/companyFilterUtils';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
 import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -35,26 +37,9 @@ export default function ReviewOT() {
   }, [appliedMonth, appliedYear]);
 
   const { data, isLoading } = useManagementReportData(filterDate);
+  const { data: companies = [], isLoading: isCompaniesLoading } = useCompanies();
 
   const aggregatedData = data?.aggregated || [];
-
-  // Extract unique companies for filter
-  const uniqueCompanies = useMemo(() => {
-    const companies = new Map<string, { name: string; code: string }>();
-    aggregatedData.forEach(item => {
-      if (!companies.has(item.company_id)) {
-        companies.set(item.company_id, {
-          name: item.company_name,
-          code: item.company_code
-        });
-      }
-    });
-    return Array.from(companies.entries()).map(([id, info]) => ({
-      id,
-      name: info.name,
-      code: info.code
-    })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [aggregatedData]);
 
   const filteredData = aggregatedData.filter(item => {
     // Company filter
@@ -129,7 +114,8 @@ export default function ReviewOT() {
       {
         reportName: 'Management Overtime Report',
         period: format(filterDate, 'MMMM yyyy'),
-        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm')
+        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
+        company: getSelectedCompanyName(selectedCompany, companies),
       }
     );
 
@@ -175,6 +161,7 @@ export default function ReviewOT() {
         period: {
           display: format(filterDate, 'MMMM yyyy')
         },
+        filterCompanyName: getSelectedCompanyName(selectedCompany, companies),
         generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
         statistics: {
           totalEmployees: filteredStats.totalEmployees,
@@ -294,19 +281,12 @@ export default function ReviewOT() {
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedCompany} onValueChange={setSelectedCompany}>
-                  <SelectTrigger className="w-[240px] border-input bg-background focus:border-ring focus:ring-ring">
-                    <SelectValue placeholder="All Companies" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-popover z-50 border shadow-lg">
-                    <SelectItem value="all">All Companies</SelectItem>
-                    {uniqueCompanies.map(company => (
-                      <SelectItem key={company.id} value={company.id}>
-                        {company.name} ({company.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CompanyFilter
+                  companies={companies}
+                  selectedCompanyId={selectedCompany}
+                  onCompanyChange={setSelectedCompany}
+                  isLoading={isCompaniesLoading}
+                />
 
                 <Button
                   onClick={() => {

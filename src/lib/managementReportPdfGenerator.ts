@@ -12,6 +12,7 @@ export interface ManagementSummaryData {
   period: {
     display: string;
   };
+  filterCompanyName?: string;
   generatedDate: string;
   statistics: {
     totalEmployees: number;
@@ -146,7 +147,11 @@ export async function generateManagementSummaryPDF(data: ManagementSummaryData):
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grayColor);
-  doc.text('All Employees', pageWidth / 2, yPos, { align: 'center' });
+  const reportSubtitle =
+    data.filterCompanyName && data.filterCompanyName !== 'All Companies'
+      ? data.filterCompanyName
+      : 'All Employees';
+  doc.text(reportSubtitle, pageWidth / 2, yPos, { align: 'center' });
 
   // Period (below title, centered)
   yPos += 5;

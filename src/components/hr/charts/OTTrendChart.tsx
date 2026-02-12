@@ -15,9 +15,10 @@ interface MonthData {
 
 interface OTTrendChartProps {
   filterDate?: Date;
+  companyId?: string;
 }
 
-export function OTTrendChart({ filterDate = new Date() }: OTTrendChartProps) {
+export function OTTrendChart({ filterDate = new Date(), companyId }: OTTrendChartProps) {
   const [data, setData] = useState<MonthData[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
@@ -26,18 +27,32 @@ export function OTTrendChart({ filterDate = new Date() }: OTTrendChartProps) {
 
   useEffect(() => {
     fetchOTTrendData();
-  }, [filterDate]);
+  }, [filterDate, companyId]);
 
   const fetchOTTrendData = async () => {
     try {
+      setLoading(true);
       const sixMonthsAgo = new Date(filterDate);
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-      const { data: otData, error } = await supabase
-        .from('ot_requests')
-        .select('ot_date, total_hours')
-        .gte('ot_date', sixMonthsAgo.toISOString().split('T')[0])
-        .order('ot_date');
+      const shouldFilterByCompany = companyId && companyId !== 'all';
+
+      const { data: otData, error } = shouldFilterByCompany
+        ? await supabase
+            .from('ot_requests')
+            .select(`
+              ot_date,
+              total_hours,
+              profiles!ot_requests_employee_id_fkey!inner(company_id)
+            `)
+            .eq('profiles.company_id', companyId)
+            .gte('ot_date', sixMonthsAgo.toISOString().split('T')[0])
+            .order('ot_date')
+        : await supabase
+            .from('ot_requests')
+            .select('ot_date, total_hours')
+            .gte('ot_date', sixMonthsAgo.toISOString().split('T')[0])
+            .order('ot_date');
 
       if (error) throw error;
 

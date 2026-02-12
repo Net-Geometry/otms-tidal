@@ -25,9 +25,10 @@ const COLORS = [
 
 interface DepartmentOTChartProps {
   filterDate?: Date;
+  companyId?: string;
 }
 
-export function DepartmentOTChart({ filterDate = new Date() }: DepartmentOTChartProps) {
+export function DepartmentOTChart({ filterDate = new Date(), companyId }: DepartmentOTChartProps) {
   const [data, setData] = useState<DepartmentData[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
@@ -36,27 +37,47 @@ export function DepartmentOTChart({ filterDate = new Date() }: DepartmentOTChart
 
   useEffect(() => {
     fetchDepartmentOTData();
-  }, [filterDate]);
+  }, [filterDate, companyId]);
 
   const fetchDepartmentOTData = async () => {
     try {
+      setLoading(true);
       const monthStart = startOfMonth(filterDate);
       const monthEnd = endOfMonth(filterDate);
 
-      const { data: otData, error } = await supabase
-        .from('ot_requests')
-        .select(`
-          total_hours,
-          employee_id,
-          profiles!ot_requests_employee_id_fkey(
-            department_id,
-            departments!profiles_department_id_fkey(
-              name
-            )
-          )
-        `)
-        .gte('ot_date', monthStart.toISOString().split('T')[0])
-        .lte('ot_date', monthEnd.toISOString().split('T')[0]);
+      const shouldFilterByCompany = companyId && companyId !== 'all';
+
+      const { data: otData, error } = shouldFilterByCompany
+        ? await supabase
+            .from('ot_requests')
+            .select(`
+              total_hours,
+              employee_id,
+              profiles!ot_requests_employee_id_fkey!inner(
+                company_id,
+                department_id,
+                departments!profiles_department_id_fkey(
+                  name
+                )
+              )
+            `)
+            .eq('profiles.company_id', companyId)
+            .gte('ot_date', monthStart.toISOString().split('T')[0])
+            .lte('ot_date', monthEnd.toISOString().split('T')[0])
+        : await supabase
+            .from('ot_requests')
+            .select(`
+              total_hours,
+              employee_id,
+              profiles!ot_requests_employee_id_fkey(
+                department_id,
+                departments!profiles_department_id_fkey(
+                  name
+                )
+              )
+            `)
+            .gte('ot_date', monthStart.toISOString().split('T')[0])
+            .lte('ot_date', monthEnd.toISOString().split('T')[0]);
 
       if (error) throw error;
 

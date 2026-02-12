@@ -10,6 +10,7 @@ interface HRReportData {
     logoUrl?: string;
   };
   period: string;
+  filterCompanyName?: string;
   generatedDate: string;
   summary: {
     totalHours: number;
@@ -113,7 +114,19 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
   const periodWidth = doc.getTextWidth(periodText);
   doc.text(periodText, pageWidth - margin - periodWidth - 5, yPos + 8);
 
-  yPos += 20;
+  const shouldShowFilteredCompany = Boolean(
+    data.filterCompanyName && data.filterCompanyName !== 'All Companies'
+  );
+
+  if (shouldShowFilteredCompany) {
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...textLight);
+    doc.text(`Company: ${data.filterCompanyName}`, pageWidth / 2, yPos + 17, { align: 'center' });
+    yPos += 24;
+  } else {
+    yPos += 20;
+  }
 
   // ===== SUMMARY STATISTICS =====
   const boxWidth = 75;

@@ -18,44 +18,76 @@ interface Insight {
 
 interface QuickInsightsProps {
   filterDate?: Date;
+  companyId?: string;
 }
 
-export function QuickInsights({ filterDate = new Date() }: QuickInsightsProps) {
+export function QuickInsights({ filterDate = new Date(), companyId }: QuickInsightsProps) {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchInsights();
-  }, [filterDate]);
+  }, [filterDate, companyId]);
 
   const fetchInsights = async () => {
+    setLoading(true);
     const monthStart = startOfMonth(filterDate);
     const monthEnd = endOfMonth(filterDate);
     const lastMonthStart = startOfMonth(new Date(filterDate.getFullYear(), filterDate.getMonth() - 1, 1));
     const lastMonthEnd = endOfMonth(new Date(filterDate.getFullYear(), filterDate.getMonth() - 1, 1));
 
+    const shouldFilterByCompany = companyId && companyId !== 'all';
+
     // Fetch current month data
-    const { data: currentData } = await supabase
-      .from('ot_requests')
-      .select(`
-        total_hours,
-        ot_amount,
-        employee_id,
-        profiles!ot_requests_employee_id_fkey(
-          full_name,
-          department_id,
-          departments!profiles_department_id_fkey(name)
-        )
-      `)
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString());
+    const { data: currentData } = shouldFilterByCompany
+      ? await supabase
+          .from('ot_requests')
+          .select(`
+            total_hours,
+            ot_amount,
+            employee_id,
+            profiles!ot_requests_employee_id_fkey!inner(
+              company_id,
+              full_name,
+              department_id,
+              departments!profiles_department_id_fkey(name)
+            )
+          `)
+          .eq('profiles.company_id', companyId)
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString())
+      : await supabase
+          .from('ot_requests')
+          .select(`
+            total_hours,
+            ot_amount,
+            employee_id,
+            profiles!ot_requests_employee_id_fkey(
+              full_name,
+              department_id,
+              departments!profiles_department_id_fkey(name)
+            )
+          `)
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString());
 
     // Fetch last month data for trends
-    const { data: lastMonthData } = await supabase
-      .from('ot_requests')
-      .select('total_hours, employee_id')
-      .gte('created_at', lastMonthStart.toISOString())
-      .lte('created_at', lastMonthEnd.toISOString());
+    const { data: lastMonthData } = shouldFilterByCompany
+      ? await supabase
+          .from('ot_requests')
+          .select(`
+            total_hours,
+            employee_id,
+            profiles!ot_requests_employee_id_fkey!inner(company_id)
+          `)
+          .eq('profiles.company_id', companyId)
+          .gte('created_at', lastMonthStart.toISOString())
+          .lte('created_at', lastMonthEnd.toISOString())
+      : await supabase
+          .from('ot_requests')
+          .select('total_hours, employee_id')
+          .gte('created_at', lastMonthStart.toISOString())
+          .lte('created_at', lastMonthEnd.toISOString());
 
     if (currentData) {
       // Top OT Department

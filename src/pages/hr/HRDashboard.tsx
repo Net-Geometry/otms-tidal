@@ -8,15 +8,18 @@ import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { OTTrendChart } from '@/components/hr/charts/OTTrendChart';
 import { DepartmentOTChart } from '@/components/hr/charts/DepartmentOTChart';
 import { MonthYearFilter } from '@/components/MonthYearFilter';
+import { CompanyFilter } from '@/components/CompanyFilter';
 import { QuickActions } from '@/components/hr/QuickActions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, Users, FileText, Clock } from 'lucide-react';
+import { useCompanies } from '@/hooks/hr/useCompanies';
 
 export default function HRDashboard() {
   const { user } = useAuth();
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
   const [stats, setStats] = useState({
     totalEmployees: 0,
     pendingApprovals: 0,
@@ -26,6 +29,7 @@ export default function HRDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
+  const { data: companies = [], isLoading: isCompaniesLoading } = useCompanies();
 
   const filterDate = useMemo(() => {
     return new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1);
@@ -36,7 +40,7 @@ export default function HRDashboard() {
       fetchStats();
       fetchProfile();
     }
-  }, [user, filterDate]);
+  }, [user, filterDate, selectedCompany]);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -50,28 +54,47 @@ export default function HRDashboard() {
   };
 
   const fetchStats = async () => {
+    setLoading(true);
     const monthStart = startOfMonth(filterDate);
     const monthEnd = endOfMonth(filterDate);
+    const shouldFilterByCompany = selectedCompany !== 'all';
 
     // Fetch employee count
-    const { count: employeeCount } = await supabase
+    const employeeCountQuery = supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active');
 
+    if (shouldFilterByCompany) {
+      employeeCountQuery.eq('company_id', selectedCompany);
+    }
+
+    const { count: employeeCount } = await employeeCountQuery;
+
     // Fetch OT requests
-    const { data: otRequests } = await supabase
-      .from('ot_requests')
-      .select('total_hours, status')
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString());
+    const { data: otRequests } = shouldFilterByCompany
+      ? await supabase
+          .from('ot_requests')
+          .select(`
+            total_hours,
+            status,
+            profiles!ot_requests_employee_id_fkey!inner(company_id)
+          `)
+          .eq('profiles.company_id', selectedCompany)
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString())
+      : await supabase
+          .from('ot_requests')
+          .select('total_hours, status')
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString());
 
     const pendingApprovals = otRequests?.filter(req =>
       req.status === 'pending_verification' || req.status === 'supervisor_verified'
     ).length || 0;
 
     const approvedThisMonth = otRequests?.filter(req =>
-      req.status === 'hr_certified' || req.status === 'bod_approved'
+      req.status === 'hr_certified' || req.status === 'management_approved'
     ).length || 0;
 
     const totalOTHours = otRequests?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
@@ -93,14 +116,22 @@ export default function HRDashboard() {
         title="HR Dashboard"
         description={fullName ? `Welcome back, ${fullName}! Here's your organization overview.` : "Welcome back! Here's your organization overview."}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col gap-3 mb-6 xl:flex-row xl:items-center xl:justify-between">
           <h3 className="text-lg font-semibold">Filter by Month</h3>
-          <MonthYearFilter
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            onMonthChange={setSelectedMonth}
-            onYearChange={setSelectedYear}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <MonthYearFilter
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onMonthChange={setSelectedMonth}
+              onYearChange={setSelectedYear}
+            />
+            <CompanyFilter
+              companies={companies}
+              selectedCompanyId={selectedCompany}
+              onCompanyChange={setSelectedCompany}
+              isLoading={isCompaniesLoading}
+            />
+          </div>
         </div>
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -187,8 +218,8 @@ export default function HRDashboard() {
         <div>
           <h2 className="text-lg md:text-xl font-semibold mb-4">Overview Charts</h2>
           <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
-            <OTTrendChart filterDate={filterDate} />
-            <DepartmentOTChart filterDate={filterDate} />
+            <OTTrendChart filterDate={filterDate} companyId={selectedCompany} />
+            <DepartmentOTChart filterDate={filterDate} companyId={selectedCompany} />
           </div>
         </div>
 

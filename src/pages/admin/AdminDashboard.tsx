@@ -7,10 +7,12 @@ import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { DashboardCard } from '@/components/DashboardCard';
 import { MonthYearFilter } from '@/components/MonthYearFilter';
+import { CompanyFilter } from '@/components/CompanyFilter';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Settings, Users, Clock, DollarSign, FileText, Shield } from 'lucide-react';
 import { formatCurrency } from '@/lib/otCalculations';
+import { useCompanies } from '@/hooks/hr/useCompanies';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -18,6 +20,7 @@ export default function AdminDashboard() {
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalOTHours: 0,
@@ -29,6 +32,7 @@ export default function AdminDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
+  const { data: companies = [], isLoading: isCompaniesLoading } = useCompanies();
 
   const filterDate = useMemo(() => {
     return new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1);
@@ -39,7 +43,7 @@ export default function AdminDashboard() {
       fetchStats();
       fetchProfile();
     }
-  }, [user, filterDate]);
+  }, [user, filterDate, selectedCompany]);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -53,26 +57,52 @@ export default function AdminDashboard() {
   };
 
   const fetchStats = async () => {
+    setLoading(true);
     const monthStart = startOfMonth(filterDate);
     const monthEnd = endOfMonth(filterDate);
+    const shouldFilterByCompany = selectedCompany !== 'all';
 
     // Fetch total users
-    const { count: totalUsers } = await supabase
+    const totalUsersQuery = supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true });
 
+    if (shouldFilterByCompany) {
+      totalUsersQuery.eq('company_id', selectedCompany);
+    }
+
+    const { count: totalUsers } = await totalUsersQuery;
+
     // Fetch active employees
-    const { count: activeEmployees } = await supabase
+    const activeEmployeesQuery = supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active');
 
+    if (shouldFilterByCompany) {
+      activeEmployeesQuery.eq('company_id', selectedCompany);
+    }
+
+    const { count: activeEmployees } = await activeEmployeesQuery;
+
     // Fetch OT requests
-    const { data: otRequests } = await supabase
-      .from('ot_requests')
-      .select('total_hours, ot_amount, status')
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString());
+    const { data: otRequests } = shouldFilterByCompany
+      ? await supabase
+          .from('ot_requests')
+          .select(`
+            total_hours,
+            ot_amount,
+            status,
+            profiles!ot_requests_employee_id_fkey!inner(company_id)
+          `)
+          .eq('profiles.company_id', selectedCompany)
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString())
+      : await supabase
+          .from('ot_requests')
+          .select('total_hours, ot_amount, status')
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString());
 
     const totalOTHours = otRequests?.reduce((sum, req) => sum + (req.total_hours || 0), 0) || 0;
     const totalExpenditure = otRequests?.reduce((sum, req) => sum + (req.ot_amount || 0), 0) || 0;
@@ -115,14 +145,22 @@ export default function AdminDashboard() {
           </div>
         }
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col gap-3 mb-6 xl:flex-row xl:items-center xl:justify-between">
           <h3 className="text-lg font-semibold">Filter by Month</h3>
-          <MonthYearFilter
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            onMonthChange={setSelectedMonth}
-            onYearChange={setSelectedYear}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <MonthYearFilter
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onMonthChange={setSelectedMonth}
+              onYearChange={setSelectedYear}
+            />
+            <CompanyFilter
+              companies={companies}
+              selectedCompanyId={selectedCompany}
+              onCompanyChange={setSelectedCompany}
+              isLoading={isCompaniesLoading}
+            />
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -2,7 +2,7 @@ export function exportToCSV(
   data: any[],
   filename: string,
   headers: { key: string; label: string }[],
-  metadata?: { reportName?: string; period?: string; generatedDate?: string }
+  metadata?: { reportName?: string; period?: string; generatedDate?: string; company?: string }
 ) {
   const rows: string[] = [];
   
@@ -16,6 +16,9 @@ export function exportToCSV(
     }
     if (metadata.generatedDate) {
       rows.push(`Generated: ${metadata.generatedDate}`);
+    }
+    if (metadata.company) {
+      rows.push(`Company: ${metadata.company}`);
     }
     rows.push(''); // Empty row separator
   }

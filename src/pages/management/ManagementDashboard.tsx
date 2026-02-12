@@ -9,11 +9,13 @@ import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { OTTrendChart } from '@/components/hr/charts/OTTrendChart';
 import { OTCostChart } from '@/components/management/charts/OTCostChart';
 import { MonthYearFilter } from '@/components/MonthYearFilter';
+import { CompanyFilter } from '@/components/CompanyFilter';
 import { QuickInsights } from '@/components/management/QuickInsights';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle, DollarSign, Clock, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/otCalculations';
+import { useCompanies } from '@/hooks/hr/useCompanies';
 
 export default function ManagementDashboard() {
   const { user } = useAuth();
@@ -21,6 +23,7 @@ export default function ManagementDashboard() {
   const currentDate = new Date();
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
+  const [selectedCompany, setSelectedCompany] = useState<string>('all');
   const [stats, setStats] = useState({
     totalOTHours: 0,
     totalExpenditure: 0,
@@ -30,6 +33,7 @@ export default function ManagementDashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [fullName, setFullName] = useState('');
+  const { data: companies = [], isLoading: isCompaniesLoading } = useCompanies();
 
   const filterDate = useMemo(() => {
     return new Date(parseInt(selectedYear), parseInt(selectedMonth) - 1, 1);
@@ -40,7 +44,7 @@ export default function ManagementDashboard() {
       fetchStats();
       fetchProfile();
     }
-  }, [user, filterDate]);
+  }, [user, filterDate, selectedCompany]);
 
   const fetchProfile = async () => {
     if (!user) return;
@@ -64,17 +68,31 @@ export default function ManagementDashboard() {
 
   const fetchStats = async () => {
     try {
+      setLoading(true);
       const monthStart = startOfMonth(filterDate);
       const monthEnd = endOfMonth(filterDate);
       const lastMonthStart = startOfMonth(new Date(filterDate.getFullYear(), filterDate.getMonth() - 1, 1));
       const lastMonthEnd = endOfMonth(new Date(filterDate.getFullYear(), filterDate.getMonth() - 1, 1));
+      const shouldFilterByCompany = selectedCompany !== 'all';
 
       // Current month data
-      const { data: currentMonthData, error: currentError } = await supabase
-        .from('ot_requests')
-        .select('total_hours, ot_amount, status')
-        .gte('created_at', monthStart.toISOString())
-        .lte('created_at', monthEnd.toISOString());
+      const { data: currentMonthData, error: currentError } = shouldFilterByCompany
+        ? await supabase
+            .from('ot_requests')
+            .select(`
+              total_hours,
+              ot_amount,
+              status,
+              profiles!ot_requests_employee_id_fkey!inner(company_id)
+            `)
+            .eq('profiles.company_id', selectedCompany)
+            .gte('created_at', monthStart.toISOString())
+            .lte('created_at', monthEnd.toISOString())
+        : await supabase
+            .from('ot_requests')
+            .select('total_hours, ot_amount, status')
+            .gte('created_at', monthStart.toISOString())
+            .lte('created_at', monthEnd.toISOString());
 
       if (currentError) {
         console.error('Error fetching current month data:', currentError);
@@ -83,11 +101,21 @@ export default function ManagementDashboard() {
       }
 
       // Last month data for trend
-      const { data: lastMonthData, error: lastError } = await supabase
-        .from('ot_requests')
-        .select('total_hours')
-        .gte('created_at', lastMonthStart.toISOString())
-        .lte('created_at', lastMonthEnd.toISOString());
+      const { data: lastMonthData, error: lastError } = shouldFilterByCompany
+        ? await supabase
+            .from('ot_requests')
+            .select(`
+              total_hours,
+              profiles!ot_requests_employee_id_fkey!inner(company_id)
+            `)
+            .eq('profiles.company_id', selectedCompany)
+            .gte('created_at', lastMonthStart.toISOString())
+            .lte('created_at', lastMonthEnd.toISOString())
+        : await supabase
+            .from('ot_requests')
+            .select('total_hours')
+            .gte('created_at', lastMonthStart.toISOString())
+            .lte('created_at', lastMonthEnd.toISOString());
 
       if (lastError) {
         console.error('Error fetching last month data:', lastError);
@@ -129,14 +157,22 @@ export default function ManagementDashboard() {
         title="Management Dashboard"
         description={fullName ? `Welcome back, ${fullName}! Here's your executive overview.` : "Welcome back! Here's your executive overview."}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col gap-3 mb-6 xl:flex-row xl:items-center xl:justify-between">
           <h3 className="text-lg font-semibold">Filter by Month</h3>
-          <MonthYearFilter
-            selectedMonth={selectedMonth}
-            selectedYear={selectedYear}
-            onMonthChange={setSelectedMonth}
-            onYearChange={setSelectedYear}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <MonthYearFilter
+              selectedMonth={selectedMonth}
+              selectedYear={selectedYear}
+              onMonthChange={setSelectedMonth}
+              onYearChange={setSelectedYear}
+            />
+            <CompanyFilter
+              companies={companies}
+              selectedCompanyId={selectedCompany}
+              onCompanyChange={setSelectedCompany}
+              isLoading={isCompaniesLoading}
+            />
+          </div>
         </div>
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -226,13 +262,13 @@ export default function ManagementDashboard() {
             Visual summary of organizational overtime and expenditure performance
           </p>
           <div className="grid gap-4 md:gap-6 grid-cols-1 lg:grid-cols-2">
-            <OTTrendChart filterDate={filterDate} />
-            <OTCostChart filterDate={filterDate} />
+            <OTTrendChart filterDate={filterDate} companyId={selectedCompany} />
+            <OTCostChart filterDate={filterDate} companyId={selectedCompany} />
           </div>
         </div>
 
         <div>
-          <QuickInsights filterDate={filterDate} />
+          <QuickInsights filterDate={filterDate} companyId={selectedCompany} />
         </div>
       </PageLayout>
     </AppLayout>

@@ -18,33 +18,52 @@ const COLORS = ['#5F26B4', '#8B5CF6', '#C084FC', '#DDD6FE'];
 
 interface OTCostChartProps {
   filterDate?: Date;
+  companyId?: string;
 }
 
-export function OTCostChart({ filterDate = new Date() }: OTCostChartProps) {
+export function OTCostChart({ filterDate = new Date(), companyId }: OTCostChartProps) {
   const [data, setData] = useState<DepartmentCost[]>([]);
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchCostData();
-  }, [filterDate]);
+  }, [filterDate, companyId]);
 
   const fetchCostData = async () => {
+    setLoading(true);
     const monthStart = startOfMonth(filterDate);
     const monthEnd = endOfMonth(filterDate);
 
-    const { data: otData } = await supabase
-      .from('ot_requests')
-      .select(`
-        ot_amount,
-        profiles!ot_requests_employee_id_fkey(
-          department_id,
-          departments!profiles_department_id_fkey(name)
-        )
-      `)
-      .gte('created_at', monthStart.toISOString())
-      .lte('created_at', monthEnd.toISOString())
-      .not('ot_amount', 'is', null);
+    const shouldFilterByCompany = companyId && companyId !== 'all';
+
+    const { data: otData } = shouldFilterByCompany
+      ? await supabase
+          .from('ot_requests')
+          .select(`
+            ot_amount,
+            profiles!ot_requests_employee_id_fkey!inner(
+              company_id,
+              department_id,
+              departments!profiles_department_id_fkey(name)
+            )
+          `)
+          .eq('profiles.company_id', companyId)
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString())
+          .not('ot_amount', 'is', null)
+      : await supabase
+          .from('ot_requests')
+          .select(`
+            ot_amount,
+            profiles!ot_requests_employee_id_fkey(
+              department_id,
+              departments!profiles_department_id_fkey(name)
+            )
+          `)
+          .gte('created_at', monthStart.toISOString())
+          .lte('created_at', monthEnd.toISOString())
+          .not('ot_amount', 'is', null);
 
     if (otData) {
       const departmentMap = new Map<string, number>();
