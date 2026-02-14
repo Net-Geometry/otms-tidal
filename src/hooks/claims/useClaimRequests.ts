@@ -40,6 +40,18 @@ export function useClaimRequests(options?: { filter?: ClaimRequestsFilter }) {
             full_name,
             department_id,
             departments(name)
+          ),
+          supervisor_profile:profiles!claims_supervisor_id_fkey(
+            id,
+            full_name
+          ),
+          hr_profile:profiles!claims_hr_id_fkey(
+            id,
+            full_name
+          ),
+          finance_profile:profiles!claims_finance_id_fkey(
+            id,
+            full_name
           )
         `)
         .eq('employee_id', authData.user.id)

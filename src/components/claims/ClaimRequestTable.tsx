@@ -5,26 +5,35 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Claim } from '@/types/claims';
+import type { Claim, NextApproverOption } from '@/types/claims';
+import { getClaimStatusDisplay, getClaimApproverName } from '@/types/claims';
 import { ClaimDetailsSheet } from '@/components/claims/ClaimDetailsSheet';
 import { ClaimApprovalActions } from '@/components/claims/ClaimApprovalActions';
 
-type TableRole = 'employee' | 'supervisor' | 'hr' | 'finance';
+type TableRole = 'employee' | 'supervisor' | 'hr' | 'finance' | 'director' | 'gm' | 'head_finance';
 
 function isPendingForRole(role: TableRole, status: string) {
   if (role === 'supervisor') return status === 'pending_supervisor';
   if (role === 'hr') return status === 'pending_hr' || status === 'supervisor_approved';
   if (role === 'finance') return status === 'pending_finance';
+  if (role === 'director') return status === 'pending_director';
+  if (role === 'gm') return status === 'pending_gm';
+  if (role === 'head_finance') return status === 'pending_head_finance';
   return (
     status === 'pending_supervisor' ||
     status === 'supervisor_approved' ||
     status === 'pending_hr' ||
-    status === 'pending_finance'
+    status === 'pending_finance' ||
+    status === 'pending_director' ||
+    status === 'pending_gm' ||
+    status === 'pending_head_finance'
   );
 }
 
+import { isClaimFullyApproved } from '@/types/claims';
+
 function statusVariant(status: string) {
-  if (status === 'finance_approved' || status === 'hr_approved') return 'default';
+  if (isClaimFullyApproved(status as any)) return 'default';
   if (status === 'rejected') return 'destructive';
   if (status === 'cancelled') return 'secondary';
   return 'outline';
@@ -36,10 +45,12 @@ export function ClaimRequestTable({
   role,
   enableBatch,
   onApprove,
+  onForward,
   onReject,
   onCancel,
   onPost,
   isApproving,
+  isForwarding,
   isRejecting,
   isCancelling,
   isPosting,
@@ -50,10 +61,12 @@ export function ClaimRequestTable({
   role: TableRole;
   enableBatch?: boolean;
   onApprove?: (requestIds: string[], remarks?: string) => Promise<void> | void;
+  onForward?: (requestIds: string[], nextApprover: NextApproverOption, remarks?: string) => Promise<void> | void;
   onReject?: (requestIds: string[], remarks: string) => Promise<void> | void;
   onCancel?: (requestId: string, reason?: string) => Promise<void> | void;
   onPost?: (claimId: string, reference?: string, remarks?: string) => Promise<void> | void;
   isApproving?: boolean;
+  isForwarding?: boolean;
   isRejecting?: boolean;
   isCancelling?: boolean;
   isPosting?: boolean;
@@ -172,7 +185,7 @@ export function ClaimRequestTable({
                   <TableCell className="text-right">{Number(r.amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge variant={statusVariant(r.status) as any}>{String(r.status).replace(/_/g, ' ')}</Badge>
+                      <Badge variant={statusVariant(r.status) as any}>{getClaimStatusDisplay(r.status, getClaimApproverName(r))}</Badge>
                       {r.is_posted && <Badge variant="secondary">posted</Badge>}
                     </div>
                   </TableCell>
@@ -197,10 +210,12 @@ export function ClaimRequestTable({
         onOpenChange={setOpen}
         role={role}
         onApprove={onApprove}
+        onForward={onForward}
         onReject={onReject}
         onCancel={onCancel}
         onPost={onPost}
         isApproving={isApproving}
+        isForwarding={isForwarding}
         isRejecting={isRejecting}
         isCancelling={isCancelling}
         isPosting={isPosting}

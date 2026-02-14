@@ -23,6 +23,7 @@ interface UpdateEmployeeData {
   work_location?: string | null;
   state?: string | null;
   status?: string;
+  epf_category?: string | null;
   is_ot_eligible?: boolean;
   require_ot_attachment?: boolean;
   roles?: AppRole[];
@@ -41,7 +42,7 @@ export function useUpdateEmployee() {
       const allowedColumns = [
         'full_name', 'employee_id', 'ic_no', 'phone_no', 'email',
         'company_id', 'department_id', 'position_id', 'position', 'basic_salary',
-        'ot_base', 'employment_type',
+        'ot_base', 'epf_category', 'employment_type',
         'designation', 'supervisor_id', 'joining_date', 'work_location',
         'state', 'status', 'is_ot_eligible', 'require_ot_attachment'
       ];

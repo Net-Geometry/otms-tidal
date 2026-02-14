@@ -6,15 +6,16 @@ import { Card } from '@/components/ui/card';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { CalendarOff, CheckCircle, ClipboardList, Settings2, Search, Users2 } from 'lucide-react';
+import { CalendarOff, CheckCircle, ClipboardList, Settings2, Search, Users2, Calendar } from 'lucide-react';
 import { LeaveRequestTable } from '@/components/leave/LeaveRequestTable';
 import { LeaveTypeSetup } from '@/components/leave/LeaveTypeSetup';
 import { LeaveBalanceManager } from '@/components/leave/LeaveBalanceManager';
+import { HRCalendar } from '@/components/hr/calendar/HRCalendar';
 import { useLeaveApproval, type LeaveApprovalTab } from '@/hooks/leave/useLeaveApproval';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function Leave() {
-  const [section, setSection] = useState<'requests' | 'types' | 'balances'>('requests');
+  const [section, setSection] = useState<'requests' | 'types' | 'balances' | 'calendar'>('requests');
   const [tab, setTab] = useState<LeaveApprovalTab>('pending');
   const [search, setSearch] = useState('');
 
@@ -87,7 +88,7 @@ export default function Leave() {
         </div>
 
         <Tabs value={section} onValueChange={(v) => setSection(v as any)} className="mt-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="requests" className="gap-2">
               <Users2 className="h-4 w-4" />
               Requests
@@ -99,6 +100,10 @@ export default function Leave() {
             <TabsTrigger value="balances" className="gap-2">
               <CalendarOff className="h-4 w-4" />
               Balances
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              Calendar
             </TabsTrigger>
           </TabsList>
 
@@ -145,6 +150,12 @@ export default function Leave() {
 
           <TabsContent value="balances" className="mt-6">
             <LeaveBalanceManager />
+          </TabsContent>
+
+          <TabsContent value="calendar" className="mt-6">
+            <Card className="p-6">
+              <HRCalendar />
+            </Card>
           </TabsContent>
         </Tabs>
       </PageLayout>

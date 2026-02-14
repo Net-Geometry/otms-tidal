@@ -17,11 +17,15 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Pencil, Plus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useEmployees } from '@/hooks/hr/useEmployees';
+
+const APPROVER_ROLES_NEEDING_USER = ['director', 'gm', 'head_finance', 'assistant'] as const;
 
 const formSchema = z.object({
   code: z.string().min(1).max(50),
   name: z.string().min(1).max(120),
-  final_approver: z.enum(['hr', 'finance']),
+  final_approver: z.enum(['hr', 'finance', 'director', 'gm', 'head_finance', 'assistant']),
+  final_approver_user_id: z.string().uuid().nullable().optional(),
   limit_amount: z.coerce.number().nullable().optional(),
   limit_period: z.string().max(30).nullable().optional(),
   is_active: z.coerce.boolean().default(true),
@@ -37,6 +41,7 @@ export function ClaimTypeSetup() {
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ClaimType | null>(null);
+  const { data: allEmployees = [] } = useEmployees();
 
   const { data: types = [], isLoading } = useQuery({
     queryKey: ['claim-types-admin'],
@@ -58,6 +63,7 @@ export function ClaimTypeSetup() {
       code: e?.code || '',
       name: e?.name || '',
       final_approver: (e?.final_approver || 'hr') as ClaimFinalApprover,
+      final_approver_user_id: e?.final_approver_user_id ?? null,
       limit_amount: e?.limit_amount ?? null,
       limit_period: e?.limit_period ?? null,
       is_active: e?.is_active ?? true,
@@ -76,9 +82,11 @@ export function ClaimTypeSetup() {
 
   const saveMutation = useMutation({
     mutationFn: async (values: ClaimTypeFormValues) => {
+      const needsUser = (APPROVER_ROLES_NEEDING_USER as readonly string[]).includes(values.final_approver);
       const payload = {
         name: values.name,
         final_approver: values.final_approver,
+        final_approver_user_id: needsUser ? (values.final_approver_user_id || null) : null,
         limit_amount: values.limit_amount == null ? null : Number(values.limit_amount),
         limit_period: values.limit_period || null,
         is_active: values.is_active,
@@ -160,7 +168,14 @@ export function ClaimTypeSetup() {
                   <TableRow key={t.id}>
                     <TableCell className="font-mono text-xs">{t.code}</TableCell>
                     <TableCell className="font-medium">{t.name}</TableCell>
-                    <TableCell className="capitalize">{t.final_approver}</TableCell>
+                    <TableCell className="capitalize">
+                      {t.final_approver === 'head_finance' ? 'Head of Finance' : t.final_approver === 'gm' ? 'GM' : t.final_approver}
+                      {t.final_approver_user_id && (
+                        <span className="block text-xs text-muted-foreground">
+                          {allEmployees.find(e => e.id === t.final_approver_user_id)?.full_name || 'Assigned user'}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {t.limit_amount == null ? (
                         <span className="text-muted-foreground">-</span>
@@ -253,13 +268,25 @@ export function ClaimTypeSetup() {
                     <FormItem>
                       <FormLabel>Final Approver *</FormLabel>
                       <FormControl>
-                        <Select value={field.value} onValueChange={field.onChange}>
+                        <Select
+                          value={field.value}
+                          onValueChange={(v) => {
+                            field.onChange(v);
+                            if (!(APPROVER_ROLES_NEEDING_USER as readonly string[]).includes(v)) {
+                              form.setValue('final_approver_user_id', null);
+                            }
+                          }}
+                        >
                           <SelectTrigger>
                             <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="hr">HR</SelectItem>
                             <SelectItem value="finance">Finance</SelectItem>
+                            <SelectItem value="director">Director</SelectItem>
+                            <SelectItem value="gm">GM</SelectItem>
+                            <SelectItem value="head_finance">Head of Finance</SelectItem>
+                            <SelectItem value="assistant">Assistant</SelectItem>
                           </SelectContent>
                         </Select>
                       </FormControl>
@@ -282,6 +309,38 @@ export function ClaimTypeSetup() {
                   )}
                 />
               </div>
+
+              {(APPROVER_ROLES_NEEDING_USER as readonly string[]).includes(form.watch('final_approver')) && (
+                <FormField
+                  control={form.control}
+                  name="final_approver_user_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Specific Approver</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value || ''}
+                          onValueChange={(v) => field.onChange(v || null)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select specific approver (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allEmployees
+                              .filter(e => e.status === 'active')
+                              .map((emp) => (
+                                <SelectItem key={emp.id} value={emp.id}>
+                                  {emp.full_name} ({emp.employee_id})
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField

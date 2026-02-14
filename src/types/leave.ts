@@ -20,6 +20,8 @@ export interface LeaveType {
   is_carry_forward: boolean;
   max_carry_forward: number;
   is_active: boolean;
+  accrual_type: 'annual' | 'monthly';
+  monthly_accrual_rate: number | null;
   sort_order?: number;
   created_at?: string;
   updated_at?: string;
@@ -76,6 +78,19 @@ export interface LeaveRequest {
     departments?: { name: string };
   };
   leave_type?: LeaveType;
+  // Approver profiles
+  supervisor_profile?: {
+    id: string;
+    full_name: string;
+  } | null;
+  hr_profile?: {
+    id: string;
+    full_name: string;
+  } | null;
+  management_profile?: {
+    id: string;
+    full_name: string;
+  } | null;
 }
 
 export const LEAVE_STATUS_TRANSITIONS = [
@@ -95,4 +110,42 @@ export function canTransitionLeave(from: string, to: string, role: string): bool
   return LEAVE_STATUS_TRANSITIONS.some(
     (t) => t.from === from && t.to === to && t.role === role,
   );
+}
+
+// Tidal spec status labels
+export const LEAVE_STATUS_LABELS: Record<LeaveRequestStatus, string> = {
+  pending_supervisor: 'Pending',
+  supervisor_approved: 'Checked',
+  pending_hr: 'Pending Review',
+  hr_approved: 'Reviewed',
+  pending_management: 'Pending Approval',
+  management_approved: 'Approved',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+};
+
+// Get display label for leave status with approver info if available
+export function getLeaveStatusDisplay(
+  status: LeaveRequestStatus,
+  approverName?: string | null
+): string {
+  const baseLabel = LEAVE_STATUS_LABELS[status];
+  if (approverName && (status === 'supervisor_approved' || status === 'hr_approved' || status === 'management_approved')) {
+    return `${baseLabel} by ${approverName}`;
+  }
+  return baseLabel;
+}
+
+// Get approver name based on status
+export function getLeaveApproverName(request: LeaveRequest): string | null {
+  if (request.status === 'supervisor_approved' && request.supervisor_profile?.full_name) {
+    return request.supervisor_profile.full_name;
+  }
+  if (request.status === 'hr_approved' && request.hr_profile?.full_name) {
+    return request.hr_profile.full_name;
+  }
+  if (request.status === 'management_approved' && request.management_profile?.full_name) {
+    return request.management_profile.full_name;
+  }
+  return null;
 }

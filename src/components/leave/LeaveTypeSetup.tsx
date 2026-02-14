@@ -15,6 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pencil, Plus } from 'lucide-react';
 
 const formSchema = z.object({
@@ -29,6 +30,7 @@ const formSchema = z.object({
   max_carry_forward: z.coerce.number().min(0).default(0),
   is_active: z.coerce.boolean().default(true),
   sort_order: z.coerce.number().default(0),
+  accrual_type: z.enum(['annual', 'monthly']).default('annual'),
 });
 
 type LeaveTypeFormValues = z.infer<typeof formSchema>;
@@ -69,6 +71,7 @@ export function LeaveTypeSetup() {
       max_carry_forward: Number(e?.max_carry_forward || 0),
       is_active: e?.is_active ?? true,
       sort_order: Number(e?.sort_order || 0),
+      accrual_type: e?.accrual_type ?? 'annual',
     };
   }, [editing]);
 
@@ -83,6 +86,10 @@ export function LeaveTypeSetup() {
 
   const saveMutation = useMutation({
     mutationFn: async (values: LeaveTypeFormValues) => {
+      const monthlyRate = values.accrual_type === 'monthly' && values.default_days > 0
+        ? Math.round((values.default_days / 12) * 100) / 100
+        : null;
+
       if (editing) {
         const { error } = await db
           .from('leave_types')
@@ -97,6 +104,8 @@ export function LeaveTypeSetup() {
             max_carry_forward: values.max_carry_forward,
             is_active: values.is_active,
             sort_order: values.sort_order,
+            accrual_type: values.accrual_type,
+            monthly_accrual_rate: monthlyRate,
           })
           .eq('id', editing.id);
         if (error) throw error;
@@ -116,6 +125,8 @@ export function LeaveTypeSetup() {
               max_carry_forward: values.max_carry_forward,
               is_active: values.is_active,
               sort_order: values.sort_order,
+              accrual_type: values.accrual_type,
+              monthly_accrual_rate: monthlyRate,
             },
           ]);
         if (error) throw error;
@@ -174,7 +185,8 @@ export function LeaveTypeSetup() {
                   <TableHead>Code</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead className="text-right">Default</TableHead>
-                  <TableHead>MC?</TableHead>
+                  <TableHead>Accrual</TableHead>
+                  <TableHead>Attachment</TableHead>
                   <TableHead>Active</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -185,6 +197,7 @@ export function LeaveTypeSetup() {
                     <TableCell className="font-mono text-xs">{t.code}</TableCell>
                     <TableCell className="font-medium">{t.name}</TableCell>
                     <TableCell className="text-right">{Number(t.default_days || 0).toFixed(1)}</TableCell>
+                    <TableCell className="text-xs capitalize">{t.accrual_type || 'annual'}</TableCell>
                     <TableCell>{t.requires_attachment ? 'Yes' : 'No'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -308,6 +321,37 @@ export function LeaveTypeSetup() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="accrual_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Accrual Type</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select accrual type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="annual">Annual (full upfront)</SelectItem>
+                          <SelectItem value="monthly">Monthly (incremental)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {form.watch('accrual_type') === 'monthly' && (
+                  <div className="flex items-end">
+                    <div className="text-sm text-muted-foreground p-2 bg-muted rounded">
+                      Monthly rate: {((form.watch('default_days') || 0) / 12).toFixed(2)} days/month
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

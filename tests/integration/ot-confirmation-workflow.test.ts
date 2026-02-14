@@ -11,22 +11,23 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { TEST_USER_IDS, TEST_REQUEST_IDS, mockOTRequest } from '../fixtures/ot-requests';
 
 // Test configuration - update with your Supabase test instance
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
+
+// Service role key should never have VITE_ prefix (server-side only)
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 
 // Fail early if required environment variables are missing
-if (!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY && !process.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+if (!SUPABASE_SERVICE_KEY) {
   throw new Error(
-    "Missing Supabase service role key. Please set VITE_SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_PUBLISHABLE_KEY in your environment."
+    "Missing Supabase service role key. Please set SUPABASE_SERVICE_ROLE_KEY in your .env.test file."
   );
 }
-if (!process.env.VITE_SUPABASE_PUBLISHABLE_KEY && !process.env.VITE_SUPABASE_ANON_KEY) {
+if (!SUPABASE_ANON_KEY) {
   throw new Error(
-    "Missing Supabase anon key. Please set VITE_SUPABASE_PUBLISHABLE_KEY or VITE_SUPABASE_ANON_KEY in your environment."
+    "Missing Supabase anon/publishable key. Please set SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY) in your environment."
   );
 }
-
-const SUPABASE_SERVICE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
 describe('Integration: OT Confirmation Workflow', () => {
   let adminClient: SupabaseClient;
   let supervisorClient: SupabaseClient;

@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { Claim, ClaimRequestStatus } from '@/types/claims';
-import { canTransitionClaim } from '@/types/claims';
+import type { Claim, ClaimRequestStatus, NextApproverOption } from '@/types/claims';
+import { canTransitionClaim, isClaimFullyApproved } from '@/types/claims';
 
-export type ClaimApprovalRole = 'supervisor' | 'hr' | 'finance';
+export type ClaimApprovalRole = 'supervisor' | 'hr' | 'finance' | 'director' | 'gm' | 'head_finance';
 export type ClaimApprovalTab = 'pending' | 'approved' | 'rejected' | 'all';
 
 function getStatusFilter(role: ClaimApprovalRole, tab: ClaimApprovalTab): ClaimRequestStatus[] | null {
@@ -14,16 +14,18 @@ function getStatusFilter(role: ClaimApprovalRole, tab: ClaimApprovalTab): ClaimR
   if (tab === 'pending') {
     if (role === 'supervisor') return ['pending_supervisor'];
     if (role === 'hr') return ['pending_hr', 'supervisor_approved'];
-    return ['pending_finance'];
+    if (role === 'finance') return ['pending_finance'];
+    if (role === 'director') return ['pending_director'];
+    if (role === 'gm') return ['pending_gm'];
+    if (role === 'head_finance') return ['pending_head_finance'];
+    return ['pending_finance', 'pending_director', 'pending_gm', 'pending_head_finance'];
   }
 
-  // approved
-  if (role === 'finance') return ['finance_approved'];
-  if (role === 'hr') return ['hr_approved', 'pending_finance', 'finance_approved'];
-  return ['supervisor_approved', 'pending_hr', 'hr_approved', 'pending_finance', 'finance_approved'];
+  // approved - show all final approved statuses
+  return ['finance_approved', 'director_approved', 'gm_approved', 'head_finance_approved'];
 }
 
-function baseApproveUpdate(role: ClaimApprovalRole, remarks?: string | null) {
+function getApproveUpdate(role: ClaimApprovalRole, remarks?: string | null) {
   const now = new Date().toISOString();
   if (role === 'supervisor') {
     return {
@@ -34,15 +36,40 @@ function baseApproveUpdate(role: ClaimApprovalRole, remarks?: string | null) {
   }
   if (role === 'hr') {
     return {
+      status: 'pending_finance',
       hr_approved_at: now,
       hr_remarks: remarks || null,
     };
   }
-  return {
-    status: 'finance_approved',
-    finance_approved_at: now,
-    finance_remarks: remarks || null,
-  };
+  if (role === 'finance') {
+    return {
+      status: 'finance_approved',
+      finance_approved_at: now,
+      finance_remarks: remarks || null,
+    };
+  }
+  if (role === 'director') {
+    return {
+      status: 'director_approved',
+      director_approved_at: now,
+      director_remarks: remarks || null,
+    };
+  }
+  if (role === 'gm') {
+    return {
+      status: 'gm_approved',
+      gm_approved_at: now,
+      gm_remarks: remarks || null,
+    };
+  }
+  if (role === 'head_finance') {
+    return {
+      status: 'head_finance_approved',
+      head_finance_approved_at: now,
+      head_finance_remarks: remarks || null,
+    };
+  }
+  return {};
 }
 
 export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: ClaimApprovalTab }) {
@@ -71,6 +98,30 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
             full_name,
             department_id,
             departments(name)
+          ),
+          supervisor_profile:profiles!claims_supervisor_id_fkey(
+            id,
+            full_name
+          ),
+          hr_profile:profiles!claims_hr_id_fkey(
+            id,
+            full_name
+          ),
+          finance_profile:profiles!claims_finance_id_fkey(
+            id,
+            full_name
+          ),
+          director_profile:profiles!claims_director_id_fkey(
+            id,
+            full_name
+          ),
+          gm_profile:profiles!claims_gm_id_fkey(
+            id,
+            full_name
+          ),
+          head_finance_profile:profiles!claims_head_finance_id_fkey(
+            id,
+            full_name
           )
         `)
         .order('created_at', { ascending: false });
@@ -100,62 +151,39 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
 
       if (!input.requestIds || input.requestIds.length === 0) return;
 
-      // Fetch current statuses and claim type approver
+      // Fetch current statuses
       const { data: current, error: fetchErr } = await db
         .from('claims')
-        .select(`id, status, claim_type:claim_types(final_approver)`)
+        .select('id, status')
         .in('id', input.requestIds);
       if (fetchErr) throw fetchErr;
 
       const now = new Date().toISOString();
 
+      // For HR role, always forward to pending_finance
       if (role === 'hr') {
-        const toFinance: string[] = [];
-        const toHrApproved: string[] = [];
-
-        for (const row of (current || []) as any[]) {
-          const finalApprover = row.claim_type?.final_approver as string | undefined;
-          if (finalApprover === 'finance') toFinance.push(row.id);
-          else toHrApproved.push(row.id);
-        }
-
-        // Validate transitions
-        const invalid: any[] = [];
-        for (const row of (current || []) as any[]) {
-          const target = (row.claim_type?.final_approver === 'finance') ? 'pending_finance' : 'hr_approved';
-          if (!canTransitionClaim(row.status, target, role)) invalid.push({ id: row.id, status: row.status });
-        }
+        const invalid = (current || []).filter(
+          (r: any) => !canTransitionClaim(r.status, 'pending_finance', role)
+        );
         if (invalid.length > 0) {
-          const statuses = invalid.map((r) => r.status).join(', ');
+          const statuses = invalid.map((r: any) => r.status).join(', ');
           throw new Error(`Cannot approve: ${invalid.length} claim(s) in invalid state (${statuses}) for ${role} role`);
         }
 
-        const base = {
-          hr_id: authData.user.id,
-          hr_approved_at: now,
-          hr_remarks: input.remarks || null,
-        };
-
-        if (toHrApproved.length > 0) {
-          const { error } = await db
-            .from('claims')
-            .update({ ...base, status: 'hr_approved' })
-            .in('id', toHrApproved);
-          if (error) throw error;
-        }
-
-        if (toFinance.length > 0) {
-          const { error } = await db
-            .from('claims')
-            .update({ ...base, status: 'pending_finance' })
-            .in('id', toFinance);
-          if (error) throw error;
-        }
-
+        const { error } = await db
+          .from('claims')
+          .update({
+            status: 'pending_finance',
+            hr_id: authData.user.id,
+            hr_approved_at: now,
+            hr_remarks: input.remarks || null,
+          })
+          .in('id', input.requestIds);
+        if (error) throw error;
         return;
       }
 
-      const updateData: any = baseApproveUpdate(role, input.remarks);
+      const updateData: any = getApproveUpdate(role, input.remarks);
       const targetStatus = updateData.status;
 
       const invalid = (current || []).filter((r: any) => !canTransitionClaim(r.status, targetStatus, role));
@@ -164,8 +192,12 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
         throw new Error(`Cannot approve: ${invalid.length} claim(s) in invalid state (${statuses}) for ${role} role`);
       }
 
+      // Set the approver ID based on role
       if (role === 'supervisor') updateData.supervisor_id = authData.user.id;
       if (role === 'finance') updateData.finance_id = authData.user.id;
+      if (role === 'director') updateData.director_id = authData.user.id;
+      if (role === 'gm') updateData.gm_id = authData.user.id;
+      if (role === 'head_finance') updateData.head_finance_id = authData.user.id;
 
       const { error } = await db
         .from('claims')
@@ -179,6 +211,68 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
       queryClient.invalidateQueries({ queryKey: ['claims'] });
       queryClient.invalidateQueries({ queryKey: ['claim-posting'] });
       toast({ title: 'Success', description: 'Claim approved' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  // New mutation for finance to forward to next approver
+  const forwardMutation = useMutation({
+    mutationFn: async (input: { requestIds: string[]; nextApprover: NextApproverOption; remarks?: string }) => {
+      const db = supabase as any;
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData?.user) throw new Error('Not authenticated');
+
+      if (!input.requestIds || input.requestIds.length === 0) return;
+
+      // Map next approver option to status
+      const statusMap: Record<NextApproverOption, ClaimRequestStatus> = {
+        director: 'pending_director',
+        gm: 'pending_gm',
+        head_finance: 'pending_head_finance',
+        final_approve: 'finance_approved',
+      };
+
+      const targetStatus = statusMap[input.nextApprover];
+
+      // Fetch current statuses
+      const { data: current, error: fetchErr } = await db
+        .from('claims')
+        .select('id, status')
+        .in('id', input.requestIds);
+      if (fetchErr) throw fetchErr;
+
+      const now = new Date().toISOString();
+
+      // Validate transition from pending_finance
+      const invalid = (current || []).filter(
+        (r: any) => !canTransitionClaim(r.status, targetStatus, 'finance')
+      );
+      if (invalid.length > 0) {
+        const statuses = invalid.map((r: any) => r.status).join(', ');
+        throw new Error(`Cannot forward: ${invalid.length} claim(s) in invalid state (${statuses})`);
+      }
+
+      const updateData: any = {
+        status: targetStatus,
+        finance_id: authData.user.id,
+        finance_approved_at: now,
+        finance_remarks: input.remarks || null,
+      };
+
+      const { error } = await db
+        .from('claims')
+        .update(updateData)
+        .in('id', input.requestIds);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['claim-approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['claim-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['claims'] });
+      toast({ title: 'Success', description: 'Claim forwarded' });
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -238,8 +332,10 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
   return {
     ...query,
     approveClaim: approveMutation.mutateAsync,
+    forwardClaim: forwardMutation.mutateAsync,
     rejectClaim: rejectMutation.mutateAsync,
     isApproving: approveMutation.isPending,
+    isForwarding: forwardMutation.isPending,
     isRejecting: rejectMutation.isPending,
   };
 }

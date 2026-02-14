@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import type { LeaveRequest } from '@/types/leave';
+import { getLeaveStatusDisplay, getLeaveApproverName } from '@/types/leave';
 import { LeaveApprovalActions } from '@/components/leave/LeaveApprovalActions';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState } from 'react';
@@ -83,7 +84,7 @@ export function LeaveRequestDetailsSheet({
               <div className="text-sm text-muted-foreground">Ticket</div>
               <div className="font-semibold">{request.ticket_number}</div>
             </div>
-            <Badge variant={statusVariant(request.status) as any}>{request.status.replace(/_/g, ' ')}</Badge>
+            <Badge variant={statusVariant(request.status) as any}>{getLeaveStatusDisplay(request.status, getLeaveApproverName(request))}</Badge>
           </div>
 
           <Separator />

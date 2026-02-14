@@ -4,17 +4,18 @@ import { Card } from '@/components/ui/card';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Search, Settings2, CheckCircle } from 'lucide-react';
+import { Search, Settings2, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { PayrollStatCards } from '@/components/payroll/PayrollStatCards';
 import { PayrollRunsTable } from '@/components/payroll/PayrollRunsTable';
 import { CreatePayrollRunDialog } from '@/components/payroll/CreatePayrollRunDialog';
 import { PayrollSettingsForm } from '@/components/payroll/PayrollSettingsForm';
 import { AllowanceTypeSetup } from '@/components/payroll/AllowanceTypeSetup';
 import { DeductionTypeSetup } from '@/components/payroll/DeductionTypeSetup';
+import { ConsolidatedPayrollMemo } from '@/components/payroll/ConsolidatedPayrollMemo';
 import { usePayrollRuns, type PayrollRunsFilter } from '@/hooks/payroll/usePayrollRuns';
 
 export default function Payroll() {
-  const [section, setSection] = useState<'runs' | 'settings'>('runs');
+  const [section, setSection] = useState<'runs' | 'consolidated' | 'settings'>('runs');
   const [tab, setTab] = useState<PayrollRunsFilter>('all');
   const [search, setSearch] = useState('');
 
@@ -43,10 +44,14 @@ export default function Payroll() {
         <PayrollStatCards runs={allRuns.data || []} isLoading={allRuns.isLoading} />
 
         <Tabs value={section} onValueChange={(v) => setSection(v as any)} className="mt-6">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="runs" className="gap-2">
               <CheckCircle className="h-4 w-4" />
               Payroll Runs
+            </TabsTrigger>
+            <TabsTrigger value="consolidated" className="gap-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              Consolidated
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings2 className="h-4 w-4" />
@@ -81,6 +86,10 @@ export default function Payroll() {
 
               <PayrollRunsTable runs={filtered} isLoading={isLoading} />
             </Card>
+          </TabsContent>
+
+          <TabsContent value="consolidated" className="mt-6">
+            <ConsolidatedPayrollMemo />
           </TabsContent>
 
           <TabsContent value="settings" className="mt-6 space-y-6">

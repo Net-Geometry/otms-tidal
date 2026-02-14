@@ -67,6 +67,18 @@ export function useLeaveApproval(options: { role: LeaveApprovalRole; tab?: Leave
             full_name,
             department_id,
             departments(name)
+          ),
+          supervisor_profile:profiles!leave_requests_supervisor_id_fkey(
+            id,
+            full_name
+          ),
+          hr_profile:profiles!leave_requests_hr_id_fkey(
+            id,
+            full_name
+          ),
+          management_profile:profiles!leave_requests_management_id_fkey(
+            id,
+            full_name
           )
         `)
         .order('created_at', { ascending: false });

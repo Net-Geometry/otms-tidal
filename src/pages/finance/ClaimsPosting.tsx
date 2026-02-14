@@ -102,8 +102,10 @@ export default function ClaimsPosting() {
                   role="finance"
                   enableBatch
                   onApprove={async (ids, remarks) => approvals.approveClaim({ requestIds: ids, remarks })}
+                  onForward={async (ids, nextApprover, remarks) => approvals.forwardClaim({ requestIds: ids, nextApprover, remarks })}
                   onReject={async (ids, remarks) => approvals.rejectClaim({ requestIds: ids, remarks })}
                   isApproving={approvals.isApproving}
+                  isForwarding={approvals.isForwarding}
                   isRejecting={approvals.isRejecting}
                   showActions
                 />

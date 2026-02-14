@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { LeaveRequest } from '@/types/leave';
+import { getLeaveStatusDisplay, getLeaveApproverName } from '@/types/leave';
 import { LeaveRequestDetailsSheet } from '@/components/leave/LeaveRequestDetailsSheet';
 import { LeaveApprovalActions } from '@/components/leave/LeaveApprovalActions';
 
@@ -169,7 +170,7 @@ export function LeaveRequestTable({
                   </TableCell>
                   <TableCell className="text-right">{Number(r.total_days || 0).toFixed(1)}</TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant(r.status) as any}>{String(r.status).replace(/_/g, ' ')}</Badge>
+                    <Badge variant={statusVariant(r.status) as any}>{getLeaveStatusDisplay(r.status, getLeaveApproverName(r))}</Badge>
                   </TableCell>
                   {showActions && (
                     <TableCell className="text-right">

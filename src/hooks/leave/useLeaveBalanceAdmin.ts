@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { LeaveBalance, LeaveType } from '@/types/leave';
+import { getSickLeaveEntitlement } from '@/utils/yearsOfService';
 
 function computeRemaining(row: any) {
   return (
@@ -75,27 +76,40 @@ export function useLeaveBalanceAdmin(options?: { employeeId?: string; year?: num
     mutationFn: async (input: { year: number }) => {
       const { data: leaveTypes, error: ltError } = await db
         .from('leave_types')
-        .select('id, default_days, is_active')
+        .select('id, code, default_days, is_active, accrual_type, monthly_accrual_rate')
         .eq('is_active', true);
       if (ltError) throw ltError;
 
       const { data: employees, error: empError } = await supabase
         .from('profiles')
-        .select('id, status');
+        .select('id, status, joining_date');
       if (empError) throw empError;
 
-      const activeEmployeeIds = (employees || [])
-        .filter((e: any) => (e.status || 'active') === 'active')
-        .map((e: any) => e.id);
+      const activeEmployees = (employees || [])
+        .filter((e: any) => (e.status || 'active') === 'active');
 
       const rows: any[] = [];
-      for (const empId of activeEmployeeIds) {
+      for (const emp of activeEmployees as any[]) {
         for (const lt of (leaveTypes || []) as any[]) {
+          let entitled: number;
+
+          // Sick leave: use YOS-based entitlement per Malaysian Employment Act
+          if (lt.code === 'sick') {
+            entitled = getSickLeaveEntitlement(emp.joining_date);
+          } else {
+            const isMonthly = lt.accrual_type === 'monthly';
+            const monthlyRate = Number(lt.monthly_accrual_rate || 0);
+            // For monthly accrual: start with first month's entitlement only
+            entitled = isMonthly && monthlyRate > 0
+              ? monthlyRate
+              : Number(lt.default_days || 0);
+          }
+
           rows.push({
-            employee_id: empId,
+            employee_id: emp.id,
             leave_type_id: lt.id,
             year: input.year,
-            entitled_days: Number(lt.default_days || 0),
+            entitled_days: entitled,
             used_days: 0,
             carried_forward: 0,
             adjustment: 0,

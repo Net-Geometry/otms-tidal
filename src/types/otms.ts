@@ -123,6 +123,9 @@ export interface Profile {
   position_id: string | null;
   supervisor_id: string | null;
   joining_date: string | null;
+  date_of_birth: string | null;
+  /** EPF category: 'below_60' or 'above_60' - determines employee EPF contribution rate */
+  epf_category: string | null;
   /** Foreign key to company_locations.id - UUID of the employee's work location */
   work_location: string | null;
   /** Malaysian state code (e.g., WPKL, KUL, JHR) - auto-synced from work_location */
@@ -130,6 +133,13 @@ export interface Profile {
   status: string;
   is_ot_eligible: boolean;
   require_ot_attachment?: boolean;
+  /** Per-employee payroll contribution rates - override global settings if set */
+  employee_epf_rate?: number | null;
+  employer_epf_rate?: number | null;
+  employee_socso_rate?: number | null;
+  employer_socso_rate?: number | null;
+  employee_eis_rate?: number | null;
+  employer_eis_rate?: number | null;
   user_roles?: Array<{ role: AppRole }>;
   company?: { id: string; name: string; code: string } | null;
   department?: { id: string; name: string; code: string } | null;

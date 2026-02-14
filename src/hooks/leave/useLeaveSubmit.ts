@@ -116,14 +116,22 @@ export function useLeaveSubmit() {
         throw new Error(`Attachment is required for ${leaveType.name}`);
       }
 
-      // Fetch profile for supervisor + state
+      // Fetch profile for supervisor + state + salary
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('supervisor_id, state')
+        .select('supervisor_id, state, basic_salary')
         .eq('id', user.id)
         .single();
 
       if (profileError) throw profileError;
+
+      // Replacement leave salary check (Malaysian Employment Act: RM4,000 minimum)
+      if (leaveType.code === 'replacement') {
+        const salary = Number((profile as any)?.basic_salary || 0);
+        if (salary < 4000) {
+          throw new Error('Replacement leave is only available for employees with salary RM4,000 and above');
+        }
+      }
 
       // Days calculation (business days; half-day = 0.5)
       let totalDays = 0.5;

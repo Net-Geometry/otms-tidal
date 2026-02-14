@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Eye, Edit, Mail, Trash2, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/otCalculations';
+import { calculateYearsOfService } from '@/utils/yearsOfService';
 import { EmployeeDetailsSheet } from './EmployeeDetailsSheet';
 import { Profile } from '@/types/otms';
 import { useResendInvite } from '@/hooks/hr/useResendInvite';
 import { useDeleteEmployee } from '@/hooks/hr/useDeleteEmployee';
 import { useUpdateEmployee } from '@/hooks/hr/useUpdateEmployee';
+import { useEmployees } from '@/hooks/hr/useEmployees';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +39,7 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
   const resendInvite = useResendInvite();
   const deleteEmployee = useDeleteEmployee();
   const updateEmployee = useUpdateEmployee();
+  const { data: allEmployees = [] } = useEmployees();
 
   // Filter employees based on search and status
   const filteredEmployees = employees.filter(employee => {
@@ -133,6 +136,12 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                 )
               },
               {
+                label: 'Supervisor',
+                value: employee.supervisor_id 
+                  ? allEmployees.find(e => e.id === employee.supervisor_id)?.full_name || '-'
+                  : '-'
+              },
+              {
                 label: 'OT Eligible',
                 value: (
                   <Switch
@@ -211,8 +220,10 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                 <TableHead>Company</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Position</TableHead>
+                <TableHead>Supervisor</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>YOS</TableHead>
                 <TableHead>OT Eligible</TableHead>
                 <TableHead>Attachment Req.</TableHead>
                 <TableHead>Actions</TableHead>
@@ -255,6 +266,15 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                     )}
                   </TableCell>
                   <TableCell>
+                    {employee.supervisor_id ? (
+                      allEmployees.find(e => e.id === employee.supervisor_id)?.full_name || (
+                        <span className="text-muted-foreground">-</span>
+                      )
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     {employee.user_roles && employee.user_roles.length > 0
                       ? employee.user_roles.map(ur => ur.role).join(', ')
                       : '-'
@@ -280,6 +300,9 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                         ? 'Active'
                         : employee.status}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    {calculateYearsOfService(employee.joining_date)?.display || '-'}
                   </TableCell>
                   <TableCell>
                     <Switch

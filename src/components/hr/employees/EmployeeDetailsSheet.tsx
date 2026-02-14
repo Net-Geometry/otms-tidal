@@ -34,6 +34,7 @@ import { useCompanyLocations } from '@/hooks/hr/useCompanyLocations';
 import { useResetEmployeePassword } from '@/hooks/hr/useResetEmployeePassword';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/otCalculations';
+import { calculateYearsOfService } from '@/utils/yearsOfService';
 import { KeyRound, AlertTriangle, Copy, Check } from 'lucide-react';
 import { RoleSelector } from '@/components/RoleSelector';
 import { StateSelector } from '@/components/hr/StateSelector';
@@ -411,6 +412,48 @@ export function EmployeeDetailsSheet({
               )}
             </div>
 
+            {/* EPF Category */}
+            <div className="grid gap-2">
+              <Label htmlFor="epf_category">EPF Category</Label>
+              {isEditing ? (
+                <Select
+                  value={formData.epf_category || 'below_60'}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, epf_category: value })
+                  }
+                >
+                  <SelectTrigger id="epf_category">
+                    <SelectValue placeholder="Select EPF Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="below_60">Below 60</SelectItem>
+                    <SelectItem value="above_60">Above 60</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm">
+                  {employee.epf_category === 'above_60' ? 'Above 60' : 'Below 60'}
+                </div>
+              )}
+            </div>
+
+            {/* Designation (placeholder to keep grid even) */}
+            <div className="grid gap-2">
+              <Label htmlFor="designation">Designation</Label>
+              {isEditing ? (
+                <Input
+                  id="designation"
+                  value={formData.designation || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, designation: e.target.value })
+                  }
+                  placeholder="e.g. Senior Engineer"
+                />
+              ) : (
+                <div className="text-sm">{employee.designation || '-'}</div>
+              )}
+            </div>
+
             {/* Row 6: Employment Type + Joining Date */}
             <div className="grid gap-2">
               <Label htmlFor="employment_type">Employment Type</Label>
@@ -450,6 +493,33 @@ export function EmployeeDetailsSheet({
                 />
               ) : (
                 <div className="text-sm">{employee.joining_date || '-'}</div>
+              )}
+            </div>
+
+            {/* Years of Service (read-only, computed from joining date) */}
+            {!isEditing && employee.joining_date && (
+              <div className="grid gap-2">
+                <Label>Years of Service</Label>
+                <div className="text-sm">
+                  {calculateYearsOfService(employee.joining_date)?.display || '-'}
+                </div>
+              </div>
+            )}
+
+            {/* Date of Birth */}
+            <div className="grid gap-2">
+              <Label htmlFor="date_of_birth">Date of Birth</Label>
+              {isEditing ? (
+                <Input
+                  id="date_of_birth"
+                  type="date"
+                  value={formData.date_of_birth || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, date_of_birth: e.target.value })
+                  }
+                />
+              ) : (
+                <div className="text-sm">{employee.date_of_birth || '-'}</div>
               )}
             </div>
 
@@ -631,6 +701,191 @@ export function EmployeeDetailsSheet({
                   {employee.require_ot_attachment ? 'Required' : 'Optional'}
                 </Badge>
               )}
+            </div>
+
+            {/* Payroll Contribution Settings Section */}
+            <div className="col-span-2 mt-4">
+              <Separator className="my-4" />
+              <h4 className="text-sm font-semibold mb-3">Payroll Contribution Settings (Optional)</h4>
+              <p className="text-xs text-muted-foreground mb-4">
+                Leave blank to use global settings. Set values to override for this employee only.
+              </p>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {/* Employee EPF Rate */}
+                <div className="grid gap-2">
+                  <Label htmlFor="employee_epf_rate">Employee EPF %</Label>
+                  {isEditing ? (
+                    <Input
+                      id="employee_epf_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.employee_epf_rate ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          employee_epf_rate: e.target.value ? parseFloat(e.target.value) : null,
+                        })
+                      }
+                      placeholder="e.g. 11"
+                    />
+                  ) : (
+                    <div className="text-sm">
+                      {employee.employee_epf_rate !== null && employee.employee_epf_rate !== undefined
+                        ? `${employee.employee_epf_rate}%`
+                        : <span className="text-muted-foreground">Using global setting</span>
+                      }
+                    </div>
+                  )}
+                </div>
+
+                {/* Employer EPF Rate */}
+                <div className="grid gap-2">
+                  <Label htmlFor="employer_epf_rate">Employer EPF %</Label>
+                  {isEditing ? (
+                    <Input
+                      id="employer_epf_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.employer_epf_rate ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          employer_epf_rate: e.target.value ? parseFloat(e.target.value) : null,
+                        })
+                      }
+                      placeholder="e.g. 12"
+                    />
+                  ) : (
+                    <div className="text-sm">
+                      {employee.employer_epf_rate !== null && employee.employer_epf_rate !== undefined
+                        ? `${employee.employer_epf_rate}%`
+                        : <span className="text-muted-foreground">Using global setting</span>
+                      }
+                    </div>
+                  )}
+                </div>
+
+                {/* Employee SOCSO Rate */}
+                <div className="grid gap-2">
+                  <Label htmlFor="employee_socso_rate">Employee SOCSO %</Label>
+                  {isEditing ? (
+                    <Input
+                      id="employee_socso_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.employee_socso_rate ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          employee_socso_rate: e.target.value ? parseFloat(e.target.value) : null,
+                        })
+                      }
+                      placeholder="e.g. 0.5"
+                    />
+                  ) : (
+                    <div className="text-sm">
+                      {employee.employee_socso_rate !== null && employee.employee_socso_rate !== undefined
+                        ? `${employee.employee_socso_rate}%`
+                        : <span className="text-muted-foreground">Using global setting</span>
+                      }
+                    </div>
+                  )}
+                </div>
+
+                {/* Employer SOCSO Rate */}
+                <div className="grid gap-2">
+                  <Label htmlFor="employer_socso_rate">Employer SOCSO %</Label>
+                  {isEditing ? (
+                    <Input
+                      id="employer_socso_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.employer_socso_rate ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          employer_socso_rate: e.target.value ? parseFloat(e.target.value) : null,
+                        })
+                      }
+                      placeholder="e.g. 1.75"
+                    />
+                  ) : (
+                    <div className="text-sm">
+                      {employee.employer_socso_rate !== null && employee.employer_socso_rate !== undefined
+                        ? `${employee.employer_socso_rate}%`
+                        : <span className="text-muted-foreground">Using global setting</span>
+                      }
+                    </div>
+                  )}
+                </div>
+
+                {/* Employee EIS Rate */}
+                <div className="grid gap-2">
+                  <Label htmlFor="employee_eis_rate">Employee EIS %</Label>
+                  {isEditing ? (
+                    <Input
+                      id="employee_eis_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.employee_eis_rate ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          employee_eis_rate: e.target.value ? parseFloat(e.target.value) : null,
+                        })
+                      }
+                      placeholder="e.g. 0.2"
+                    />
+                  ) : (
+                    <div className="text-sm">
+                      {employee.employee_eis_rate !== null && employee.employee_eis_rate !== undefined
+                        ? `${employee.employee_eis_rate}%`
+                        : <span className="text-muted-foreground">Using global setting</span>
+                      }
+                    </div>
+                  )}
+                </div>
+
+                {/* Employer EIS Rate */}
+                <div className="grid gap-2">
+                  <Label htmlFor="employer_eis_rate">Employer EIS %</Label>
+                  {isEditing ? (
+                    <Input
+                      id="employer_eis_rate"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={formData.employer_eis_rate ?? ''}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          employer_eis_rate: e.target.value ? parseFloat(e.target.value) : null,
+                        })
+                      }
+                      placeholder="e.g. 0.2"
+                    />
+                  ) : (
+                    <div className="text-sm">
+                      {employee.employer_eis_rate !== null && employee.employer_eis_rate !== undefined
+                        ? `${employee.employer_eis_rate}%`
+                        : <span className="text-muted-foreground">Using global setting</span>
+                      }
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

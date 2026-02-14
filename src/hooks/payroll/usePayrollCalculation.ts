@@ -19,6 +19,13 @@ interface EmployeeProfile {
   company_id: string;
   joining_date: string | null;
   deleted_at: string | null;
+  // Per-employee contribution rate overrides
+  employee_epf_rate?: number | null;
+  employer_epf_rate?: number | null;
+  employee_socso_rate?: number | null;
+  employer_socso_rate?: number | null;
+  employee_eis_rate?: number | null;
+  employer_eis_rate?: number | null;
 }
 
 interface CalculatedItem {
@@ -81,6 +88,59 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Simplified monthly PCB (MTD) lookup table based on LHDN Schedule.
+ * Assumes single person (Category 1) with no additional deductions.
+ * Each entry: [upperBound, pcbAmount]. Sorted ascending by upperBound.
+ * Gross income up to the upperBound maps to the corresponding pcbAmount.
+ */
+const PCB_MONTHLY_TABLE: [number, number][] = [
+  [2500, 0],
+  [3000, 13],
+  [3500, 43],
+  [4000, 73],
+  [4500, 108],
+  [5000, 153],
+  [5500, 198],
+  [6000, 248],
+  [6500, 303],
+  [7000, 358],
+  [7500, 423],
+  [8000, 498],
+  [8500, 573],
+  [9000, 658],
+  [9500, 743],
+  [10000, 838],
+  [11000, 1023],
+  [12000, 1218],
+  [13000, 1433],
+  [14000, 1648],
+  [15000, 1893],
+  [16000, 2143],
+  [17000, 2393],
+  [18000, 2643],
+  [19000, 2893],
+  [20000, 3143],
+  [25000, 4393],
+  [30000, 5643],
+  [35000, 6893],
+  [40000, 8293],
+  [45000, 9793],
+  [50000, 11293],
+  [60000, 14293],
+  [70000, 17293],
+  [80000, 20293],
+  [100000, 26293],
+  [Infinity, 26293], // cap at highest bracket
+];
+
+function lookupPcb(monthlyGross: number): number {
+  for (const [upperBound, pcb] of PCB_MONTHLY_TABLE) {
+    if (monthlyGross <= upperBound) return pcb;
+  }
+  return 0;
+}
+
 function calculateEmployee(
   profile: EmployeeProfile,
   settings: PayrollSettings,
@@ -115,20 +175,43 @@ function calculateEmployee(
   // Gross = pro-rated salary (OT will be added separately if available)
   const grossSalary = proRatedSalary;
 
-  // EPF calculation
+  // EPF calculation - use per-employee rate if set, otherwise use global settings
   const epfAbleWage = grossSalary;
-  const employerEpfRate = Number(settings.employer_epf_rate) / 100;
-  const employeeEpfRate = Number(settings.employee_epf_rate_below_60) / 100;
+  const employerEpfRate = (profile.employer_epf_rate !== null && profile.employer_epf_rate !== undefined)
+    ? Number(profile.employer_epf_rate) / 100
+    : Number(settings.employer_epf_rate) / 100;
+  const employeeEpfRateRaw = (profile.employee_epf_rate !== null && profile.employee_epf_rate !== undefined)
+    ? Number(profile.employee_epf_rate)
+    : profile.epf_category === 'above_60'
+      ? Number(settings.employee_epf_rate_above_60)
+      : Number(settings.employee_epf_rate_below_60);
+  const employeeEpfRate = employeeEpfRateRaw / 100;
   const employerEpf = round2(epfAbleWage * employerEpfRate);
   const employeeEpf = round2(epfAbleWage * employeeEpfRate);
 
-  // SOCSO lookup
-  const socso = lookupSocso(grossSalary, socsoTable, settings.socso_scheme);
+  // SOCSO calculation - use per-employee rate if set, otherwise use lookup table
+  let employerSocso: number;
+  let employeeSocso: number;
+  if (profile.employer_socso_rate !== null && profile.employer_socso_rate !== undefined &&
+      profile.employee_socso_rate !== null && profile.employee_socso_rate !== undefined) {
+    employerSocso = round2(grossSalary * (Number(profile.employer_socso_rate) / 100));
+    employeeSocso = round2(grossSalary * (Number(profile.employee_socso_rate) / 100));
+  } else {
+    const socso = lookupSocso(grossSalary, socsoTable, settings.socso_scheme);
+    employerSocso = socso.employer;
+    employeeSocso = socso.employee;
+  }
 
-  // EIS calculation
+  // EIS calculation - use per-employee rate if set, otherwise use global settings
   const eisWage = Math.min(grossSalary, Number(settings.eis_wage_ceiling));
-  const employerEis = round2(eisWage * (Number(settings.eis_employer_rate) / 100));
-  const employeeEis = round2(eisWage * (Number(settings.eis_employee_rate) / 100));
+  const employerEisRate = (profile.employer_eis_rate !== null && profile.employer_eis_rate !== undefined)
+    ? Number(profile.employer_eis_rate) / 100
+    : Number(settings.eis_employer_rate) / 100;
+  const employeeEisRate = (profile.employee_eis_rate !== null && profile.employee_eis_rate !== undefined)
+    ? Number(profile.employee_eis_rate) / 100
+    : Number(settings.eis_employee_rate) / 100;
+  const employerEis = round2(eisWage * employerEisRate);
+  const employeeEis = round2(eisWage * employeeEisRate);
 
   // HRDC
   const employerHrdc = settings.hrdc_enabled
@@ -139,9 +222,12 @@ function calculateEmployee(
   const isDirector = profile.is_director || false;
   const directorFee = isDirector ? Number(profile.director_fee) || 0 : 0;
 
+  // PCB/MTD lookup (simplified monthly schedule)
+  const pcbAmount = lookupPcb(grossSalary);
+
   // Total deductions (employee portion)
   const totalDeductions = round2(
-    employeeEpf + socso.employee + employeeEis
+    employeeEpf + employeeSocso + employeeEis + pcbAmount
   );
 
   // Net salary
@@ -160,13 +246,13 @@ function calculateEmployee(
     gross_salary: grossSalary,
     ot_amount: 0,
     employee_epf: employeeEpf,
-    employee_socso: socso.employee,
+    employee_socso: employeeSocso,
     employee_eis: employeeEis,
     employer_epf: employerEpf,
-    employer_socso: socso.employer,
+    employer_socso: employerSocso,
     employer_eis: employerEis,
     employer_hrdc: employerHrdc,
-    pcb_amount: 0,
+    pcb_amount: pcbAmount,
     cp38_amount: 0,
     zakat_amount: 0,
     sports_club: 0,
@@ -182,9 +268,16 @@ function calculateEmployee(
     claims_amount: 0,
     calculation_notes: {
       calculated_at: new Date().toISOString(),
-      epf_rate: `${settings.employer_epf_rate}% / ${settings.employee_epf_rate_below_60}%`,
+      epf_category: profile.epf_category || 'below_60',
+      epf_rate: `${(employerEpfRate * 100).toFixed(2)}% / ${employeeEpfRateRaw.toFixed(2)}%`,
+      pcb_amount: pcbAmount,
       socso_scheme: settings.socso_scheme,
       pro_rated: isProRated,
+      used_custom_rates: {
+        epf: profile.employer_epf_rate !== null || profile.employee_epf_rate !== null,
+        socso: profile.employer_socso_rate !== null || profile.employee_socso_rate !== null,
+        eis: profile.employer_eis_rate !== null || profile.employee_eis_rate !== null,
+      },
     },
   };
 }
@@ -207,7 +300,7 @@ export function usePayrollCalculation() {
       // Fetch employees for this company
       const { data: employees, error: empError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('company_id', input.companyId)
         .is('deleted_at', null);
 
