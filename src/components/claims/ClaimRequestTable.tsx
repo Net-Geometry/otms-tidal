@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import type { Claim, NextApproverOption } from '@/types/claims';
 import { getClaimStatusDisplay, getClaimApproverName } from '@/types/claims';
+import { StatusWithMetadata, getClaimApproverMetadata } from '@/components/StatusWithMetadata';
 import { ClaimDetailsSheet } from '@/components/claims/ClaimDetailsSheet';
 import { ClaimApprovalActions } from '@/components/claims/ClaimApprovalActions';
 
@@ -185,7 +186,11 @@ export function ClaimRequestTable({
                   <TableCell className="text-right">{Number(r.amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge variant={statusVariant(r.status) as any}>{getClaimStatusDisplay(r.status, getClaimApproverName(r))}</Badge>
+                      <StatusWithMetadata 
+                        status={r.status} 
+                        label={getClaimStatusDisplay(r.status)}
+                        metadata={getClaimApproverMetadata(r)}
+                      />
                       {r.is_posted && <Badge variant="secondary">posted</Badge>}
                     </div>
                   </TableCell>

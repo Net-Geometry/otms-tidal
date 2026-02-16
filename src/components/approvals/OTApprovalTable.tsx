@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { CheckCircle, XCircle, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { StatusBadge } from '@/components/StatusBadge';
+import { StatusWithMetadata, getOTApproverMetadata } from '@/components/StatusWithMetadata';
 import { GroupedOTRequest } from '@/types/otms';
 import { formatTime12Hour, formatHours } from '@/lib/otCalculations';
 import { getStatusTooltip } from '@/lib/otStatusTooltip';
@@ -342,10 +342,11 @@ export function OTApprovalTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <StatusBadge
+                      <StatusWithMetadata
                         status={request.status}
                         rejectionStage={request.rejection_stage}
                         tooltip={getStatusTooltip(request)}
+                        metadata={getOTApproverMetadata(request)}
                       />
                       {request.threshold_violations && Object.keys(request.threshold_violations).length > 0 && (
                         <Badge variant="destructive" className="text-xs">

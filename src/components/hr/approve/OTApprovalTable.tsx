@@ -4,7 +4,7 @@ import { Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ResponsiveTable } from '@/components/ui/responsive-table';
-import { StatusBadge } from '@/components/StatusBadge';
+import { StatusWithMetadata, getOTApproverMetadata } from '@/components/StatusWithMetadata';
 import { OTRequest } from '@/types/otms';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
 import { getStatusTooltip } from '@/lib/otStatusTooltip';
@@ -75,7 +75,7 @@ export function OTApprovalTable({ requests, isLoading }: OTApprovalTableProps) {
               },
               {
                 label: 'Status',
-                value: <StatusBadge status={request.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request as any)} />
+                value: <StatusWithMetadata status={request.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request as any)} metadata={getOTApproverMetadata(request)} />
               }
             ],
             actions: (
@@ -126,7 +126,7 @@ export function OTApprovalTable({ requests, isLoading }: OTApprovalTableProps) {
                   <TableCell>{formatHours(request.total_hours)} hrs</TableCell>
                   <TableCell>{formatCurrency(request.ot_amount || 0)}</TableCell>
                   <TableCell>
-                    <StatusBadge status={request.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request as any)} />
+                    <StatusWithMetadata status={request.status} rejectionStage={request.rejection_stage} tooltip={getStatusTooltip(request as any)} metadata={getOTApproverMetadata(request)} />
                   </TableCell>
                   <TableCell>
                     <Button

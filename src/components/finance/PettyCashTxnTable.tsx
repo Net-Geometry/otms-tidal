@@ -13,6 +13,7 @@ import type { PettyCashStatus, PettyCashTransaction } from '@/types/finance';
 import { PETTY_CASH_STATUS_LABELS, PETTY_CASH_TXN_TYPE_LABELS } from '@/types/finance';
 import { PettyCashApprovalActions } from '@/components/finance/PettyCashApprovalActions';
 import { formatCurrency } from '@/lib/otCalculations';
+import { StatusWithMetadata, getPettyCashApproverMetadata } from '@/components/StatusWithMetadata';
 
 function statusVariant(status: PettyCashStatus) {
   if (status === 'approved') return 'default';
@@ -86,7 +87,11 @@ export function PettyCashTxnTable({
               <TableCell>{txn.account ? `${txn.account.account_code} - ${txn.account.account_name}` : '-'}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <Badge variant={statusVariant(txn.status) as any}>{PETTY_CASH_STATUS_LABELS[txn.status]}</Badge>
+                  <StatusWithMetadata 
+                    status={txn.status}
+                    label={PETTY_CASH_STATUS_LABELS[txn.status]}
+                    metadata={getPettyCashApproverMetadata(txn)}
+                  />
                   {txn.is_posted && <Badge variant="secondary">Posted</Badge>}
                 </div>
               </TableCell>

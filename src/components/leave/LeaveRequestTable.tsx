@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import type { LeaveRequest } from '@/types/leave';
 import { getLeaveStatusDisplay, getLeaveApproverName } from '@/types/leave';
+import { StatusWithMetadata, getLeaveApproverMetadata } from '@/components/StatusWithMetadata';
 import { LeaveRequestDetailsSheet } from '@/components/leave/LeaveRequestDetailsSheet';
 import { LeaveApprovalActions } from '@/components/leave/LeaveApprovalActions';
 
@@ -170,7 +171,11 @@ export function LeaveRequestTable({
                   </TableCell>
                   <TableCell className="text-right">{Number(r.total_days || 0).toFixed(1)}</TableCell>
                   <TableCell>
-                    <Badge variant={statusVariant(r.status) as any}>{getLeaveStatusDisplay(r.status, getLeaveApproverName(r))}</Badge>
+                    <StatusWithMetadata 
+                      status={r.status} 
+                      label={getLeaveStatusDisplay(r.status)}
+                      metadata={getLeaveApproverMetadata(r)}
+                    />
                   </TableCell>
                   {showActions && (
                     <TableCell className="text-right">
