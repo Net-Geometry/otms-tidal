@@ -135,6 +135,7 @@ export function useUpsertAccount() {
             description: input.description || null,
             sort_order: input.sort_order ?? 0,
             system_tag: input.system_tag || null,
+            currency_code: input.currency_code || null,
           })
           .eq('id', input.id);
         if (error) throw error;
@@ -154,6 +155,7 @@ export function useUpsertAccount() {
           description: input.description || null,
           sort_order: input.sort_order ?? 0,
           system_tag: input.system_tag || null,
+          currency_code: input.currency_code || null,
         });
       if (error) throw error;
     },

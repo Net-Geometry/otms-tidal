@@ -143,6 +143,9 @@ export default function PettyCash() {
               account_id: values.account_id,
               project_id: values.project_id || null,
               receipt_urls: values.receipt_urls,
+              payee: values.payee || null,
+              department: values.department || null,
+              tax_amount: Number(values.tax_amount || 0),
             });
           }}
         />

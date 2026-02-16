@@ -204,3 +204,51 @@ All colors MUST be HSL.
 .rbc-toolbar-label {
   @apply text-lg font-semibold;
 }
+
+/* Beautiful Custom Scrollbar */
+@layer utilities {
+  /* Base scrollbar styles */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-border)) transparent;
+  }
+  
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--sidebar-border) / 0.5);
+    border-radius: 10px;
+    transition: background 0.2s ease;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--sidebar-border));
+  }
+  
+  /* Hide scrollbar when not hovering */
+  .scrollbar-auto-hide {
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-auto-hide::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+  }
+  
+  .scrollbar-auto-hide:hover {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-auto-hide:hover::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+}

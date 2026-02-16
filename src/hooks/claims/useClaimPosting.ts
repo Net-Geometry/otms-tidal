@@ -1,7 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Claim } from '@/types/claims';
+import { createGLPosting } from '@/hooks/finance/useGeneralLedger';
 
 export type ClaimPostingTab = 'ready' | 'posted';
 
@@ -50,7 +53,7 @@ export function useClaimPosting(options?: { tab?: ClaimPostingTab }) {
 
       const { data: current, error: fetchErr } = await db
         .from('claims')
-        .select('id, status, is_posted')
+        .select('id, ticket_number, claim_date, amount, purpose, status, is_posted')
         .in('id', input.claimIds);
       if (fetchErr) throw fetchErr;
 
@@ -59,18 +62,64 @@ export function useClaimPosting(options?: { tab?: ClaimPostingTab }) {
         throw new Error('Only unposted finance-approved claims can be posted');
       }
 
+      const { data: glAccounts, error: glAccountsError } = await db
+        .from('chart_of_accounts')
+        .select('id, system_tag')
+        .in('system_tag', ['claims_expense', 'claims_payable', 'trade_payables'])
+        .eq('is_active', true);
+      if (glAccountsError) throw glAccountsError;
+
+      const claimsExpenseAccountId = (glAccounts || []).find((row: any) => row.system_tag === 'claims_expense')?.id;
+      const claimsPayableAccountId = (glAccounts || []).find((row: any) => row.system_tag === 'claims_payable')?.id
+        || (glAccounts || []).find((row: any) => row.system_tag === 'trade_payables')?.id;
+
+      if (!claimsExpenseAccountId || !claimsPayableAccountId) {
+        throw new Error('Missing chart of account mappings for claims posting');
+      }
+
       const now = new Date().toISOString();
-      const { error } = await db
-        .from('claims')
-        .update({
-          is_posted: true,
-          posted_at: now,
-          posted_by: authData.user.id,
-          posting_reference: input.reference || null,
-          posting_remarks: input.remarks || null,
-        })
-        .in('id', input.claimIds);
-      if (error) throw error;
+
+      for (const claim of current || []) {
+        const amount = Number(claim.amount || 0);
+        if (amount <= 0) {
+          throw new Error(`Claim ${claim.ticket_number || claim.id} has invalid amount`);
+        }
+
+        const posting = await createGLPosting({
+          reference_type: 'claims',
+          reference_id: claim.id,
+          entry_date: claim.claim_date,
+          description: `Claims posting ${claim.ticket_number || claim.id}`,
+          prefix: 'JV',
+          lines: [
+            {
+              account_id: claimsExpenseAccountId,
+              description: claim.purpose || claim.ticket_number || 'Claim expense',
+              debit_amount: amount,
+              credit_amount: 0,
+            },
+            {
+              account_id: claimsPayableAccountId,
+              description: claim.purpose || claim.ticket_number || 'Claim payable',
+              debit_amount: 0,
+              credit_amount: amount,
+            },
+          ],
+        });
+
+        const { error: updateError } = await db
+          .from('claims')
+          .update({
+            is_posted: true,
+            posted_at: now,
+            posted_by: authData.user.id,
+            posting_reference: posting.entry_number,
+            posting_remarks: input.remarks || null,
+          })
+          .eq('id', claim.id);
+
+        if (updateError) throw updateError;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['claim-posting'] });

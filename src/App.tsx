@@ -77,6 +77,23 @@ const PettyCash = lazy(() => import("./pages/finance/PettyCash"));
 const ProjectCosting = lazy(() => import("./pages/finance/ProjectCosting"));
 const Wages = lazy(() => import("./pages/finance/Wages"));
 const FinanceReports = lazy(() => import("./pages/finance/FinanceReports"));
+const SetupCompanyProfile = lazy(() => import("./pages/finance/SetupCompanyProfile"));
+const SetupDoaMatrix = lazy(() => import("./pages/finance/SetupDoaMatrix"));
+const MastersSuppliers = lazy(() => import("./pages/finance/MastersSuppliers"));
+const MastersCustomers = lazy(() => import("./pages/finance/MastersCustomers"));
+const MastersBankAccounts = lazy(() => import("./pages/finance/MastersBankAccounts"));
+const WorkflowInbox = lazy(() => import("./pages/finance/WorkflowInbox"));
+const JournalEntries = lazy(() => import("./pages/finance/JournalEntries"));
+const PurchaseRequisitions = lazy(() => import("./pages/finance/PurchaseRequisitions"));
+const ApInvoices = lazy(() => import("./pages/finance/ApInvoices"));
+const PaymentVouchers = lazy(() => import("./pages/finance/PaymentVouchers"));
+const ArInvoices = lazy(() => import("./pages/finance/ArInvoices"));
+const OfficialReceipts = lazy(() => import("./pages/finance/OfficialReceipts"));
+const ApDebitCreditNotes = lazy(() => import("./pages/finance/ApDebitCreditNotes"));
+const ArDebitCreditNotes = lazy(() => import("./pages/finance/ArDebitCreditNotes"));
+const CashBook = lazy(() => import("./pages/finance/CashBook"));
+const OpeningBalance = lazy(() => import("./pages/finance/OpeningBalance"));
+const BankReconciliation = lazy(() => import("./pages/finance/BankReconciliation"));
 
 const ReviewOT = lazy(() => import("./pages/management/ReviewOT"));
 const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
@@ -154,6 +171,25 @@ const App = () => (
 
                 {/* Finance routes */}
                 <Route path="/finance/chart-of-accounts" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ChartOfAccounts /></ProtectedRoute>} />
+                <Route path="/finance/setup/coa" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ChartOfAccounts /></ProtectedRoute>} />
+                <Route path="/finance/setup/company-profile" element={<ProtectedRoute requiredRole={['finance', 'admin']}><SetupCompanyProfile /></ProtectedRoute>} />
+                <Route path="/finance/setup/doa-matrix" element={<ProtectedRoute requiredRole={['finance', 'admin']}><SetupDoaMatrix /></ProtectedRoute>} />
+                <Route path="/finance/masters/suppliers" element={<ProtectedRoute requiredRole={['finance', 'admin']}><MastersSuppliers /></ProtectedRoute>} />
+                <Route path="/finance/masters/customers" element={<ProtectedRoute requiredRole={['finance', 'admin']}><MastersCustomers /></ProtectedRoute>} />
+                <Route path="/finance/masters/bank-accounts" element={<ProtectedRoute requiredRole={['finance', 'admin']}><MastersBankAccounts /></ProtectedRoute>} />
+                <Route path="/finance/workflow" element={<ProtectedRoute requiredRole={['finance', 'admin']}><Navigate to="/finance/workflow/inbox" replace /></ProtectedRoute>} />
+                <Route path="/finance/workflow/inbox" element={<ProtectedRoute requiredRole={['finance', 'admin']}><WorkflowInbox /></ProtectedRoute>} />
+                <Route path="/finance/gl/journal-entries" element={<ProtectedRoute requiredRole={['finance', 'admin']}><JournalEntries /></ProtectedRoute>} />
+                <Route path="/finance/ap/prf" element={<ProtectedRoute requiredRole={['finance', 'admin']}><PurchaseRequisitions /></ProtectedRoute>} />
+                <Route path="/finance/ap/invoices" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ApInvoices /></ProtectedRoute>} />
+                <Route path="/finance/ap/payment-vouchers" element={<ProtectedRoute requiredRole={['finance', 'admin']}><PaymentVouchers /></ProtectedRoute>} />
+                <Route path="/finance/ar/invoices" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ArInvoices /></ProtectedRoute>} />
+                <Route path="/finance/ar/official-receipts" element={<ProtectedRoute requiredRole={['finance', 'admin']}><OfficialReceipts /></ProtectedRoute>} />
+                <Route path="/finance/ap/notes" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ApDebitCreditNotes /></ProtectedRoute>} />
+                <Route path="/finance/ar/notes" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ArDebitCreditNotes /></ProtectedRoute>} />
+                <Route path="/finance/gl/cashbook" element={<ProtectedRoute requiredRole={['finance', 'admin']}><CashBook /></ProtectedRoute>} />
+                <Route path="/finance/gl/opening-balance" element={<ProtectedRoute requiredRole={['finance', 'admin']}><OpeningBalance /></ProtectedRoute>} />
+                <Route path="/finance/bank/reconciliation" element={<ProtectedRoute requiredRole={['finance', 'admin']}><BankReconciliation /></ProtectedRoute>} />
                 <Route path="/finance/claims" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ClaimsPosting /></ProtectedRoute>} />
                 <Route path="/finance/petty-cash" element={<ProtectedRoute requiredRole={['finance', 'admin']}><PettyCash /></ProtectedRoute>} />
                 <Route path="/finance/project-costing" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ProjectCosting /></ProtectedRoute>} />

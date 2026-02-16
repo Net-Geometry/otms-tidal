@@ -33,6 +33,9 @@ const schema = z.object({
   account_id: z.string().min(1, 'Account is required'),
   project_id: z.string().optional().nullable(),
   receipt_urls: z.array(z.string().url()).default([]),
+  payee: z.string().optional().nullable(),
+  department: z.string().optional().nullable(),
+  tax_amount: z.coerce.number().min(0).default(0),
 });
 
 type Values = z.infer<typeof schema>;
@@ -64,6 +67,9 @@ export function PettyCashTxnForm({
       account_id: '',
       project_id: null,
       receipt_urls: [],
+      payee: '',
+      department: '',
+      tax_amount: 0,
     },
   });
 
@@ -140,10 +146,54 @@ export function PettyCashTxnForm({
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
+                name="payee"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payee</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Who was paid" value={field.value || ''} onChange={field.onChange} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="department"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Department" value={field.value || ''} onChange={field.onChange} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField
+                control={form.control}
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Amount (RM)</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="0" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="tax_amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tax Amount (RM)</FormLabel>
                     <FormControl>
                       <Input type="number" min="0" step="0.01" {...field} />
                     </FormControl>

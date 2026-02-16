@@ -72,6 +72,9 @@ export function PettyCashTxnTable({
               <TableCell>
                 <div className="space-y-1">
                   <div className="max-w-[280px] truncate">{txn.description}</div>
+                  {txn.payee && (
+                    <div className="text-xs text-muted-foreground">Payee: {txn.payee}</div>
+                  )}
                   <div className="text-xs text-muted-foreground">
                     {txn.project ? `${txn.project.project_code} - ${txn.project.project_name}` : 'No project'}
                   </div>

@@ -12,9 +12,13 @@ export function useFinanceDashboard() {
   return useQuery({
     queryKey: ['finance-dashboard'],
     queryFn: async () => {
+      const today = format(new Date(), 'yyyy-MM-dd');
       const sixMonthStart = format(subMonths(new Date(), 5), 'yyyy-MM-01');
 
       const [
+        { data: apInvoices, error: apError },
+        { data: arInvoices, error: arError },
+        { data: bankAccounts, error: bankError },
         { data: payrollPosted, error: payrollPostedError },
         { count: payrollPendingCount, error: payrollPendingError },
         { data: claimsPosted, error: claimsPostedError },
@@ -23,35 +27,21 @@ export function useFinanceDashboard() {
         { data: allocations, error: allocationsError },
         { data: projects, error: projectsError },
       ] = await Promise.all([
-        db
-          .from('payroll_runs')
-          .select('id, total_net_salary, posted_at')
-          .eq('is_posted', true),
-        db
-          .from('payroll_runs')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending_finance'),
-        db
-          .from('claims')
-          .select('id, amount, posted_at')
-          .eq('is_posted', true),
-        db
-          .from('claims')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending_finance'),
-        db
-          .from('petty_cash_transactions')
-          .select('id, txn_type, amount, txn_date, status')
-          .eq('status', 'approved'),
-        db
-          .from('project_cost_allocations')
-          .select('project_id, amount'),
-        db
-          .from('projects')
-          .select('id, project_code, project_name, budget_amount')
-          .eq('is_active', true),
+        db.from('ap_invoices').select('id, total_amount, paid_amount, due_date, status').in('status', ['posted', 'partially_paid']),
+        db.from('ar_invoices').select('id, total_amount, paid_amount, due_date, status').in('status', ['posted', 'partially_paid']),
+        db.from('bank_accounts').select('id, current_balance').eq('is_active', true),
+        db.from('payroll_runs').select('id, total_net_salary, posted_at').eq('is_posted', true),
+        db.from('payroll_runs').select('id', { count: 'exact', head: true }).eq('status', 'pending_finance'),
+        db.from('claims').select('id, amount, posted_at').eq('is_posted', true),
+        db.from('claims').select('id', { count: 'exact', head: true }).eq('status', 'pending_finance'),
+        db.from('petty_cash_transactions').select('id, txn_type, amount, txn_date, status').eq('status', 'approved'),
+        db.from('project_cost_allocations').select('project_id, amount'),
+        db.from('projects').select('id, project_code, project_name, budget_amount').eq('is_active', true),
       ]);
 
+      if (apError) throw apError;
+      if (arError) throw arError;
+      if (bankError) throw bankError;
       if (payrollPostedError) throw payrollPostedError;
       if (payrollPendingError) throw payrollPendingError;
       if (claimsPostedError) throw claimsPostedError;
@@ -60,28 +50,30 @@ export function useFinanceDashboard() {
       if (allocationsError) throw allocationsError;
       if (projectsError) throw projectsError;
 
-      const totalPostedPayroll = (payrollPosted || []).reduce(
-        (sum: number, row: any) => sum + asNumber(row.total_net_salary),
+      // KPI 1: AP Outstanding
+      const apOutstanding = (apInvoices || []).reduce(
+        (sum: number, row: any) => sum + (asNumber(row.total_amount) - asNumber(row.paid_amount)),
         0
       );
-      const totalPostedClaims = (claimsPosted || []).reduce(
-        (sum: number, row: any) => sum + asNumber(row.amount),
+
+      // KPI 2: AR Outstanding
+      const arOutstanding = (arInvoices || []).reduce(
+        (sum: number, row: any) => sum + (asNumber(row.total_amount) - asNumber(row.paid_amount)),
         0
       );
-      const pettyCashBalance = (pettyApproved || []).reduce((sum: number, row: any) => {
-        if (row.txn_type === 'top_up') return sum + asNumber(row.amount);
-        return sum - asNumber(row.amount);
-      }, 0);
 
-      const budget = (projects || []).reduce((sum: number, row: any) => sum + asNumber(row.budget_amount), 0);
-      const spentByProject = new Map<string, number>();
-      for (const row of allocations || []) {
-        spentByProject.set(row.project_id, (spentByProject.get(row.project_id) || 0) + asNumber(row.amount));
-      }
+      // KPI 3: Cash Position
+      const cashPosition = (bankAccounts || []).reduce(
+        (sum: number, row: any) => sum + asNumber(row.current_balance),
+        0
+      );
 
-      const totalProjectSpent = Array.from(spentByProject.values()).reduce((sum, value) => sum + value, 0);
-      const budgetUtilizationPct = budget > 0 ? (totalProjectSpent / budget) * 100 : 0;
+      // KPI 4: Overdue Invoices
+      const overdueAp = (apInvoices || []).filter((row: any) => row.due_date < today).length;
+      const overdueAr = (arInvoices || []).filter((row: any) => row.due_date < today).length;
+      const overdueCount = overdueAp + overdueAr;
 
+      // Expense trend chart (keep existing)
       const monthKeys = Array.from({ length: 6 }).map((_, index) => {
         const dt = subMonths(new Date(), 5 - index);
         return format(dt, 'yyyy-MM');
@@ -122,6 +114,12 @@ export function useFinanceDashboard() {
         pettyCash: value.pettyCash,
       }));
 
+      // Project cost chart (keep existing)
+      const spentByProject = new Map<string, number>();
+      for (const row of allocations || []) {
+        spentByProject.set(row.project_id, (spentByProject.get(row.project_id) || 0) + asNumber(row.amount));
+      }
+
       const topProjectsByCost = (projects || [])
         .map((row: any) => ({
           id: row.id,
@@ -134,10 +132,10 @@ export function useFinanceDashboard() {
 
       return {
         stats: {
-          totalPostedPayroll,
-          totalPostedClaims,
-          pettyCashBalance,
-          budgetUtilizationPct,
+          apOutstanding,
+          arOutstanding,
+          cashPosition,
+          overdueCount,
         },
         pendingActions: {
           pendingPayrollCount: payrollPendingCount || 0,
@@ -146,9 +144,6 @@ export function useFinanceDashboard() {
         charts: {
           expenseTrend,
           topProjectsByCost,
-        },
-        meta: {
-          sixMonthStart,
         },
       };
     },

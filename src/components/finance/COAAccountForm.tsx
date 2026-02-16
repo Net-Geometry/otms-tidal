@@ -25,6 +25,8 @@ import {
 } from '@/components/ui/form';
 import { ACCOUNT_TYPE_LABELS, type AccountType, type ChartOfAccount } from '@/types/finance';
 
+const CURRENCY_OPTIONS = ['MYR', 'USD', 'SGD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'THB', 'IDR'];
+
 const schema = z.object({
   account_code: z.string().min(1, 'Account code is required'),
   account_name: z.string().min(1, 'Account name is required'),
@@ -35,6 +37,7 @@ const schema = z.object({
   is_active: z.boolean().default(true),
   sort_order: z.coerce.number().int().default(0),
   system_tag: z.string().optional().nullable(),
+  currency_code: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
 });
 
@@ -56,6 +59,7 @@ interface COAAccountFormProps {
     is_active?: boolean;
     sort_order?: number;
     system_tag?: string | null;
+    currency_code?: string | null;
     description?: string | null;
   }) => Promise<void>;
   isSaving?: boolean;
@@ -74,6 +78,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
       is_active: true,
       sort_order: 0,
       system_tag: '',
+      currency_code: '',
       description: '',
     },
   });
@@ -91,6 +96,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
         is_active: true,
         sort_order: 0,
         system_tag: '',
+        currency_code: '',
         description: '',
       });
       return;
@@ -106,6 +112,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
       is_active: account.is_active,
       sort_order: account.sort_order,
       system_tag: account.system_tag || '',
+      currency_code: account.currency_code || '',
       description: account.description || '',
     });
   }, [open, account, form]);
@@ -121,6 +128,8 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
       .sort((a, b) => a.account_code.localeCompare(b.account_code));
   }, [accounts, account?.id, watchedType]);
 
+  const hasPostings = !!account?.has_postings;
+
   const submit = async (values: Values) => {
     await onSave({
       id: account?.id,
@@ -133,6 +142,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
       is_active: values.is_active,
       sort_order: values.sort_order,
       system_tag: values.system_tag?.trim() || null,
+      currency_code: values.currency_code?.trim() || null,
       description: values.description?.trim() || null,
     });
     onOpenChange(false);
@@ -150,7 +160,13 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            {hasPostings && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                This account has posted transactions. Account code and type cannot be changed.
+              </div>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-3">
               <FormField
                 control={form.control}
                 name="account_code"
@@ -158,7 +174,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                   <FormItem>
                     <FormLabel>Account Code</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 5110" {...field} />
+                      <Input placeholder="e.g. 5110" {...field} disabled={hasPostings} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -171,7 +187,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Account Type</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={hasPostings}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
@@ -182,6 +198,30 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                           <SelectItem key={value} value={value}>
                             {label}
                           </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="currency_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <Select value={field.value || 'inherit'} onValueChange={(v) => field.onChange(v === 'inherit' ? '' : v)}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Inherit" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="inherit">Inherit (Company Default)</SelectItem>
+                        {CURRENCY_OPTIONS.map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

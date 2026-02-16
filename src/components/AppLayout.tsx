@@ -51,6 +51,7 @@ import {
   CalendarOff,
   Clock,
   Receipt,
+  CreditCard,
   BookOpen,
   BarChart3,
   Banknote,
@@ -86,13 +87,25 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     otManagement: false,
     hrManagement: false,
     financeManagement: false,
+    financeSetup: false,
+    financeCash: false,
+    financeGL: false,
+    financeAP: false,
+    financeAR: false,
+    financeReports: false,
     reports: false,
     general: true, // open by default
   });
 
   // Determine which group contains the active route
   const getActiveGroup = () => {
-    if (currentPath.startsWith('/finance/')) return 'financeManagement';
+    if (currentPath === '/finance/dashboard' || currentPath === '/finance/workflow/inbox') return 'financeManagement';
+    if (currentPath.startsWith('/finance/setup/') || currentPath.startsWith('/finance/masters/')) return 'financeSetup';
+    if (currentPath.startsWith('/finance/petty-cash') || currentPath.startsWith('/finance/gl/cashbook') || currentPath.startsWith('/finance/bank/') || currentPath.startsWith('/finance/gl/opening-balance')) return 'financeCash';
+    if (currentPath.startsWith('/finance/gl/') || currentPath.startsWith('/finance/claims') || currentPath.startsWith('/finance/wages') || currentPath.startsWith('/finance/project-costing')) return 'financeGL';
+    if (currentPath.startsWith('/finance/ap/')) return 'financeAP';
+    if (currentPath.startsWith('/finance/ar/')) return 'financeAR';
+    if (currentPath.startsWith('/finance/reports')) return 'financeReports';
     if (currentPath.includes('/dashboard')) return 'dashboards';
     if (
       currentPath.includes('/ot/') ||
@@ -158,11 +171,58 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       label: 'Finance',
       items: [
         { path: '/finance/dashboard', label: 'Finance Dashboard', icon: LayoutDashboard, roles: ['finance', 'admin'] },
-        { path: '/finance/chart-of-accounts', label: 'Chart of Accounts', icon: BookOpen, roles: ['finance', 'admin'] },
-        { path: '/finance/claims', label: 'Claims Posting', icon: Receipt, roles: ['finance', 'admin'] },
+        { path: '/finance/workflow/inbox', label: 'Approval Inbox', icon: CheckCircle, roles: ['finance', 'admin'] },
+      ],
+    },
+    financeSetup: {
+      label: 'Finance Setup',
+      items: [
+        { path: '/finance/setup/company-profile', label: 'Company Profile', icon: Building2, roles: ['finance', 'admin'] },
+        { path: '/finance/setup/coa', label: 'Chart of Accounts', icon: BookOpen, roles: ['finance', 'admin'] },
+        { path: '/finance/setup/doa-matrix', label: 'DOA Matrix', icon: CheckCircle, roles: ['finance', 'admin'] },
+        { path: '/finance/masters/suppliers', label: 'Suppliers', icon: Users, roles: ['finance', 'admin'] },
+        { path: '/finance/masters/customers', label: 'Customers', icon: Users, roles: ['finance', 'admin'] },
+        { path: '/finance/masters/bank-accounts', label: 'Bank Accounts', icon: Banknote, roles: ['finance', 'admin'] },
+      ],
+    },
+    financeCash: {
+      label: 'Cash & Banking',
+      items: [
         { path: '/finance/petty-cash', label: 'Petty Cash', icon: Wallet, roles: ['finance', 'admin'] },
-        { path: '/finance/project-costing', label: 'Project Costing', icon: BarChart3, roles: ['finance', 'admin'] },
+        { path: '/finance/gl/cashbook', label: 'Cash Book', icon: BookOpen, roles: ['finance', 'admin'] },
+        { path: '/finance/bank/reconciliation', label: 'Bank Reconciliation', icon: CheckCircle, roles: ['finance', 'admin'] },
+        { path: '/finance/gl/opening-balance', label: 'Opening Balance', icon: BookOpen, roles: ['finance', 'admin'] },
+      ],
+    },
+    financeGL: {
+      label: 'General Ledger',
+      items: [
+        { path: '/finance/gl/journal-entries', label: 'Journal Entries', icon: BookOpen, roles: ['finance', 'admin'] },
+        { path: '/finance/claims', label: 'Claims Posting', icon: Receipt, roles: ['finance', 'admin'] },
         { path: '/finance/wages', label: 'Wages', icon: Banknote, roles: ['finance', 'admin'] },
+        { path: '/finance/project-costing', label: 'Project Costing', icon: BarChart3, roles: ['finance', 'admin'] },
+      ],
+    },
+    financeAP: {
+      label: 'Accounts Payable',
+      items: [
+        { path: '/finance/ap/prf', label: 'Purchase Requisitions', icon: FileText, roles: ['finance', 'admin'] },
+        { path: '/finance/ap/invoices', label: 'AP Invoices', icon: Receipt, roles: ['finance', 'admin'] },
+        { path: '/finance/ap/payment-vouchers', label: 'Payment Vouchers', icon: CreditCard, roles: ['finance', 'admin'] },
+        { path: '/finance/ap/notes', label: 'AP Debit/Credit Notes', icon: FileText, roles: ['finance', 'admin'] },
+      ],
+    },
+    financeAR: {
+      label: 'Accounts Receivable',
+      items: [
+        { path: '/finance/ar/invoices', label: 'AR Invoices', icon: Receipt, roles: ['finance', 'admin'] },
+        { path: '/finance/ar/official-receipts', label: 'Official Receipts', icon: CreditCard, roles: ['finance', 'admin'] },
+        { path: '/finance/ar/notes', label: 'AR Debit/Credit Notes', icon: FileText, roles: ['finance', 'admin'] },
+      ],
+    },
+    financeReports: {
+      label: 'Finance Reports',
+      items: [
         { path: '/finance/reports', label: 'Finance Reports', icon: FileText, roles: ['finance', 'admin'] },
       ],
     },
@@ -195,7 +255,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
           )}
         </div>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="scrollbar-thin">
         {Object.entries(menuGroups).map(([groupKey, group]) => {
           // Only show items that match the currently active role
           const filteredItems = group.items.filter(item =>
@@ -293,6 +353,29 @@ export function AppLayout({ children }: AppLayoutProps) {
       'attendance': 'Attendance',
       'claims': 'Claims',
       'chart-of-accounts': 'Chart of Accounts',
+      'setup': 'Setup',
+      'coa': 'Chart of Accounts',
+      'doa-matrix': 'DOA Matrix',
+      'company-profile': 'Company Profile',
+      'masters': 'Masters',
+      'suppliers': 'Suppliers',
+      'customers': 'Customers',
+      'bank-accounts': 'Bank Accounts',
+      'workflow': 'Workflow',
+      'inbox': 'Approval Inbox',
+      'gl': 'General Ledger',
+      'ap': 'Accounts Payable',
+      'ar': 'Accounts Receivable',
+      'prf': 'Purchase Requisitions',
+      'invoices': 'Invoices',
+      'payment-vouchers': 'Payment Vouchers',
+      'official-receipts': 'Official Receipts',
+      'journal-entries': 'Journal Entries',
+      'cashbook': 'Cash Book',
+      'opening-balance': 'Opening Balance',
+      'notes': 'Debit/Credit Notes',
+      'bank': 'Banking',
+      'reconciliation': 'Bank Reconciliation',
       'petty-cash': 'Petty Cash',
       'project-costing': 'Project Costing',
       'wages': 'Wages',
@@ -335,6 +418,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         if (path === 'history' && prevSeg === 'attendance') label = 'Attendance History';
         if (path === 'history' && prevSeg === 'claims') label = 'Claim History';
         if (path === 'submit' && prevSeg === 'claims') label = 'Submit Claim';
+        if (path === 'invoices' && prevSeg === 'ap') label = 'AP Invoices';
+        if (path === 'invoices' && prevSeg === 'ar') label = 'AR Invoices';
 
         return { path: fullPath, label, isLast: index === filteredPaths.length - 1 };
       });

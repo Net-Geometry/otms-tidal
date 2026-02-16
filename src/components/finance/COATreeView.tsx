@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Lock, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { ChartOfAccount } from '@/types/finance';
@@ -51,7 +51,9 @@ export function COATreeView({ tree, onEdit, onDeactivate }: COATreeViewProps) {
                 <span className="truncate font-medium">{node.account_name}</span>
                 {!node.is_active && <Badge variant="secondary">Inactive</Badge>}
                 {node.is_postable && <Badge variant="outline">Postable</Badge>}
+                {node.currency_code && <Badge variant="outline">{node.currency_code}</Badge>}
                 {node.system_tag && <Badge variant="outline">{node.system_tag}</Badge>}
+                {node.has_postings && <Lock className="h-3 w-3 text-muted-foreground" />}
               </div>
               {node.description && <p className="truncate text-xs text-muted-foreground">{node.description}</p>}
             </div>

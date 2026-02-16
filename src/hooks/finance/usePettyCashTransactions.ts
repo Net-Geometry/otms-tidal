@@ -1,9 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { PettyCashStatus, PettyCashTransaction, PettyCashTxnType } from '@/types/finance';
 import { canTransitionPettyCash } from '@/types/finance';
+import { createGLPosting } from '@/hooks/finance/useGeneralLedger';
 
 interface PettyCashTxnFilters {
   status?: PettyCashStatus | 'all';
@@ -21,6 +24,9 @@ interface CreatePettyCashTxnInput {
   account_id: string;
   project_id?: string | null;
   receipt_urls?: string[];
+  payee?: string | null;
+  department?: string | null;
+  tax_amount?: number;
 }
 
 function toSignedAmount(txnType: string, amount: number) {
@@ -167,6 +173,9 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
           account_id: input.account_id,
           project_id: input.project_id || null,
           receipt_urls: input.receipt_urls || [],
+          payee: input.payee || null,
+          department: input.department || null,
+          tax_amount: Number(input.tax_amount || 0),
           status,
           requested_by: userId,
           approved_by: shouldAutoApprove ? userId : null,
@@ -277,7 +286,7 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
 
       const { data: current, error: fetchError } = await db
         .from('petty_cash_transactions')
-        .select('id, status, is_posted')
+        .select('id, txn_number, txn_type, txn_date, amount, description, account_id, status, is_posted')
         .eq('id', input.txnId)
         .single();
       if (fetchError) throw fetchError;
@@ -287,6 +296,62 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
         throw new Error('Only approved and unposted transactions can be posted');
       }
 
+      const { data: glAccounts, error: glAccountsError } = await db
+        .from('chart_of_accounts')
+        .select('id, system_tag')
+        .in('system_tag', ['petty_cash', 'cash_bank'])
+        .eq('is_active', true);
+      if (glAccountsError) throw glAccountsError;
+
+      const pettyCashAccountId = (glAccounts || []).find((row: any) => row.system_tag === 'petty_cash')?.id;
+      if (!pettyCashAccountId) {
+        throw new Error('Missing chart of account mapping for petty_cash');
+      }
+
+      const cashBankAccountId = (glAccounts || []).find((row: any) => row.system_tag === 'cash_bank')?.id;
+
+      const amount = Number(current.amount || 0);
+      if (amount <= 0) {
+        throw new Error('Invalid petty cash amount');
+      }
+
+      const posting = await createGLPosting({
+        reference_type: 'petty_cash',
+        reference_id: current.id,
+        entry_date: current.txn_date,
+        description: `Petty cash ${current.txn_type === 'top_up' ? 'top-up' : 'expenditure'} ${current.txn_number}`,
+        prefix: 'PCV',
+        lines: current.txn_type === 'top_up'
+          ? [
+              {
+                account_id: pettyCashAccountId,
+                description: current.description,
+                debit_amount: amount,
+                credit_amount: 0,
+              },
+              {
+                account_id: cashBankAccountId || pettyCashAccountId,
+                description: current.description,
+                debit_amount: 0,
+                credit_amount: amount,
+              },
+            ]
+          : [
+              {
+                account_id: current.account_id,
+                description: current.description,
+                debit_amount: amount,
+                credit_amount: 0,
+              },
+              {
+                account_id: pettyCashAccountId,
+                description: current.description,
+                debit_amount: 0,
+                credit_amount: amount,
+              },
+            ],
+      });
+
       const now = new Date().toISOString();
       const { error } = await db
         .from('petty_cash_transactions')
@@ -294,7 +359,7 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
           is_posted: true,
           posted_by: authData.user.id,
           posted_at: now,
-          posting_reference: input.reference || null,
+          posting_reference: posting.entry_number,
           posting_remarks: input.remarks || null,
         })
         .eq('id', input.txnId);
