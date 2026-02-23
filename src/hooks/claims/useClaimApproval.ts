@@ -4,6 +4,21 @@ import { useToast } from '@/hooks/use-toast';
 import type { Claim, ClaimRequestStatus, NextApproverOption } from '@/types/claims';
 import { canTransitionClaim, isClaimFullyApproved } from '@/types/claims';
 
+/**
+ * Send push notification for claim status change (non-blocking).
+ */
+async function sendClaimPushNotification(requestIds: string[], newStatus: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  await Promise.allSettled(
+    requestIds.map((id) =>
+      supabase.functions.invoke('send-claim-push-notification', {
+        body: { requestId: id, newStatus },
+      })
+    )
+  );
+}
+
 export type ClaimApprovalRole = 'supervisor' | 'hr' | 'finance' | 'director' | 'gm' | 'head_finance';
 export type ClaimApprovalTab = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -180,6 +195,11 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
           })
           .in('id', input.requestIds);
         if (error) throw error;
+
+        // Push notification (non-blocking)
+        sendClaimPushNotification(input.requestIds, 'pending_finance').catch((e) =>
+          console.warn('Failed to send claim push notification:', e)
+        );
         return;
       }
 
@@ -204,6 +224,11 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
         .update(updateData)
         .in('id', input.requestIds);
       if (error) throw error;
+
+      // Push notification (non-blocking)
+      sendClaimPushNotification(input.requestIds, targetStatus).catch((e) =>
+        console.warn('Failed to send claim push notification:', e)
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['claim-approvals'] });
@@ -274,6 +299,11 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
         .update(updateData)
         .in('id', input.requestIds);
       if (error) throw error;
+
+      // Push notification (non-blocking)
+      sendClaimPushNotification(input.requestIds, targetStatus).catch((e) =>
+        console.warn('Failed to send claim push notification:', e)
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['claim-approvals'] });
@@ -323,6 +353,11 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
         .update(updateData)
         .in('id', input.requestIds);
       if (error) throw error;
+
+      // Push notification (non-blocking)
+      sendClaimPushNotification(input.requestIds, 'rejected').catch((e) =>
+        console.warn('Failed to send claim push notification:', e)
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['claim-approvals'] });

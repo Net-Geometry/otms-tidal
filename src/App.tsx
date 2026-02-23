@@ -33,6 +33,7 @@ const FinanceDashboard = lazy(() => import("./pages/finance/FinanceDashboard"));
 const SupervisorDashboard = lazy(() => import("./pages/supervisor/SupervisorDashboard"));
 const ManagementDashboard = lazy(() => import("./pages/management/ManagementDashboard"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const BulkImportOT = lazy(() => import("./pages/admin/BulkImportOT"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 
 // Lazy load shared routes
@@ -125,11 +126,12 @@ const App = () => (
                 
                 {/* Role-specific dashboards */}
                 <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/admin/bulk-import-ot" element={<ProtectedRoute requiredRole="admin"><BulkImportOT /></ProtectedRoute>} />
                 <Route path="/hr/dashboard" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRDashboard /></ProtectedRoute>} />
                 <Route path="/finance/dashboard" element={<ProtectedRoute requiredRole={['finance', 'admin']}><FinanceDashboard /></ProtectedRoute>} />
                 <Route path="/supervisor/dashboard" element={<ProtectedRoute requiredRole="supervisor"><SupervisorDashboard /></ProtectedRoute>} />
                 <Route path="/employee/dashboard" element={<ProtectedRoute requiredRole="employee"><EmployeeDashboard /></ProtectedRoute>} />
-                <Route path="/management/dashboard" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementDashboard /></ProtectedRoute>} />
+                <Route path="/management/dashboard" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementDashboard /></ProtectedRoute>} />
                 
                 {/* Fallback dashboard */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -198,10 +200,10 @@ const App = () => (
                 <Route path="/finance/reports" element={<ProtectedRoute requiredRole={['finance', 'admin']}><FinanceReports /></ProtectedRoute>} />
 
                 {/* Management routes */}
-                <Route path="/management/approve" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveOT /></ProtectedRoute>} />
-                <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveLeave /></ProtectedRoute>} />
-                <Route path="/management/approve-claims" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveClaims /></ProtectedRoute>} />
-                <Route path="/management/report" element={<ProtectedRoute requiredRole={['management', 'admin']}><ReviewOT /></ProtectedRoute>} />
+                <Route path="/management/approve" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementApproveOT /></ProtectedRoute>} />
+                <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementApproveLeave /></ProtectedRoute>} />
+                <Route path="/management/approve-claims" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementApproveClaims /></ProtectedRoute>} />
+                <Route path="/management/report" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ReviewOT /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
                 </Routes>

@@ -61,7 +61,8 @@ import {
   User,
   LogOut,
   Calendar,
-  Home
+  Home,
+  Upload
 } from 'lucide-react';
 import { AppRole } from '@/types/otms';
 
@@ -132,10 +133,11 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       label: 'Dashboards',
       items: [
         { path: '/admin/dashboard', label: 'Admin Dashboard', icon: LayoutDashboard, roles: ['admin'] },
+        { path: '/admin/bulk-import-ot', label: 'Bulk Import OT', icon: Upload, roles: ['admin'] },
         { path: '/hr/dashboard', label: 'HR Dashboard', icon: LayoutDashboard, roles: ['hr', 'admin'] },
         { path: '/supervisor/dashboard', label: 'Supervisor Dashboard', icon: LayoutDashboard, roles: ['supervisor'] },
         { path: '/employee/dashboard', label: 'Employee Dashboard', icon: LayoutDashboard, roles: ['employee'] },
-        { path: '/management/dashboard', label: 'Management Dashboard', icon: LayoutDashboard, roles: ['management', 'admin'] },
+        { path: '/management/dashboard', label: 'Management Dashboard', icon: LayoutDashboard, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     otManagement: {
@@ -153,7 +155,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/supervisor/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/supervisor/approve-claims', label: 'Approve Claims', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/hr/approve', label: 'Certify OT', icon: CheckCircle, roles: ['hr', 'admin'] },
-        { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['management', 'admin'] },
+        { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     hrManagement: {
@@ -230,16 +232,16 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       label: 'Reports',
       items: [
         { path: '/hr/ot-reports', label: 'OT Reports', icon: FileText, roles: ['hr', 'admin'] },
-        { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['management', 'admin'] },
-        { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt, roles: ['management', 'admin'] },
-        { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['management', 'admin'] },
+        { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     general: {
       label: 'General',
       items: [
-        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', 'finance', 'supervisor', 'employee', 'management'] },
-        { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', 'finance', 'supervisor', 'employee', 'management'] },
+        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', 'finance', 'supervisor', 'employee', 'management', 'director', 'gm', 'head_finance'] },
+        { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', 'finance', 'supervisor', 'employee', 'management', 'director', 'gm', 'head_finance'] },
       ],
     },
   };
@@ -342,6 +344,9 @@ export function AppLayout({ children }: AppLayoutProps) {
       'supervisor': 'Supervisor',
       'employee': 'Employee',
       'management': 'Management',
+      'director': 'Director',
+      'gm': 'General Manager',
+      'head_finance': 'Head of Finance',
       'dashboard': 'Dashboard',
       'approve': 'Approve OT',
       'verify': 'Verify OT',
@@ -395,6 +400,16 @@ export function AppLayout({ children }: AppLayoutProps) {
       'edit': 'Edit',
     };
 
+    // Map parent path segments to actual routes (these prefixes have no standalone route)
+    const parentRedirects: Record<string, string> = {
+      '/employee': '/employee/dashboard',
+      '/hr': '/hr/dashboard',
+      '/finance': '/finance/dashboard',
+      '/supervisor': '/supervisor/dashboard',
+      '/management': '/management/dashboard',
+      '/admin': '/admin/dashboard',
+    };
+
     return paths
       .filter((path, index) => {
         // Filter out UUID-like paths (calendar IDs)
@@ -410,6 +425,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       .map((path, index, filteredPaths) => {
         const originalIndex = paths.indexOf(path);
         const fullPath = '/' + paths.slice(0, originalIndex + 1).join('/');
+        const linkPath = parentRedirects[fullPath] || fullPath;
 
         // Context-aware labels for ambiguous segments
         const prevSeg = originalIndex > 0 ? paths[originalIndex - 1] : null;
@@ -422,7 +438,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         if (path === 'invoices' && prevSeg === 'ap') label = 'AP Invoices';
         if (path === 'invoices' && prevSeg === 'ar') label = 'AR Invoices';
 
-        return { path: fullPath, label, isLast: index === filteredPaths.length - 1 };
+        return { path: linkPath, label, isLast: index === filteredPaths.length - 1 };
       });
   };
 

@@ -115,17 +115,29 @@ export function ClaimDetailsSheet({
     const fetchCandidates = async () => {
       setLoadingCandidates(true);
       const db = supabase as any;
-      // Step 1: get user IDs with management role
+
+      // Map nextApprover option to the actual app_role
+      const roleMap: Record<string, string> = {
+        director: 'director',
+        gm: 'gm',
+        head_finance: 'head_finance',
+      };
+      const targetRole = roleMap[nextApprover] || 'management';
+
+      // Step 1: get user IDs with the specific role
       const { data: roles, error: rolesErr } = await db
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'management');
+        .eq('role', targetRole);
       if (cancelled || rolesErr || !roles || roles.length === 0) {
-        if (!cancelled) setLoadingCandidates(false);
+        if (!cancelled) {
+          setApproverCandidates([]);
+          setLoadingCandidates(false);
+        }
         return;
       }
       const userIds = roles.map((r: any) => r.user_id);
-      // Step 2: fetch profiles for those user IDs
+      // Step 2: fetch profiles
       const { data: profiles, error: profErr } = await db
         .from('profiles')
         .select('id, full_name, employee_id')
@@ -350,7 +362,9 @@ export function ClaimDetailsSheet({
                         {loadingCandidates ? (
                           <div className="text-sm text-muted-foreground py-2">Loading...</div>
                         ) : approverCandidates.length === 0 ? (
-                          <div className="text-sm text-muted-foreground py-2">No management users found</div>
+                          <div className="text-sm text-muted-foreground py-2">
+                            No users with {nextApprover === 'director' ? 'Director' : nextApprover === 'gm' ? 'GM' : 'Head of Finance'} role found
+                          </div>
                         ) : (
                           <Select value={approverUserId} onValueChange={setApproverUserId}>
                             <SelectTrigger>

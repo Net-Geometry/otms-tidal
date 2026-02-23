@@ -20,6 +20,8 @@ export function NotificationList() {
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'leave_rejected':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'leave_weekly_summary':
+        return <Bell className="h-4 w-4 text-purple-500" />;
       case 'ot_pending_confirmation':
         return <AlertCircle className="h-4 w-4 text-amber-500" />;
       case 'ot_supervisor_confirmed':

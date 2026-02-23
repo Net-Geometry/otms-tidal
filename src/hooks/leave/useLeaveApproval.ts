@@ -4,6 +4,21 @@ import { useToast } from '@/hooks/use-toast';
 import type { LeaveRequest, LeaveRequestStatus } from '@/types/leave';
 import { canTransitionLeave } from '@/types/leave';
 
+/**
+ * Send push notification for leave status change (non-blocking).
+ */
+async function sendLeavePushNotification(requestIds: string[], newStatus: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  await Promise.allSettled(
+    requestIds.map((id) =>
+      supabase.functions.invoke('send-leave-push-notification', {
+        body: { requestId: id, newStatus },
+      })
+    )
+  );
+}
+
 export type LeaveApprovalRole = 'supervisor' | 'hr' | 'management';
 export type LeaveApprovalTab = 'pending' | 'approved' | 'rejected' | 'all';
 
@@ -135,6 +150,11 @@ export function useLeaveApproval(options: { role: LeaveApprovalRole; tab?: Leave
         .in('id', input.requestIds);
 
       if (error) throw error;
+
+      // Push notification (non-blocking)
+      sendLeavePushNotification(input.requestIds, targetStatus).catch((e) =>
+        console.warn('Failed to send leave push notification:', e)
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-approvals'] });
@@ -188,6 +208,11 @@ export function useLeaveApproval(options: { role: LeaveApprovalRole; tab?: Leave
         .in('id', input.requestIds);
 
       if (error) throw error;
+
+      // Push notification (non-blocking)
+      sendLeavePushNotification(input.requestIds, 'rejected').catch((e) =>
+        console.warn('Failed to send leave push notification:', e)
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leave-approvals'] });

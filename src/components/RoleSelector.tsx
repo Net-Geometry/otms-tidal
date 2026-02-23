@@ -22,6 +22,9 @@ const AVAILABLE_ROLES: { value: AppRole; label: string; description: string }[] 
   { value: 'supervisor', label: 'Supervisor', description: 'Can verify OT requests' },
   { value: 'hr', label: 'HR Manager', description: 'Can approve OT and manage system' },
   { value: 'management', label: 'Management', description: 'Can review OT reports' },
+  { value: 'director', label: 'Director', description: 'Final claim approver (Director level)' },
+  { value: 'gm', label: 'General Manager', description: 'Final claim approver (GM level)' },
+  { value: 'head_finance', label: 'Head of Finance', description: 'Final claim approver (Head Finance level)' },
   { value: 'admin', label: 'Admin', description: 'Full system access' },
 ];
 
@@ -84,6 +87,9 @@ export function RoleSelector({
       supervisor: 'bg-green-100 text-green-800',
       hr: 'bg-purple-100 text-purple-800',
       management: 'bg-orange-100 text-orange-800',
+      director: 'bg-amber-100 text-amber-800',
+      gm: 'bg-red-100 text-red-800',
+      head_finance: 'bg-teal-100 text-teal-800',
       admin: 'bg-gray-800 text-white',
     };
     return colors[role] || 'bg-gray-100 text-gray-800';

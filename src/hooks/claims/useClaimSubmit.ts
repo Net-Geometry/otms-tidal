@@ -4,6 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { ClaimType } from '@/types/claims';
 
+/**
+ * Send push notification for claim status change (non-blocking).
+ * In-app notification is handled by DB trigger.
+ */
+async function sendClaimPushNotification(requestId: string, newStatus: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  await supabase.functions.invoke('send-claim-push-notification', {
+    body: { requestId, newStatus },
+  });
+}
+
 export interface ClaimSubmitData {
   claim_type_id: string;
   claim_date: string; // yyyy-mm-dd
@@ -127,6 +139,12 @@ export function useClaimSubmit() {
         .single();
 
       if (insertError) throw insertError;
+
+      // Push notification (non-blocking, failure doesn't affect submission)
+      sendClaimPushNotification(created.id, initialStatus).catch((e) => {
+        console.warn('Failed to send claim push notification:', e);
+      });
+
       return created as any;
     },
     onSuccess: (created: any) => {

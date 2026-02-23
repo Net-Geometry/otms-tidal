@@ -4,6 +4,18 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { LeaveType } from '@/types/leave';
 
+/**
+ * Send push notification for leave status change (non-blocking).
+ * In-app notification is handled by DB trigger.
+ */
+async function sendLeavePushNotification(requestId: string, newStatus: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  await supabase.functions.invoke('send-leave-push-notification', {
+    body: { requestId, newStatus },
+  });
+}
+
 export interface LeaveSubmitData {
   leave_type_id: string;
   start_date: string; // yyyy-mm-dd
@@ -238,6 +250,12 @@ export function useLeaveSubmit() {
         .single();
 
       if (insertError) throw insertError;
+
+      // Push notification (non-blocking, failure doesn't affect submission)
+      sendLeavePushNotification(created.id, initialStatus).catch((e) => {
+        console.warn('Failed to send leave push notification:', e);
+      });
+
       return created as any;
     },
     onSuccess: (created: any) => {

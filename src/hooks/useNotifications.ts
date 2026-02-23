@@ -22,7 +22,8 @@ export interface Notification {
     | 'leave_rejected'
     | 'claim_pending_review'
     | 'claim_approved'
-    | 'claim_rejected';
+    | 'claim_rejected'
+    | 'leave_weekly_summary';
   created_at: string;
 }
 

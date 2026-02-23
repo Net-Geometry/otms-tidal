@@ -7,13 +7,23 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { ClaimRequestTable } from '@/components/claims/ClaimRequestTable';
-import { useClaimApproval, type ClaimApprovalTab } from '@/hooks/claims/useClaimApproval';
+import { useClaimApproval, type ClaimApprovalTab, type ClaimApprovalRole } from '@/hooks/claims/useClaimApproval';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function ApproveClaims() {
   const navigate = useNavigate();
+  const { roles } = useAuth();
   const [tab, setTab] = useState<ClaimApprovalTab>('pending');
   const [search, setSearch] = useState('');
-  const approval = useClaimApproval({ role: 'director', tab });
+
+  const claimRole: ClaimApprovalRole = useMemo(() => {
+    if (roles.includes('director')) return 'director';
+    if (roles.includes('gm')) return 'gm';
+    if (roles.includes('head_finance')) return 'head_finance';
+    return 'director'; // fallback for generic 'management' role
+  }, [roles]);
+
+  const approval = useClaimApproval({ role: claimRole, tab });
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -59,7 +69,7 @@ export default function ApproveClaims() {
               <ClaimRequestTable
                 requests={filtered}
                 isLoading={approval.isLoading}
-                role="director"
+                role={claimRole}
                 enableBatch={tab === 'pending'}
                 onApprove={async (ids, remarks) => approval.approveClaim({ requestIds: ids, remarks })}
                 onReject={async (ids, remarks) => approval.rejectClaim({ requestIds: ids, remarks })}
