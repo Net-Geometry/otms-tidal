@@ -448,7 +448,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           render={({ field }) => (
             <FormItem>
               <FormLabel>Reason Category *</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value || ''}>
+              <Select onValueChange={field.onChange} value={field.value || undefined}>
                 <FormControl>
                   <SelectTrigger className="w-full h-10 sm:h-9 text-base sm:text-sm">
                     <SelectValue placeholder="Select a reason category" />
@@ -497,7 +497,7 @@ export function OTForm({ onSubmit, isSubmitting, employeeId, fullName, onCancel,
           render={({ field }) => (
             <FormItem>
               <FormLabel>Instructed by Supervisor (Optional)</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value || ''}>
+              <Select onValueChange={field.onChange} value={field.value || 'none'}>
                 <FormControl>
                   <SelectTrigger className="w-full h-10 sm:h-9 text-base sm:text-sm">
                     <SelectValue placeholder="Select if another supervisor instructed this OT" />

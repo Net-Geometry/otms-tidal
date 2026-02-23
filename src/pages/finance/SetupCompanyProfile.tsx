@@ -170,7 +170,7 @@ export default function SetupCompanyProfile() {
             <CardDescription>Select a company to view or update its finance profile.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
+            <Select value={selectedCompanyId || undefined} onValueChange={setSelectedCompanyId}>
               <SelectTrigger className="w-full md:w-[320px]">
                 <SelectValue placeholder="Select company" />
               </SelectTrigger>
@@ -316,14 +316,14 @@ export default function SetupCompanyProfile() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Retained Earnings GL</FormLabel>
-                          <Select value={field.value || ''} onValueChange={field.onChange}>
+                          <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select equity account" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">-- None --</SelectItem>
+                              <SelectItem value="__none__">-- None --</SelectItem>
                               {glAccounts
                                 .filter((a) => a.account_type === 'equity' && a.is_postable && a.is_active)
                                 .map((a) => (
@@ -344,14 +344,14 @@ export default function SetupCompanyProfile() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Suspense Account GL</FormLabel>
-                          <Select value={field.value || ''} onValueChange={field.onChange}>
+                          <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select account" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">-- None --</SelectItem>
+                              <SelectItem value="__none__">-- None --</SelectItem>
                               {glAccounts
                                 .filter((a) => a.is_postable && a.is_active)
                                 .map((a) => (
@@ -378,14 +378,14 @@ export default function SetupCompanyProfile() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Default Bank Account</FormLabel>
-                          <Select value={field.value || ''} onValueChange={field.onChange}>
+                          <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select bank account" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="">-- None --</SelectItem>
+                              <SelectItem value="__none__">-- None --</SelectItem>
                               {bankAccounts.map((ba) => (
                                 <SelectItem key={ba.id} value={ba.id}>
                                   {ba.account_code} - {ba.account_name} ({ba.bank_name})

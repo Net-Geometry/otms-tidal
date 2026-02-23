@@ -158,7 +158,7 @@ export function LeaveRequestForm({
                 <FormItem>
                   <FormLabel>Leave Type *</FormLabel>
                   <FormControl>
-                    <Select value={field.value} onValueChange={field.onChange} disabled={isSubmitting}>
+                    <Select value={field.value || undefined} onValueChange={field.onChange} disabled={isSubmitting}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select leave type" />
                       </SelectTrigger>
@@ -243,7 +243,7 @@ export function LeaveRequestForm({
                   <FormItem>
                     <FormLabel>Half Day Period *</FormLabel>
                     <FormControl>
-                      <Select value={field.value || ''} onValueChange={(v) => field.onChange(v)} disabled={isSubmitting}>
+                      <Select value={field.value || undefined} onValueChange={(v) => field.onChange(v)} disabled={isSubmitting}>
                         <SelectTrigger>
                           <SelectValue placeholder="Select period" />
                         </SelectTrigger>

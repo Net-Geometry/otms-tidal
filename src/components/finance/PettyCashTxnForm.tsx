@@ -208,7 +208,7 @@ export function PettyCashTxnForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Chart of Account</FormLabel>
-                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                    <Select value={field.value || undefined} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select account" />

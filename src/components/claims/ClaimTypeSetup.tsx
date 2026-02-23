@@ -319,7 +319,7 @@ export function ClaimTypeSetup() {
                       <FormLabel>Specific Approver</FormLabel>
                       <FormControl>
                         <Select
-                          value={field.value || ''}
+                          value={field.value || undefined}
                           onValueChange={(v) => field.onChange(v || null)}
                         >
                           <SelectTrigger>
