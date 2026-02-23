@@ -19,7 +19,10 @@ export interface Notification {
     | 'ot_supervisor_confirmed'
     | 'leave_pending_review'
     | 'leave_approved'
-    | 'leave_rejected';
+    | 'leave_rejected'
+    | 'claim_pending_review'
+    | 'claim_approved'
+    | 'claim_rejected';
   created_at: string;
 }
 

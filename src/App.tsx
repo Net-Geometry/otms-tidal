@@ -98,6 +98,7 @@ const BankReconciliation = lazy(() => import("./pages/finance/BankReconciliation
 const ReviewOT = lazy(() => import("./pages/management/ReviewOT"));
 const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
 const ManagementApproveLeave = lazy(() => import("./pages/management/ApproveLeave"));
+const ManagementApproveClaims = lazy(() => import("./pages/management/ApproveClaims"));
 
 const queryClient = createQueryClient();
 
@@ -199,6 +200,7 @@ const App = () => (
                 {/* Management routes */}
                 <Route path="/management/approve" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveOT /></ProtectedRoute>} />
                 <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveLeave /></ProtectedRoute>} />
+                <Route path="/management/approve-claims" element={<ProtectedRoute requiredRole={['management', 'admin']}><ManagementApproveClaims /></ProtectedRoute>} />
                 <Route path="/management/report" element={<ProtectedRoute requiredRole={['management', 'admin']}><ReviewOT /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />

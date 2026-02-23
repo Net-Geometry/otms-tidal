@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
 
 type DetailsRole = 'employee' | 'supervisor' | 'hr' | 'finance' | 'director' | 'gm' | 'head_finance';
 
@@ -81,7 +82,7 @@ export function ClaimDetailsSheet({
   onOpenChange: (open: boolean) => void;
   role: DetailsRole;
   onApprove?: (requestIds: string[], remarks?: string) => Promise<void> | void;
-  onForward?: (requestIds: string[], nextApprover: NextApproverOption, remarks?: string) => Promise<void> | void;
+  onForward?: (requestIds: string[], nextApprover: NextApproverOption, remarks?: string, approverUserId?: string) => Promise<void> | void;
   onReject?: (requestIds: string[], remarks: string) => Promise<void> | void;
   onCancel?: (requestId: string, reason?: string) => Promise<void> | void;
   onPost?: (claimId: string, reference?: string, remarks?: string) => Promise<void> | void;
@@ -99,6 +100,49 @@ export function ClaimDetailsSheet({
   const [forwardOpen, setForwardOpen] = useState(false);
   const [nextApprover, setNextApprover] = useState<NextApproverOption>('final_approve');
   const [forwardRemarks, setForwardRemarks] = useState('');
+  const [approverUserId, setApproverUserId] = useState<string>('');
+  const [approverCandidates, setApproverCandidates] = useState<{ id: string; full_name: string; employee_id: string }[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+
+  // Fetch approver candidates when role changes
+  useEffect(() => {
+    if (nextApprover === 'final_approve') {
+      setApproverCandidates([]);
+      setApproverUserId('');
+      return;
+    }
+    let cancelled = false;
+    const fetchCandidates = async () => {
+      setLoadingCandidates(true);
+      const db = supabase as any;
+      // Step 1: get user IDs with management role
+      const { data: roles, error: rolesErr } = await db
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'management');
+      if (cancelled || rolesErr || !roles || roles.length === 0) {
+        if (!cancelled) setLoadingCandidates(false);
+        return;
+      }
+      const userIds = roles.map((r: any) => r.user_id);
+      // Step 2: fetch profiles for those user IDs
+      const { data: profiles, error: profErr } = await db
+        .from('profiles')
+        .select('id, full_name, employee_id')
+        .in('id', userIds);
+      if (!cancelled && !profErr && profiles) {
+        setApproverCandidates(profiles);
+        if (profiles.length === 1) {
+          setApproverUserId(profiles[0].id);
+        } else {
+          setApproverUserId('');
+        }
+      }
+      if (!cancelled) setLoadingCandidates(false);
+    };
+    fetchCandidates();
+    return () => { cancelled = true; };
+  }, [nextApprover]);
 
   const approveLabel = useMemo(() => {
     if (!request) return 'Approve';
@@ -300,6 +344,29 @@ export function ClaimDetailsSheet({
                         </SelectContent>
                       </Select>
                     </div>
+                    {nextApprover !== 'final_approve' && (
+                      <div className="space-y-2">
+                        <Label>Assign To</Label>
+                        {loadingCandidates ? (
+                          <div className="text-sm text-muted-foreground py-2">Loading...</div>
+                        ) : approverCandidates.length === 0 ? (
+                          <div className="text-sm text-muted-foreground py-2">No management users found</div>
+                        ) : (
+                          <Select value={approverUserId} onValueChange={setApproverUserId}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select person..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {approverCandidates.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.full_name} ({c.employee_id})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                    )}
                     <div className="space-y-2">
                       <Label>Remarks (Optional)</Label>
                       <Textarea
@@ -315,12 +382,18 @@ export function ClaimDetailsSheet({
                     </Button>
                     <Button
                       onClick={async () => {
-                        await onForward([request.id], nextApprover, forwardRemarks.trim() || undefined);
+                        await onForward(
+                          [request.id],
+                          nextApprover,
+                          forwardRemarks.trim() || undefined,
+                          approverUserId || undefined,
+                        );
                         setForwardRemarks('');
+                        setApproverUserId('');
                         setForwardOpen(false);
                         onOpenChange(false);
                       }}
-                      disabled={!!isForwarding}
+                      disabled={!!isForwarding || (nextApprover !== 'final_approve' && !approverUserId)}
                     >
                       {isForwarding ? 'Forwarding...' : 'Forward Claim'}
                     </Button>

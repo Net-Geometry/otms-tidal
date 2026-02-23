@@ -219,7 +219,7 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
 
   // New mutation for finance to forward to next approver
   const forwardMutation = useMutation({
-    mutationFn: async (input: { requestIds: string[]; nextApprover: NextApproverOption; remarks?: string }) => {
+    mutationFn: async (input: { requestIds: string[]; nextApprover: NextApproverOption; remarks?: string; approverUserId?: string }) => {
       const db = supabase as any;
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError) throw authError;
@@ -261,6 +261,13 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
         finance_approved_at: now,
         finance_remarks: input.remarks || null,
       };
+
+      // Assign the specific approver user when provided
+      if (input.approverUserId) {
+        if (input.nextApprover === 'director') updateData.director_id = input.approverUserId;
+        if (input.nextApprover === 'gm') updateData.gm_id = input.approverUserId;
+        if (input.nextApprover === 'head_finance') updateData.head_finance_id = input.approverUserId;
+      }
 
       const { error } = await db
         .from('claims')

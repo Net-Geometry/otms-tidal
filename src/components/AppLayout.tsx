@@ -231,6 +231,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/hr/ot-reports', label: 'OT Reports', icon: FileText, roles: ['hr', 'admin'] },
         { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['management', 'admin'] },
+        { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt, roles: ['management', 'admin'] },
         { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['management', 'admin'] },
       ],
     },

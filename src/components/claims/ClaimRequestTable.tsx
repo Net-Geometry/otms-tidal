@@ -62,7 +62,7 @@ export function ClaimRequestTable({
   role: TableRole;
   enableBatch?: boolean;
   onApprove?: (requestIds: string[], remarks?: string) => Promise<void> | void;
-  onForward?: (requestIds: string[], nextApprover: NextApproverOption, remarks?: string) => Promise<void> | void;
+  onForward?: (requestIds: string[], nextApprover: NextApproverOption, remarks?: string, approverUserId?: string) => Promise<void> | void;
   onReject?: (requestIds: string[], remarks: string) => Promise<void> | void;
   onCancel?: (requestId: string, reason?: string) => Promise<void> | void;
   onPost?: (claimId: string, reference?: string, remarks?: string) => Promise<void> | void;
