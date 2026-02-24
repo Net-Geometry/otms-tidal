@@ -258,3 +258,11 @@ export interface PayrollCalculationInput {
   settings: PayrollSettings;
   socso_table: SocsoContributionRow[];
 }
+
+export interface EmployeePayrollFormInput {
+  itemId: string;
+  payrollRunId: string;
+  updates: Partial<PayrollItem>;
+  allowances?: { allowance_type_id: string; amount: number }[];
+  deductions?: { deduction_type_id: string; amount: number }[];
+}
