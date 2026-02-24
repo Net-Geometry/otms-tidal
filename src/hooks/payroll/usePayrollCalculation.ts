@@ -162,10 +162,128 @@ export function usePayrollCalculation() {
     },
   });
 
+  const recalculateSingleMutation = useMutation({
+    mutationFn: async (input: {
+      payrollRunId: string;
+      employeeId: string;
+      month: number;
+      year: number;
+      settings: PayrollSettings;
+      socsoTable: SocsoContributionRow[];
+    }) => {
+      const db = supabase as any;
+
+      const { data: profile, error: profileError } = await db
+        .from('profiles')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .eq('id', input.employeeId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const calculated = calculateEmployee(
+        profile as EmployeeProfile,
+        input.settings,
+        input.socsoTable,
+        input.month,
+        input.year
+      );
+
+      // Delete existing item for this employee in this run
+      await db
+        .from('payroll_items')
+        .delete()
+        .eq('payroll_run_id', input.payrollRunId)
+        .eq('employee_id', input.employeeId);
+
+      // Insert recalculated item
+      const { error: insertError } = await db
+        .from('payroll_items')
+        .insert({ payroll_run_id: input.payrollRunId, ...calculated });
+
+      if (insertError) throw insertError;
+
+      await recalculateRunTotals(input.payrollRunId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll-runs'] });
+      queryClient.invalidateQueries({ queryKey: ['payroll-run'] });
+      queryClient.invalidateQueries({ queryKey: ['payroll-run-items'] });
+      toast({ title: 'Recalculated', description: 'Employee payroll recalculated' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const addEmployeeMutation = useMutation({
+    mutationFn: async (input: {
+      payrollRunId: string;
+      employeeId: string;
+      month: number;
+      year: number;
+      settings: PayrollSettings;
+      socsoTable: SocsoContributionRow[];
+    }) => {
+      const db = supabase as any;
+
+      // Check if employee already exists in this run
+      const { data: existing } = await db
+        .from('payroll_items')
+        .select('id')
+        .eq('payroll_run_id', input.payrollRunId)
+        .eq('employee_id', input.employeeId)
+        .maybeSingle();
+
+      if (existing) throw new Error('Employee already exists in this payroll run');
+
+      const { data: profile, error: profileError } = await db
+        .from('profiles')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .eq('id', input.employeeId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const calculated = calculateEmployee(
+        profile as EmployeeProfile,
+        input.settings,
+        input.socsoTable,
+        input.month,
+        input.year
+      );
+
+      const { data: newItem, error: insertError } = await db
+        .from('payroll_items')
+        .insert({ payroll_run_id: input.payrollRunId, ...calculated })
+        .select('id')
+        .single();
+
+      if (insertError) throw insertError;
+
+      await recalculateRunTotals(input.payrollRunId);
+
+      return { itemId: newItem.id, employeeId: input.employeeId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll-runs'] });
+      queryClient.invalidateQueries({ queryKey: ['payroll-run'] });
+      queryClient.invalidateQueries({ queryKey: ['payroll-run-items'] });
+      toast({ title: 'Added', description: 'Employee added to payroll run' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
   return {
     calculatePayroll: calculateMutation.mutateAsync,
     isCalculating: calculateMutation.isPending,
     updatePayrollItem: updateItemMutation.mutateAsync,
     isUpdatingItem: updateItemMutation.isPending,
+    recalculateSingleEmployee: recalculateSingleMutation.mutateAsync,
+    isRecalculatingSingle: recalculateSingleMutation.isPending,
+    addEmployeeToRun: addEmployeeMutation.mutateAsync,
+    isAddingEmployee: addEmployeeMutation.isPending,
   };
 }
