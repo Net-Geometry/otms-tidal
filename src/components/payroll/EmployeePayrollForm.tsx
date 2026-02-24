@@ -119,10 +119,10 @@ export function EmployeePayrollForm({
       (Number(rental) || 0);
 
     const totalDeductions = round2(
-      empEpf + empSocso + empEis + pcb + manualDed + unpaidDeduction
+      empEpf + empSocso + empEis + pcb + manualDed
     );
     const netPay = round2(
-      grossPay + totalAllowancesSum - totalDeductions + unpaidDeduction
+      grossPay + totalAllowancesSum - totalDeductions
     );
 
     const erEpf = epfEnabled ? Number(item.employer_epf) : 0;

@@ -290,7 +290,23 @@ export async function recalculateRunTotals(payrollRunId: string): Promise<void> 
     .eq('payroll_run_id', payrollRunId);
 
   if (fetchError) throw fetchError;
-  if (!items || items.length === 0) return;
+
+  if (!items || items.length === 0) {
+    const { error: updateError } = await db
+      .from('payroll_runs')
+      .update({
+        total_gross_salary: 0, total_net_salary: 0,
+        total_employer_epf: 0, total_employee_epf: 0,
+        total_employer_socso: 0, total_employee_socso: 0,
+        total_employer_eis: 0, total_employee_eis: 0,
+        total_hrdc: 0, total_pcb: 0,
+        total_allowances: 0, total_deductions: 0,
+        total_director_fee: 0, employee_count: 0,
+      })
+      .eq('id', payrollRunId);
+    if (updateError) throw updateError;
+    return;
+  }
 
   const totals = (items as any[]).reduce(
     (acc, item) => ({
