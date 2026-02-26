@@ -260,7 +260,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
                 <SelectTrigger className="border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
                   <SelectValue placeholder="Select a company" />
                 </SelectTrigger>
-                <SelectContent className="bg-white z-50 border shadow-lg">
+                <SelectContent className="bg-white text-gray-900 z-[200] border shadow-lg" position="popper" sideOffset={4}>
                   {subsidiaries.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       {company.name} ({company.code})
@@ -279,7 +279,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
                 <SelectTrigger className="flex-1 border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white z-50 border shadow-lg">
+                <SelectContent className="bg-white text-gray-900 z-[200] border shadow-lg" position="popper" sideOffset={4}>
                   {MONTH_NAMES.map((name, index) => (
                     <SelectItem key={index + 1} value={String(index + 1)}>
                       {name}
@@ -291,7 +291,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
                 <SelectTrigger className="w-[100px] border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white z-50 border shadow-lg">
+                <SelectContent className="bg-white text-gray-900 z-[200] border shadow-lg" position="popper" sideOffset={4}>
                   {yearOptions.map((year) => (
                     <SelectItem key={year} value={year}>
                       {year}
