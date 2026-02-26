@@ -37,6 +37,34 @@ interface HRReportData {
   }>;
 }
 
+interface CombinedReportData {
+  companyInfo: {
+    name: string;
+    registrationNo: string;
+    address: string;
+    phone: string;
+    logoUrl?: string;
+  };
+  period: string;
+  generatedDate: string;
+  summary: {
+    totalHours: number;
+    totalCost: number;
+    totalEmployees: number;
+    totalCompanies: number;
+  };
+  employees: Array<{
+    company_name: string;
+    company_code: string;
+    employee_no: string;
+    employee_name: string;
+    department: string;
+    position: string;
+    total_ot_hours: number;
+    amount: number;
+  }>;
+}
+
 async function loadImageFromUrl(url: string): Promise<string | null> {
   try {
     const response = await fetch(url);
@@ -264,6 +292,192 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
 
   // Save the PDF
   const fileName = `HR_OT_Report_${data.period.replace(/\s+/g, '_')}.pdf`;
+  doc.save(fileName);
+}
+
+export async function generateCombinedReportPDF(data: CombinedReportData): Promise<void> {
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 20;
+
+  // Color scheme - teal theme (matches existing)
+  const primaryColor: [number, number, number] = [20, 184, 166]; // teal-500
+  const textDark: [number, number, number] = [31, 41, 55]; // gray-800
+  const textLight: [number, number, number] = [107, 114, 128]; // gray-500
+
+  let yPos = margin;
+
+  // ===== HEADER SECTION =====
+  const logoSize = 25;
+  const headerContentWidth = logoSize + 10 + 120;
+  const headerStartX = (pageWidth - headerContentWidth) / 2;
+
+  if (data.companyInfo.logoUrl) {
+    const logoData = await loadImageFromUrl(data.companyInfo.logoUrl);
+    if (logoData) {
+      doc.addImage(logoData, 'PNG', headerStartX, yPos, logoSize, logoSize);
+    } else {
+      drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.companyInfo.name);
+    }
+  } else {
+    drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.companyInfo.name);
+  }
+
+  // Company info
+  doc.setFontSize(16);
+  doc.setTextColor(...textDark);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.companyInfo.name, headerStartX + logoSize + 10, yPos + 8);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...textLight);
+  doc.text(`Reg No: ${data.companyInfo.registrationNo}`, headerStartX + logoSize + 10, yPos + 14);
+  doc.text(data.companyInfo.address, headerStartX + logoSize + 10, yPos + 19);
+  doc.text(`Tel: ${data.companyInfo.phone}`, headerStartX + logoSize + 10, yPos + 24);
+
+  yPos += logoSize + 15;
+
+  // ===== TITLE ROW =====
+  doc.setFillColor(...primaryColor);
+  doc.rect(margin, yPos, pageWidth - 2 * margin, 12, 'F');
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('OVERTIME SUMMARY REPORT (COMBINED)', pageWidth / 2, yPos + 8, { align: 'center' });
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const periodText = `Period: ${data.period}`;
+  const periodWidth = doc.getTextWidth(periodText);
+  doc.text(periodText, pageWidth - margin - periodWidth - 5, yPos + 8);
+
+  yPos += 20;
+
+  // ===== SUMMARY STATISTICS =====
+  const boxWidth = 75;
+  const boxGap = 10;
+  const totalBoxesWidth = (boxWidth * 2) + boxGap;
+  const boxesStartX = (pageWidth - totalBoxesWidth) / 2;
+  const boxHeight = 25;
+
+  // Total OT Hours box
+  doc.setFillColor(245, 245, 245);
+  doc.roundedRect(boxesStartX, yPos, boxWidth, boxHeight, 3, 3, 'F');
+  doc.setDrawColor(...primaryColor);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(boxesStartX, yPos, boxWidth, boxHeight, 3, 3, 'S');
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...textLight);
+  doc.text('Total OT Hours', boxesStartX + boxWidth / 2, yPos + 8, { align: 'center' });
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...primaryColor);
+  doc.text(data.summary.totalHours.toFixed(2), boxesStartX + boxWidth / 2, yPos + 18, { align: 'center' });
+
+  // Total OT Cost box
+  doc.setFillColor(245, 245, 245);
+  doc.roundedRect(boxesStartX + boxWidth + boxGap, yPos, boxWidth, boxHeight, 3, 3, 'F');
+  doc.setDrawColor(...primaryColor);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(boxesStartX + boxWidth + boxGap, yPos, boxWidth, boxHeight, 3, 3, 'S');
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...textLight);
+  doc.text('Total OT Cost', boxesStartX + boxWidth + boxGap + boxWidth / 2, yPos + 8, { align: 'center' });
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...primaryColor);
+  doc.text(`RM ${data.summary.totalCost.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    boxesStartX + boxWidth + boxGap + boxWidth / 2, yPos + 18, { align: 'center' });
+
+  yPos += boxHeight + 5;
+
+  // Stats line
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...textLight);
+  doc.text(`Total Employees: ${data.summary.totalEmployees} | Companies: ${data.summary.totalCompanies}`,
+    pageWidth / 2, yPos + 5, { align: 'center' });
+
+  yPos += 15;
+
+  // ===== COMBINED EMPLOYEE TABLE =====
+  const tableWidth = 195; // Sum of column widths: 35+22+35+30+30+18+25
+  const tableStartX = (pageWidth - tableWidth) / 2;
+
+  // Grand total values for footer row
+  const grandTotalHours = data.employees.reduce((sum, emp) => sum + emp.total_ot_hours, 0);
+  const grandTotalAmount = data.employees.reduce((sum, emp) => sum + emp.amount, 0);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Company', 'Employee No', 'Name', 'Department', 'Position', 'OT Hours', 'Amount (RM)']],
+    body: [
+      ...data.employees.map(emp => [
+        `${emp.company_name} (${emp.company_code})`,
+        emp.employee_no,
+        emp.employee_name,
+        emp.department,
+        emp.position,
+        emp.total_ot_hours.toFixed(2),
+        emp.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      ]),
+      // Grand total footer row
+      [
+        { content: 'Grand Total', colSpan: 5, styles: { fontStyle: 'bold' as const, fillColor: [230, 230, 230] as [number, number, number] } },
+        { content: grandTotalHours.toFixed(2), styles: { fontStyle: 'bold' as const, halign: 'right' as const, fillColor: [230, 230, 230] as [number, number, number] } },
+        { content: grandTotalAmount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 }), styles: { fontStyle: 'bold' as const, halign: 'right' as const, fillColor: [230, 230, 230] as [number, number, number] } },
+      ]
+    ],
+    theme: 'striped',
+    headStyles: {
+      fillColor: primaryColor,
+      textColor: [255, 255, 255],
+      fontSize: 9,
+      fontStyle: 'bold',
+      halign: 'left'
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: textDark,
+    },
+    alternateRowStyles: {
+      fillColor: [249, 250, 251]
+    },
+    columnStyles: {
+      0: { cellWidth: 35 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 30 },
+      5: { cellWidth: 18, halign: 'right' },
+      6: { cellWidth: 25, halign: 'right' }
+    },
+    margin: { left: tableStartX, right: pageWidth - tableStartX - tableWidth },
+  });
+
+  // ===== FOOTER =====
+  const finalY = (doc as any).lastAutoTable.finalY || yPos + 50;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...textLight);
+
+  // Generated date on left
+  doc.text(`Generated: ${data.generatedDate}`, margin, finalY + 15);
+
+  // Computer-generated message centered
+  doc.text('This is a computer-generated report. No signature is required.',
+    pageWidth / 2, finalY + 15, { align: 'center' });
+
+  // Save the PDF
+  const fileName = `OT_Report_Combined_${data.companyInfo.name.replace(/\s+/g, '_')}_${data.period.replace(/\s+/g, '_')}.pdf`;
   doc.save(fileName);
 }
 
