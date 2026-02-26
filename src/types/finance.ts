@@ -1,11 +1,73 @@
-export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+export type AccountType = 'asset' | 'liability' | 'equity' | 'revenue' | 'cost' | 'expense';
+
+export const COA_ACCOUNT_SUBTYPE_OPTIONS = [
+  'FA',
+  'IV',
+  'CA',
+  'OA',
+  'LT',
+  'CL',
+  'OL',
+  'CP',
+  'RV',
+  'RE',
+  'SL',
+  'SA',
+  'OI',
+  'EO',
+  'CO',
+  'EP',
+  'TX',
+  'AP',
+] as const;
+
+export type CoaAccountSubtype = (typeof COA_ACCOUNT_SUBTYPE_OPTIONS)[number];
+
+export const COA_ACCOUNT_SUBTYPE_LABELS: Record<CoaAccountSubtype, string> = {
+  FA: 'FA - Fixed Assets',
+  IV: 'IV - Investment',
+  CA: 'CA - Current Assets',
+  OA: 'OA - Other Assets',
+  LT: 'LT - Long-Term Liabilities',
+  CL: 'CL - Current Liabilities',
+  OL: 'OL - Other Liabilities',
+  CP: 'CP - Capital',
+  RV: 'RV - Reserve',
+  RE: 'RE - Retained Earnings',
+  SL: 'SL - Sales',
+  SA: 'SA - Sales Adjustment',
+  OI: 'OI - Other Income',
+  EO: 'EO - Extraordinary',
+  CO: 'CO - Cost of Operations',
+  EP: 'EP - Expenses',
+  TX: 'TX - Taxation',
+  AP: 'AP - Appropriation',
+};
 
 export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   asset: 'Asset',
   liability: 'Liability',
   equity: 'Equity',
   revenue: 'Revenue',
+  cost: 'Cost',
   expense: 'Expense',
+};
+
+export const COA_SPECIAL_TYPE_OPTIONS = [
+  'AD', 'DC', 'CC', 'BA', 'CH', 'BS', 'OS', 'CS',
+] as const;
+
+export type CoaSpecialType = (typeof COA_SPECIAL_TYPE_OPTIONS)[number];
+
+export const COA_SPECIAL_TYPE_LABELS: Record<CoaSpecialType, string> = {
+  AD: 'Accum. Depreciation',
+  DC: 'Debtor Control',
+  CC: 'Creditor Control',
+  BA: 'Bank Account',
+  CH: 'Cash in Hand',
+  BS: 'Beginning Stock',
+  OS: 'Opening Stock',
+  CS: 'Closing Stock',
 };
 
 export interface ChartOfAccount {
@@ -14,12 +76,14 @@ export interface ChartOfAccount {
   account_code: string;
   account_name: string;
   account_type: AccountType;
-  level: 1 | 2 | 3;
+  account_subtype?: CoaAccountSubtype | null;
+  level: 0 | 1 | 2 | 3 | 4;
   is_postable: boolean;
   is_active: boolean;
   description: string | null;
   sort_order: number;
   system_tag: string | null;
+  special_type: CoaSpecialType | null;
   currency_code: string | null;
   has_postings: boolean;
   created_at?: string;

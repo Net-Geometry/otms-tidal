@@ -8,15 +8,18 @@ interface COATreeViewProps {
   tree: ChartOfAccount[];
   onEdit: (account: ChartOfAccount) => void;
   onDeactivate: (account: ChartOfAccount) => void;
+  readOnly?: boolean;
 }
 
 function levelIndent(level: number) {
-  if (level <= 1) return 'pl-0';
-  if (level === 2) return 'pl-6';
-  return 'pl-12';
+  if (level <= 0) return 'pl-0';
+  if (level === 1) return 'pl-4';
+  if (level === 2) return 'pl-8';
+  if (level === 3) return 'pl-12';
+  return 'pl-16';
 }
 
-export function COATreeView({ tree, onEdit, onDeactivate }: COATreeViewProps) {
+export function COATreeView({ tree, onEdit, onDeactivate, readOnly }: COATreeViewProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -53,22 +56,29 @@ export function COATreeView({ tree, onEdit, onDeactivate }: COATreeViewProps) {
                 {node.is_postable && <Badge variant="outline">Postable</Badge>}
                 {node.currency_code && <Badge variant="outline">{node.currency_code}</Badge>}
                 {node.system_tag && <Badge variant="outline">{node.system_tag}</Badge>}
+                {node.special_type && (
+                  <Badge variant="outline" className="text-xs">
+                    {node.special_type}
+                  </Badge>
+                )}
                 {node.has_postings && <Lock className="h-3 w-3 text-muted-foreground" />}
               </div>
               {node.description && <p className="truncate text-xs text-muted-foreground">{node.description}</p>}
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
-            <Button type="button" variant="ghost" size="icon" onClick={() => onEdit(node)}>
-              <Pencil className="h-4 w-4" />
-            </Button>
-            {node.is_active && node.level === 3 && (
-              <Button type="button" variant="ghost" size="icon" onClick={() => onDeactivate(node)}>
-                <Trash2 className="h-4 w-4 text-destructive" />
+          {!readOnly && (
+            <div className="flex items-center gap-1">
+              <Button type="button" variant="ghost" size="icon" onClick={() => onEdit(node)}>
+                <Pencil className="h-4 w-4" />
               </Button>
-            )}
-          </div>
+              {node.is_active && node.is_postable && (
+                <Button type="button" variant="ghost" size="icon" onClick={() => onDeactivate(node)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {hasChildren && isOpen && (

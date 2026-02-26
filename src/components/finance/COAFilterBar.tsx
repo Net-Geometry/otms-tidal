@@ -14,9 +14,10 @@ interface COAFilterBarProps {
   filters: COAFilters;
   onChange: (filters: COAFilters) => void;
   onAddAccount: () => void;
+  readOnly?: boolean;
 }
 
-export function COAFilterBar({ filters, onChange, onAddAccount }: COAFilterBarProps) {
+export function COAFilterBar({ filters, onChange, onAddAccount, readOnly }: COAFilterBarProps) {
   return (
     <div className="rounded-lg border bg-card p-4">
       <div className="grid gap-3 md:grid-cols-4">
@@ -35,10 +36,10 @@ export function COAFilterBar({ filters, onChange, onAddAccount }: COAFilterBarPr
           onValueChange={(value) => onChange({ ...filters, accountType: value as AccountType | 'all' })}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Account type" />
+            <SelectValue placeholder="Account" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Account Types</SelectItem>
+            <SelectItem value="all">All Accounts</SelectItem>
             {Object.entries(ACCOUNT_TYPE_LABELS).map(([type, label]) => (
               <SelectItem key={type} value={type}>
                 {label}
@@ -62,9 +63,11 @@ export function COAFilterBar({ filters, onChange, onAddAccount }: COAFilterBarPr
         </Select>
       </div>
 
-      <div className="mt-3 flex justify-end">
-        <Button onClick={onAddAccount}>Add Account</Button>
-      </div>
+      {!readOnly && (
+        <div className="mt-3 flex justify-end">
+          <Button onClick={onAddAccount}>Add Account</Button>
+        </div>
+      )}
     </div>
   );
 }

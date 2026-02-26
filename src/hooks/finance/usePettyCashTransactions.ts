@@ -62,7 +62,8 @@ async function generateTxnNumber(db: any, txnDate: string) {
   const month = dt.getMonth() + 1;
 
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
-  const monthEnd = `${year}-${String(month).padStart(2, '0')}-31`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const monthEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
   const { count, error } = await db
     .from('petty_cash_transactions')
@@ -102,7 +103,8 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
 
       if (filters.month && filters.year) {
         const start = `${filters.year}-${String(filters.month).padStart(2, '0')}-01`;
-        const end = `${filters.year}-${String(filters.month).padStart(2, '0')}-31`;
+        const lastDay = new Date(filters.year, filters.month, 0).getDate();
+        const end = `${filters.year}-${String(filters.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
         q = q.gte('txn_date', start).lte('txn_date', end);
       }
 

@@ -73,7 +73,7 @@ export function ProjectCostAllocationForm({
 
   const accountOptions = useMemo(() => {
     return accounts
-      .filter((row) => row.level === 3 && row.is_postable && row.is_active)
+      .filter((row) => row.is_postable && row.is_active)
       .sort((a, b) => a.account_code.localeCompare(b.account_code));
   }, [accounts]);
 

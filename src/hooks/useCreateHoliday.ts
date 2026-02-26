@@ -37,6 +37,7 @@ export function useCreateHoliday() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holiday-calendar-view'] });
+      queryClient.invalidateQueries({ queryKey: ['hr-calendar-view'] });
       toast.success('Holiday added');
     },
     onError: (error: unknown) => {

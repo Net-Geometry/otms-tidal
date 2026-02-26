@@ -17,6 +17,7 @@ import { usePettyCashTransactions } from '@/hooks/finance/usePettyCashTransactio
 import { usePettyCashBalance } from '@/hooks/finance/usePettyCashBalance';
 import { useProjects } from '@/hooks/finance/useProjects';
 import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
+import { useDepartments } from '@/hooks/hr/useDepartments';
 
 export default function PettyCash() {
   const [tab, setTab] = useState<'settings' | 'transactions'>('transactions');
@@ -29,6 +30,7 @@ export default function PettyCash() {
   const balance = usePettyCashBalance();
   const projects = useProjects();
   const coa = useChartOfAccounts({ accountType: 'expense', activity: 'active', search: '' });
+  const departments = useDepartments();
 
   const txns = usePettyCashTransactions({
     status,
@@ -133,6 +135,7 @@ export default function PettyCash() {
           onOpenChange={setTxnFormOpen}
           accounts={coa.accounts}
           projects={projects.projects}
+          departments={departments.data || []}
           isSubmitting={txns.isCreating}
           onSubmit={async (values) => {
             await txns.createTransaction({

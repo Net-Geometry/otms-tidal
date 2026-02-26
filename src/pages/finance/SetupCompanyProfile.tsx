@@ -5,10 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Building2, Lock } from 'lucide-react';
 import {
   Form,
   FormControl,
@@ -17,6 +19,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { useAuth } from '@/hooks/useAuth';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useFinanceCompanyProfiles, useBankAccounts } from '@/hooks/finance/useFinanceFoundation';
 import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
@@ -62,6 +65,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 export default function SetupCompanyProfile() {
+  const { profile } = useAuth();
   const { data: companies = [] } = useCompanies();
   const profiles = useFinanceCompanyProfiles();
   const { bankAccounts } = useBankAccounts();
@@ -95,10 +99,25 @@ export default function SetupCompanyProfile() {
   });
 
   useEffect(() => {
-    if (!selectedCompanyId && companies.length > 0) {
+    if (selectedCompanyId) return;
+
+    if (profile?.company_id) {
+      const profileCompanyExists = companies.some((company) => company.id === profile.company_id);
+      if (profileCompanyExists) {
+        setSelectedCompanyId(profile.company_id);
+        return;
+      }
+    }
+
+    if (companies.length > 0) {
       setSelectedCompanyId(companies[0].id);
     }
-  }, [selectedCompanyId, companies]);
+  }, [selectedCompanyId, companies, profile?.company_id]);
+
+  const selectedCompany = useMemo(() => {
+    if (!selectedCompanyId) return null;
+    return companies.find((company) => company.id === selectedCompanyId) || null;
+  }, [companies, selectedCompanyId]);
 
   const selectedProfile = useMemo(() => {
     if (!selectedCompanyId) return null;
@@ -164,24 +183,45 @@ export default function SetupCompanyProfile() {
   return (
     <AppLayout>
       <PageLayout title="Company Profile" description="Configure finance defaults by company: base currency, fiscal year, lock date, and tax references.">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Company Selection</CardTitle>
-            <CardDescription>Select a company to view or update its finance profile.</CardDescription>
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-base">Company Setup Context</CardTitle>
+                <CardDescription>This finance profile setup is scoped to your assigned company.</CardDescription>
+              </div>
+              <Badge variant="outline" className="gap-1.5">
+                <Lock className="h-3.5 w-3.5" />
+                Fixed Scope
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <Select value={selectedCompanyId || undefined} onValueChange={setSelectedCompanyId}>
-              <SelectTrigger className="w-full md:w-[320px]">
-                <SelectValue placeholder="Select company" />
-              </SelectTrigger>
-              <SelectContent>
-                {companies.map((company) => (
-                  <SelectItem key={company.id} value={company.id}>
-                    {company.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 via-background to-background p-5">
+              <div className="absolute -right-10 -top-10 h-24 w-24 rounded-full bg-primary/20 blur-2xl" />
+              <div className="absolute -bottom-12 -left-12 h-28 w-28 rounded-full bg-secondary/30 blur-2xl" />
+              <div className="relative space-y-3">
+                <Badge variant="secondary" className="w-fit gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  Assigned Company
+                </Badge>
+
+                <p className="text-sm text-muted-foreground">You are managing</p>
+                <p className="text-2xl font-semibold tracking-tight">
+                  {selectedCompany?.name || 'your assigned company'}
+                  <span className="ml-2 text-base font-medium text-muted-foreground">profile</span>
+                </p>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {selectedCompany?.code ? (
+                    <Badge variant="outline" className="font-mono">
+                      {selectedCompany.code}
+                    </Badge>
+                  ) : null}
+                  <Badge variant="outline">Finance profile is locked to this company</Badge>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

@@ -40,6 +40,7 @@ export function useDeleteHoliday() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holiday-calendar-view'] });
+      queryClient.invalidateQueries({ queryKey: ['hr-calendar-view'] });
       toast.success('Holiday deleted');
     },
     onError: (error: unknown) => {

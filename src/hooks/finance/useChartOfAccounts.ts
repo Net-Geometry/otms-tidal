@@ -2,7 +2,9 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { AccountType, ChartOfAccount } from '@/types/finance';
+import type { AccountType, ChartOfAccount, CoaAccountSubtype, CoaSpecialType } from '@/types/finance';
+import { useAuth } from '@/hooks/useAuth';
+import { useCompanies } from '@/hooks/hr/useCompanies';
 
 export interface ChartOfAccountsFilters {
   accountType?: AccountType | 'all';
@@ -111,7 +113,9 @@ type UpsertAccountInput = Partial<ChartOfAccount> & {
   account_code: string;
   account_name: string;
   account_type: AccountType;
-  level: 1 | 2 | 3;
+  account_subtype?: CoaAccountSubtype | null;
+  special_type?: CoaSpecialType | null;
+  level: 0 | 1 | 2 | 3 | 4;
 };
 
 export function useUpsertAccount() {
@@ -129,13 +133,15 @@ export function useUpsertAccount() {
             account_code: input.account_code,
             account_name: input.account_name,
             account_type: input.account_type,
+            account_subtype: input.account_subtype || null,
             level: input.level,
-            is_postable: input.level === 3 ? !!input.is_postable : false,
+            is_postable: input.level >= 3 ? !!input.is_postable : false,
             is_active: input.is_active ?? true,
             description: input.description || null,
             sort_order: input.sort_order ?? 0,
             system_tag: input.system_tag || null,
             currency_code: input.currency_code || null,
+            special_type: input.special_type || null,
           })
           .eq('id', input.id);
         if (error) throw error;
@@ -149,13 +155,15 @@ export function useUpsertAccount() {
           account_code: input.account_code,
           account_name: input.account_name,
           account_type: input.account_type,
+          account_subtype: input.account_subtype || null,
           level: input.level,
-          is_postable: input.level === 3 ? !!input.is_postable : false,
+          is_postable: input.level >= 3 ? !!input.is_postable : false,
           is_active: input.is_active ?? true,
           description: input.description || null,
           sort_order: input.sort_order ?? 0,
           system_tag: input.system_tag || null,
           currency_code: input.currency_code || null,
+          special_type: input.special_type || null,
         });
       if (error) throw error;
     },
@@ -200,4 +208,18 @@ export function useDeleteAccount() {
     deleteAccount: mutation.mutateAsync,
     isDeleting: mutation.isPending,
   };
+}
+
+export function useCanEditCOA(): { canEdit: boolean; isLoading: boolean } {
+  const { profile, roles } = useAuth();
+  const { data: companies, isLoading } = useCompanies();
+
+  if (isLoading || !profile || !companies) return { canEdit: false, isLoading: true };
+
+  const isFinanceOrAdmin = roles.includes('finance') || roles.includes('admin');
+  const userCompany = companies.find((c) => c.id === profile.company_id);
+  const isParentCompany = !!userCompany && userCompany.parent_company_id === null;
+  const hasSubsidiaries = companies.some((c) => c.parent_company_id === userCompany?.id);
+
+  return { canEdit: isFinanceOrAdmin && isParentCompany && hasSubsidiaries, isLoading: false };
 }

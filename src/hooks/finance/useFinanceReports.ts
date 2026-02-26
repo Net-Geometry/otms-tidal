@@ -310,7 +310,7 @@ export interface ReportLineItem {
   account_code: string;
   account_name: string;
   account_type: AccountType;
-  level: 1 | 2 | 3;
+  level: 0 | 1 | 2 | 3 | 4;
   parent_id: string | null;
   sort_order: number;
   amount: number;

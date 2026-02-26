@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/form';
 import { PettyCashReceiptUpload } from '@/components/finance/PettyCashReceiptUpload';
 import type { ChartOfAccount, Project } from '@/types/finance';
+import type { DepartmentWithCount } from '@/hooks/hr/useDepartments';
 
 const schema = z.object({
   txn_type: z.enum(['top_up', 'expenditure']),
@@ -46,6 +47,7 @@ interface PettyCashTxnFormProps {
   onSubmit: (values: Values) => Promise<void>;
   accounts: ChartOfAccount[];
   projects: Project[];
+  departments: DepartmentWithCount[];
   isSubmitting?: boolean;
 }
 
@@ -55,6 +57,7 @@ export function PettyCashTxnForm({
   onSubmit,
   accounts,
   projects,
+  departments,
   isSubmitting,
 }: PettyCashTxnFormProps) {
   const form = useForm<Values>({
@@ -75,7 +78,6 @@ export function PettyCashTxnForm({
 
   const accountOptions = useMemo(() => {
     return accounts
-      .filter((row) => row.level === 3)
       .filter((row) => row.is_active)
       .filter((row) => row.is_postable)
       .sort((a, b) => a.account_code.localeCompare(b.account_code));
@@ -97,7 +99,7 @@ export function PettyCashTxnForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>New Petty Cash Transaction</DialogTitle>
           <DialogDescription>Create top-up or expenditure with receipts and optional project tagging.</DialogDescription>
@@ -164,9 +166,21 @@ export function PettyCashTxnForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Department" value={field.value || ''} onChange={field.onChange} />
-                    </FormControl>
+                    <Select value={field.value || 'none'} onValueChange={(value) => field.onChange(value === 'none' ? null : value)}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">No department</SelectItem>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.id} value={dept.name}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

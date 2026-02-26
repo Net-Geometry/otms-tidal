@@ -20,6 +20,7 @@ interface UpdateEmployeeData {
   designation?: string | null;
   supervisor_id?: string | null;
   joining_date?: string | null;
+  date_of_birth?: string | null;
   work_location?: string | null;
   state?: string | null;
   status?: string;
@@ -43,7 +44,7 @@ export function useUpdateEmployee() {
         'full_name', 'employee_id', 'ic_no', 'phone_no', 'email',
         'company_id', 'department_id', 'position_id', 'position', 'basic_salary',
         'ot_base', 'epf_category', 'employment_type',
-        'designation', 'supervisor_id', 'joining_date', 'work_location',
+        'designation', 'supervisor_id', 'joining_date', 'date_of_birth', 'work_location',
         'state', 'status', 'is_ot_eligible', 'require_ot_attachment'
       ];
 
@@ -51,7 +52,7 @@ export function useUpdateEmployee() {
       const nullableFields = [
         'ic_no', 'phone_no', 'company_id', 'department_id',
         'employment_type', 'position', 'supervisor_id',
-        'joining_date', 'work_location', 'state', 'position_id',
+        'joining_date', 'date_of_birth', 'work_location', 'state', 'position_id',
         'ot_base'
       ];
 
@@ -141,6 +142,9 @@ export function useUpdateEmployee() {
       queryClient.invalidateQueries({ queryKey: ['hr-employees'] });
       // Also invalidate auth-related queries in case the user's own roles changed
       queryClient.invalidateQueries({ queryKey: ['auth-roles'] });
+      // Invalidate calendar views so birthday changes are reflected
+      queryClient.invalidateQueries({ queryKey: ['holiday-calendar-view'] });
+      queryClient.invalidateQueries({ queryKey: ['hr-calendar-view'] });
       toast({
         title: 'Success',
         description: 'Employee updated successfully',

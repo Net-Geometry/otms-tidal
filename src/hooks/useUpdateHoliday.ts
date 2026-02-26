@@ -60,6 +60,7 @@ export function useUpdateHoliday() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['holiday-calendar-view'] });
+      queryClient.invalidateQueries({ queryKey: ['hr-calendar-view'] });
       toast.success('Holiday updated');
     },
     onError: (error: unknown) => {

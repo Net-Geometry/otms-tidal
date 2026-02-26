@@ -23,20 +23,32 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { ACCOUNT_TYPE_LABELS, type AccountType, type ChartOfAccount } from '@/types/finance';
+import {
+  ACCOUNT_TYPE_LABELS,
+  COA_ACCOUNT_SUBTYPE_LABELS,
+  COA_ACCOUNT_SUBTYPE_OPTIONS,
+  COA_SPECIAL_TYPE_LABELS,
+  COA_SPECIAL_TYPE_OPTIONS,
+  type AccountType,
+  type ChartOfAccount,
+  type CoaAccountSubtype,
+  type CoaSpecialType,
+} from '@/types/finance';
 
 const CURRENCY_OPTIONS = ['MYR', 'USD', 'SGD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'THB', 'IDR'];
 
 const schema = z.object({
   account_code: z.string().min(1, 'Account code is required'),
   account_name: z.string().min(1, 'Account name is required'),
-  account_type: z.enum(['asset', 'liability', 'equity', 'revenue', 'expense']),
-  level: z.coerce.number().int().min(1).max(3),
+  account: z.enum(['asset', 'liability', 'equity', 'revenue', 'cost', 'expense']),
+  account_type: z.enum(COA_ACCOUNT_SUBTYPE_OPTIONS),
+  level: z.coerce.number().int().min(0).max(4),
   parent_id: z.string().nullable().optional(),
   is_postable: z.boolean().default(false),
   is_active: z.boolean().default(true),
   sort_order: z.coerce.number().int().default(0),
   system_tag: z.string().optional().nullable(),
+  special_type: z.string().optional().nullable(),
   currency_code: z.string().optional().nullable(),
   description: z.string().optional().nullable(),
 });
@@ -53,12 +65,14 @@ interface COAAccountFormProps {
     account_code: string;
     account_name: string;
     account_type: AccountType;
-    level: 1 | 2 | 3;
+    account_subtype?: CoaAccountSubtype | null;
+    level: 0 | 1 | 2 | 3 | 4;
     parent_id?: string | null;
     is_postable?: boolean;
     is_active?: boolean;
     sort_order?: number;
     system_tag?: string | null;
+    special_type?: CoaSpecialType | null;
     currency_code?: string | null;
     description?: string | null;
   }) => Promise<void>;
@@ -71,14 +85,16 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
     defaultValues: {
       account_code: '',
       account_name: '',
-      account_type: 'asset',
+      account: 'asset',
+      account_type: 'FA',
       level: 3,
       parent_id: null,
       is_postable: true,
       is_active: true,
       sort_order: 0,
       system_tag: '',
-      currency_code: '',
+      special_type: '',
+      currency_code: 'MYR',
       description: '',
     },
   });
@@ -89,14 +105,16 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
       form.reset({
         account_code: '',
         account_name: '',
-        account_type: 'asset',
+        account: 'asset',
+        account_type: 'FA',
         level: 3,
         parent_id: null,
         is_postable: true,
         is_active: true,
         sort_order: 0,
         system_tag: '',
-        currency_code: '',
+        special_type: '',
+        currency_code: 'MYR',
         description: '',
       });
       return;
@@ -105,28 +123,30 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
     form.reset({
       account_code: account.account_code,
       account_name: account.account_name,
-      account_type: account.account_type,
+      account: account.account_type,
+      account_type: account.account_subtype || 'FA',
       level: account.level,
       parent_id: account.parent_id,
       is_postable: account.is_postable,
       is_active: account.is_active,
       sort_order: account.sort_order,
       system_tag: account.system_tag || '',
-      currency_code: account.currency_code || '',
+      special_type: account.special_type || '',
+      currency_code: account.currency_code || 'MYR',
       description: account.description || '',
     });
   }, [open, account, form]);
 
   const watchedLevel = form.watch('level');
-  const watchedType = form.watch('account_type');
+  const watchedAccount = form.watch('account');
 
   const parentOptions = useMemo(() => {
     return accounts
-      .filter((row) => row.level < 3)
+      .filter((row) => row.level < 4)
       .filter((row) => row.id !== account?.id)
-      .filter((row) => row.account_type === watchedType)
+      .filter((row) => row.account_type === watchedAccount)
       .sort((a, b) => a.account_code.localeCompare(b.account_code));
-  }, [accounts, account?.id, watchedType]);
+  }, [accounts, account?.id, watchedAccount]);
 
   const hasPostings = !!account?.has_postings;
 
@@ -135,13 +155,15 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
       id: account?.id,
       account_code: values.account_code.trim(),
       account_name: values.account_name.trim(),
-      account_type: values.account_type,
-      level: values.level as 1 | 2 | 3,
-      parent_id: values.level === 1 ? null : values.parent_id || null,
-      is_postable: values.level === 3 ? values.is_postable : false,
+      account_type: values.account,
+      account_subtype: values.account_type,
+      level: values.level as 0 | 1 | 2 | 3 | 4,
+      parent_id: values.level === 0 ? null : values.parent_id || null,
+      is_postable: values.level >= 3 ? values.is_postable : false,
       is_active: values.is_active,
       sort_order: values.sort_order,
       system_tag: values.system_tag?.trim() || null,
+      special_type: (values.special_type?.trim() || null) as CoaSpecialType | null,
       currency_code: values.currency_code?.trim() || null,
       description: values.description?.trim() || null,
     });
@@ -162,11 +184,11 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
           <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
             {hasPostings && (
               <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                This account has posted transactions. Account code and type cannot be changed.
+                This account has posted transactions. Account code, account, and account type cannot be changed.
               </div>
             )}
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <FormField
                 control={form.control}
                 name="account_code"
@@ -174,7 +196,48 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                   <FormItem>
                     <FormLabel>Account Code</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. 5110" {...field} disabled={hasPostings} />
+                      <Input placeholder="e.g. 1-100-100" {...field} disabled={hasPostings} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="account"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Account</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={hasPostings}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="account_name"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-1">
+                    <FormLabel>Account Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. Salaries & Wages" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -194,7 +257,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {Object.entries(ACCOUNT_TYPE_LABELS).map(([value, label]) => (
+                        {Object.entries(COA_ACCOUNT_SUBTYPE_LABELS).map(([value, label]) => (
                           <SelectItem key={value} value={value}>
                             {label}
                           </SelectItem>
@@ -212,14 +275,13 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Currency</FormLabel>
-                    <Select value={field.value || 'inherit'} onValueChange={(v) => field.onChange(v === 'inherit' ? '' : v)}>
+                    <Select value={field.value || 'MYR'} onValueChange={field.onChange}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Inherit" />
+                          <SelectValue placeholder="MYR" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="inherit">Inherit (Company Default)</SelectItem>
                         {CURRENCY_OPTIONS.map((c) => (
                           <SelectItem key={c} value={c}>{c}</SelectItem>
                         ))}
@@ -230,20 +292,6 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="account_name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Account Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g. Salaries & Wages" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <div className="grid gap-4 sm:grid-cols-3">
               <FormField
@@ -259,9 +307,11 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="0">0 - Root</SelectItem>
                         <SelectItem value="1">1 - Category</SelectItem>
                         <SelectItem value="2">2 - Group</SelectItem>
-                        <SelectItem value="3">3 - Account</SelectItem>
+                        <SelectItem value="3">3 - Sub Group</SelectItem>
+                        <SelectItem value="4">4 - Account</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -278,7 +328,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                     <Select
                       value={field.value || 'none'}
                       onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
-                      disabled={watchedLevel === 1}
+                      disabled={watchedLevel === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -300,7 +350,7 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <FormField
                 control={form.control}
                 name="sort_order"
@@ -324,6 +374,32 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                     <FormControl>
                       <Input placeholder="e.g. payroll_gross" value={field.value || ''} onChange={field.onChange} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="special_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Special Type</FormLabel>
+                    <Select value={field.value || 'none'} onValueChange={(v) => field.onChange(v === 'none' ? '' : v)}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="None" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {Object.entries(COA_SPECIAL_TYPE_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -352,13 +428,13 @@ export function COAAccountForm({ open, onOpenChange, account, accounts, onSave, 
                   <FormItem className="flex items-center justify-between rounded-md border p-3">
                     <div>
                       <FormLabel>Postable Account</FormLabel>
-                      <p className="text-xs text-muted-foreground">Only level-3 accounts should be postable.</p>
+                      <p className="text-xs text-muted-foreground">Only level-3/4 accounts should be postable.</p>
                     </div>
                     <FormControl>
                       <Switch
-                        checked={watchedLevel === 3 ? field.value : false}
+                        checked={watchedLevel >= 3 ? field.value : false}
                         onCheckedChange={field.onChange}
-                        disabled={watchedLevel !== 3}
+                        disabled={watchedLevel < 3}
                       />
                     </FormControl>
                   </FormItem>
