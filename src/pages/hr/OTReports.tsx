@@ -5,18 +5,14 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, DollarSign, Clock, Building2, Users, Download, FileText, Filter } from 'lucide-react';
+import { Search, DollarSign, Clock, Building2, Users, Filter } from 'lucide-react';
 import { EnhancedDashboardCard } from '@/components/hr/EnhancedDashboardCard';
 import { HRReportTable } from '@/components/hr/reports/HRReportTable';
 import { CompanyReportCard } from '@/components/reports/CompanyReportCard';
+import { GenerateReportDialog } from '@/components/hr/reports/GenerateReportDialog';
 import { useHRReportData } from '@/hooks/useHRReportData';
-import { useCompanyProfile } from '@/hooks/hr/useCompanyProfile';
-import { exportToCSV } from '@/lib/exportUtils';
-import { generateHRReportPDF } from '@/lib/hrReportPdfGenerator';
-import { groupByCompany, calculateOverallStats } from '@/lib/companyReportUtils';
+import { groupByCompany } from '@/lib/companyReportUtils';
 import { formatCurrency, formatHours } from '@/lib/otCalculations';
-import { toast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
 
 export default function OTReports() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,7 +29,6 @@ export default function OTReports() {
   }, [appliedMonth, appliedYear]);
 
   const { data, isLoading } = useHRReportData(filterDate);
-  const { data: companyProfile } = useCompanyProfile();
 
   const aggregatedData = data?.aggregated || [];
 
@@ -89,106 +84,6 @@ export default function OTReports() {
   }, [filteredData]);
 
   const companyGroups = useMemo(() => groupByCompany(filteredData), [filteredData]);
-
-  const handleExportCSV = () => {
-    if (filteredData.length === 0) {
-      toast({
-        title: 'No data to export',
-        description: 'There is no data available for the selected period.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    const headers = [
-      { key: 'company_name', label: 'Company' },
-      { key: 'company_code', label: 'Company Code' },
-      { key: 'employee_no', label: 'Employee No.' },
-      { key: 'employee_name', label: 'Name' },
-      { key: 'department', label: 'Department' },
-      { key: 'position', label: 'Position' },
-      { key: 'total_ot_hours', label: 'Total OT Hours' },
-      { key: 'amount', label: 'Amount (RM)' },
-      { key: 'monthly_total', label: 'Monthly Total (RM)' }
-    ];
-
-    const formattedData = filteredData.map(row => ({
-      ...row,
-      total_ot_hours: formatHours(row.total_ot_hours),
-      amount: formatCurrency(row.amount),
-      monthly_total: formatCurrency(row.monthly_total)
-    }));
-
-    const monthStr = format(filterDate, 'MMM_yyyy');
-    exportToCSV(
-      formattedData,
-      `HR_OT_Report_${monthStr}`,
-      headers,
-      {
-        reportName: 'HR Overtime Report',
-        period: format(filterDate, 'MMMM yyyy'),
-        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm')
-      }
-    );
-
-    toast({
-      title: 'Report exported',
-      description: 'Excel file has been downloaded successfully.'
-    });
-  };
-
-  const handleExportPDF = async () => {
-    if (filteredData.length === 0) {
-      toast({
-        title: 'No data to export',
-        description: 'There is no data available for the selected period.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    if (!companyProfile) {
-      toast({
-        title: 'Company profile not found',
-        description: 'Please configure company profile in settings.',
-        variant: 'destructive'
-      });
-      return;
-    }
-
-    try {
-      await generateHRReportPDF({
-        companyInfo: {
-          name: companyProfile.name,
-          registrationNo: companyProfile.registration_no,
-          address: companyProfile.address,
-          phone: companyProfile.phone,
-          logoUrl: companyProfile.logo_url || undefined,
-        },
-        period: format(filterDate, 'MMMM yyyy'),
-        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
-        summary: {
-          totalHours: filteredStats.totalHours,
-          totalCost: filteredStats.totalCost,
-          totalEmployees: filteredStats.totalEmployees,
-          totalCompanies: filteredStats.totalCompanies,
-        },
-        companyGroups: companyGroups,
-      });
-
-      toast({
-        title: 'PDF generated',
-        description: 'Report has been downloaded successfully.'
-      });
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast({
-        title: 'Export failed',
-        description: 'Failed to generate PDF report.',
-        variant: 'destructive'
-      });
-    }
-  };
 
   return (
     <AppLayout>
@@ -294,23 +189,10 @@ export default function OTReports() {
                   className="pl-10"
                 />
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleExportCSV}
-                  disabled={isLoading || filteredData.length === 0}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export Excel
-                </Button>
-                <Button
-                  onClick={handleExportPDF}
-                  disabled={isLoading || filteredData.length === 0}
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Export PDF
-                </Button>
-              </div>
+              <GenerateReportDialog
+                defaultMonth={appliedMonth}
+                defaultYear={appliedYear}
+              />
             </div>
 
             <div className="space-y-4">
