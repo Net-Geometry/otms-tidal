@@ -12,6 +12,38 @@ export type PayrollRunStatus =
 
 export type PayrollApprovalRole = 'hr' | 'management' | 'finance';
 
+export type PayrollMemoStatus =
+  | 'draft'
+  | 'pending_director'
+  | 'pending_finance'
+  | 'finance_approved'
+  | 'posted'
+  | 'rejected';
+
+export const MEMO_STATUS_LABELS: Record<PayrollMemoStatus, string> = {
+  draft: 'Draft',
+  pending_director: 'Pending Director',
+  pending_finance: 'Pending Finance',
+  finance_approved: 'Finance Approved',
+  posted: 'Posted',
+  rejected: 'Rejected',
+};
+
+export const MEMO_STATUS_TRANSITIONS = [
+  { from: 'draft', to: 'pending_director', role: 'hr' },
+  { from: 'pending_director', to: 'pending_finance', role: 'management' },
+  { from: 'pending_director', to: 'rejected', role: 'management' },
+  { from: 'pending_finance', to: 'finance_approved', role: 'finance' },
+  { from: 'pending_finance', to: 'rejected', role: 'finance' },
+  { from: 'finance_approved', to: 'posted', role: 'finance' },
+] as const;
+
+export function canTransitionMemo(from: string, to: string, role: string): boolean {
+  return MEMO_STATUS_TRANSITIONS.some(
+    (t) => t.from === from && t.to === to && t.role === role
+  );
+}
+
 export const PAYROLL_STATUS_TRANSITIONS = [
   // HR submits for review
   { from: 'draft', to: 'pending_hr_review', role: 'hr' },
@@ -159,6 +191,54 @@ export interface PayrollRun {
   // Joined relations
   companies?: { id: string; name: string };
   payroll_items?: PayrollItem[];
+}
+
+export interface PayrollMemo {
+  id: string;
+  memo_number: string;
+  pay_period_month: number;
+  pay_period_year: number;
+  status: PayrollMemoStatus;
+
+  employee_count: number;
+  total_gross_salary: number;
+  total_net_salary: number;
+  total_director_fee: number;
+  total_employer_epf: number;
+  total_employee_epf: number;
+  total_employer_socso: number;
+  total_employee_socso: number;
+  total_employer_eis: number;
+  total_employee_eis: number;
+  total_hrdc: number;
+  total_pcb: number;
+  total_allowances: number;
+  total_deductions: number;
+
+  created_by: string | null;
+  hr_id: string | null;
+  hr_approved_at: string | null;
+  hr_remarks: string | null;
+
+  director_id: string | null;
+  director_approved_at: string | null;
+  director_remarks: string | null;
+
+  finance_id: string | null;
+  finance_approved_at: string | null;
+  finance_remarks: string | null;
+
+  rejected_by: string | null;
+  rejected_at: string | null;
+  rejection_remarks: string | null;
+  rejection_stage: string | null;
+
+  is_posted: boolean;
+  posted_at: string | null;
+  posted_by: string | null;
+
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PayrollItem {
