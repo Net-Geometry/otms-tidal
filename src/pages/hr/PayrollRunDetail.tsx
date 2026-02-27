@@ -5,7 +5,8 @@ import { PageLayout } from '@/components/ui/page-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Calculator, UserPlus } from 'lucide-react';
+import { ArrowLeft, Calculator, Info, UserPlus } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PayrollMemoView } from '@/components/payroll/PayrollMemoView';
 import { PayrollItemsTable } from '@/components/payroll/PayrollItemsTable';
 import { EmployeePayrollForm } from '@/components/payroll/EmployeePayrollForm';
@@ -128,6 +129,7 @@ export default function PayrollRunDetail() {
   }
 
   const isDraft = run.status === 'draft';
+  const hasMemo = !!(run as any).memo_id;
 
   return (
     <AppLayout>
@@ -141,7 +143,7 @@ export default function PayrollRunDetail() {
           </Button>
 
           <div className="flex items-center gap-2">
-            {isDraft && (
+            {isDraft && !hasMemo && (
               <>
                 <Button variant="outline" onClick={() => setShowAddEmployee(true)}>
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -154,14 +156,23 @@ export default function PayrollRunDetail() {
               </>
             )}
 
-            <PayrollApprovalActions
-              run={run}
-              role={approvalRole}
-              onApprove={approval.approvePayrollRun}
-              onReject={approval.rejectPayrollRun}
-              isApproving={approval.isApproving}
-              isRejecting={approval.isRejecting}
-            />
+            {hasMemo ? (
+              <Alert className="flex-1">
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  This run is part of a consolidated memo. Approval is managed on the Consolidated tab.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <PayrollApprovalActions
+                run={run}
+                role={approvalRole}
+                onApprove={approval.approvePayrollRun}
+                onReject={approval.rejectPayrollRun}
+                isApproving={approval.isApproving}
+                isRejecting={approval.isRejecting}
+              />
+            )}
           </div>
         </div>
 
