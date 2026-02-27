@@ -163,7 +163,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/hr/employees', label: 'Employees', icon: Users, roles: ['hr', 'admin'] },
         { path: '/hr/departments', label: 'Departments', icon: Building2, roles: ['hr', 'admin'] },
-        { path: '/hr/payroll', label: 'Payroll', icon: Wallet, roles: ['hr', 'admin'] },
+        { path: '/hr/payroll', label: 'Payroll', icon: Wallet, roles: ['hr', 'admin', 'management', 'finance'] },
         { path: '/hr/leave', label: 'Leave', icon: CalendarOff, roles: ['hr', 'admin'] },
         { path: '/hr/attendance', label: 'Attendance', icon: Clock, roles: ['hr', 'admin'] },
         { path: '/hr/claims', label: 'Claims', icon: Receipt, roles: ['hr', 'admin'] },

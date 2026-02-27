@@ -166,7 +166,7 @@ const App = () => (
                 <Route path="/hr/ot-reports" element={<ProtectedRoute requiredRole={['hr', 'admin']}><OTReports /></ProtectedRoute>} />
 
                 {/* HR extension routes */}
-                <Route path="/hr/payroll" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Payroll /></ProtectedRoute>} />
+                <Route path="/hr/payroll" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', 'finance']}><Payroll /></ProtectedRoute>} />
                 <Route path="/hr/payroll/:runId" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', 'finance']}><PayrollRunDetail /></ProtectedRoute>} />
                 <Route path="/hr/leave" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Leave /></ProtectedRoute>} />
                 <Route path="/hr/attendance" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Attendance /></ProtectedRoute>} />
