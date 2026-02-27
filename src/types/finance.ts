@@ -615,12 +615,14 @@ export const AP_PV_STATUS_LABELS: Record<ApPvStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-export type ApPaymentMethod = 'cheque' | 'online_transfer' | 'cash';
+export type ApPaymentMethod = 'cheque' | 'online_transfer' | 'cash' | 'auto_debit' | 'others';
 
 export const AP_PAYMENT_METHOD_LABELS: Record<ApPaymentMethod, string> = {
   cheque: 'Cheque',
   online_transfer: 'Online Transfer',
   cash: 'Cash',
+  auto_debit: 'Auto Debit',
+  others: 'Others',
 };
 
 export type ApUnitOfMeasure =
@@ -663,9 +665,18 @@ export const AP_TAX_CODES: Record<ApTaxCode, number> = {
   os: 0,
 };
 
+export type PrfType = 'payment_request' | 'claim' | 'others';
+
+export const PRF_TYPE_LABELS: Record<PrfType, string> = {
+  payment_request: 'Payment Request',
+  claim: 'Claim',
+  others: 'Others',
+};
+
 export interface PurchaseRequisitionItem {
   id: string;
   prf_id: string;
+  doc_date: string | null;
   description: string;
   gl_account_id: string;
   quantity: number;
@@ -673,6 +684,7 @@ export interface PurchaseRequisitionItem {
   unit_price: number;
   amount: number;
   project_id: string | null;
+  project_site: string | null;
   created_at?: string;
   gl_account?: Pick<ChartOfAccount, 'id' | 'account_code' | 'account_name'> | null;
   project?: Pick<Project, 'id' | 'project_code' | 'project_name'> | null;
@@ -683,6 +695,11 @@ export interface PurchaseRequisition {
   company_id: string;
   prf_number: string | null;
   requester_id: string;
+  prf_type: PrfType;
+  prf_type_others: string | null;
+  payable_to: string | null;
+  payment_via: string | null;
+  prf_date: string | null;
   department: string | null;
   priority: 'normal' | 'urgent';
   required_by_date: string | null;
@@ -691,6 +708,22 @@ export interface PurchaseRequisition {
   suggested_supplier_id: string | null;
   quotation_ref: string | null;
   total_amount: number;
+  advance_date_received: string | null;
+  advance_form_no: string | null;
+  advance_amount: number;
+  refund_reimburse_amount: number;
+  management_remarks: string | null;
+  chk_invoice: boolean;
+  chk_purchase_order: boolean;
+  chk_delivery_order: boolean;
+  chk_purchase_req_form: boolean;
+  chk_quotation: boolean;
+  chk_work_order: boolean;
+  chk_letter: boolean;
+  chk_memo: boolean;
+  chk_others: boolean;
+  chk_others_text: string | null;
+  accounts_dept_remarks: string | null;
   status: ApPrfStatus;
   submitted_at: string | null;
   approved_at: string | null;
@@ -760,15 +793,30 @@ export interface PaymentVoucherAllocation {
   ap_invoice?: Pick<ApInvoice, 'id' | 'invoice_number' | 'total_amount' | 'paid_amount' | 'status'> | null;
 }
 
+export interface PaymentVoucherLine {
+  id: string;
+  pv_id: string;
+  line_date: string;
+  description: string;
+  cheque_no: string | null;
+  amount: number;
+  sort_order: number;
+  created_at?: string;
+}
+
 export interface PaymentVoucher {
   id: string;
   company_id: string;
   pv_number: string | null;
-  supplier_id: string;
+  supplier_id: string | null;
   bank_account_id: string;
   payment_date: string;
   payment_method: ApPaymentMethod;
+  payment_method_other: string | null;
   reference_no: string | null;
+  pay_to: string | null;
+  pay_for: string | null;
+  is_recurring: boolean;
   total_amount: number;
   status: ApPvStatus;
   remarks: string | null;
@@ -781,6 +829,7 @@ export interface PaymentVoucher {
   supplier?: Pick<Supplier, 'id' | 'supplier_code' | 'supplier_name'> | null;
   bank_account?: Pick<BankAccount, 'id' | 'account_code' | 'account_name' | 'bank_name' | 'gl_account_id'> | null;
   allocations?: PaymentVoucherAllocation[];
+  lines?: PaymentVoucherLine[];
 }
 
 export type ArInvoiceStatus =

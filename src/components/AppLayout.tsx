@@ -208,7 +208,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     financeAP: {
       label: 'Accounts Payable',
       items: [
-        { path: '/finance/ap/prf', label: 'Purchase Requisitions', icon: FileText, roles: ['finance', 'admin'] },
+        { path: '/finance/ap/prf', label: 'Payment Requisitions', icon: FileText, roles: ['finance', 'admin'] },
         { path: '/finance/ap/invoices', label: 'AP Invoices', icon: Receipt, roles: ['finance', 'admin'] },
         { path: '/finance/ap/payment-vouchers', label: 'Payment Vouchers', icon: CreditCard, roles: ['finance', 'admin'] },
         { path: '/finance/ap/notes', label: 'AP Debit/Credit Notes', icon: FileText, roles: ['finance', 'admin'] },
@@ -372,7 +372,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       'gl': 'General Ledger',
       'ap': 'Accounts Payable',
       'ar': 'Accounts Receivable',
-      'prf': 'Purchase Requisitions',
+      'prf': 'Payment Requisitions',
       'invoices': 'Invoices',
       'payment-vouchers': 'Payment Vouchers',
       'official-receipts': 'Official Receipts',

@@ -17,6 +17,8 @@ import type {
   ApUnitOfMeasure,
   PaymentVoucher,
   PaymentVoucherAllocation,
+  PaymentVoucherLine,
+  PrfType,
   PurchaseRequisition,
   PurchaseRequisitionItem,
 } from '@/types/finance';
@@ -121,11 +123,19 @@ function normalizeAllocation(row: any): PaymentVoucherAllocation {
   };
 }
 
+function normalizePvLine(row: any): PaymentVoucherLine {
+  return {
+    ...row,
+    amount: toNumber(row.amount),
+  };
+}
+
 function normalizePv(row: any): PaymentVoucher {
   return {
     ...row,
     total_amount: toNumber(row.total_amount),
     allocations: ((row.allocations || []) as any[]).map(normalizeAllocation),
+    lines: ((row.lines || []) as any[]).map(normalizePvLine),
   };
 }
 
@@ -138,18 +148,25 @@ export interface PurchaseRequisitionFilters {
 }
 
 export interface PurchaseRequisitionItemInput {
+  doc_date?: string | null;
   description: string;
   gl_account_id: string;
   quantity?: number;
   unit?: ApUnitOfMeasure;
   unit_price?: number;
   project_id?: string | null;
+  project_site?: string | null;
 }
 
 export interface UpsertPrfInput {
   id?: string;
   company_id?: string | null;
   requester_id?: string | null;
+  prf_type?: PrfType;
+  prf_type_others?: string | null;
+  payable_to?: string | null;
+  payment_via?: string | null;
+  prf_date?: string | null;
   department?: string | null;
   priority?: 'normal' | 'urgent';
   required_by_date?: string | null;
@@ -157,6 +174,22 @@ export interface UpsertPrfInput {
   justification?: string | null;
   suggested_supplier_id?: string | null;
   quotation_ref?: string | null;
+  advance_date_received?: string | null;
+  advance_form_no?: string | null;
+  advance_amount?: number;
+  refund_reimburse_amount?: number;
+  management_remarks?: string | null;
+  chk_invoice?: boolean;
+  chk_purchase_order?: boolean;
+  chk_delivery_order?: boolean;
+  chk_purchase_req_form?: boolean;
+  chk_quotation?: boolean;
+  chk_work_order?: boolean;
+  chk_letter?: boolean;
+  chk_memo?: boolean;
+  chk_others?: boolean;
+  chk_others_text?: string | null;
+  accounts_dept_remarks?: string | null;
   items: PurchaseRequisitionItemInput[];
 }
 
@@ -166,12 +199,14 @@ async function upsertPrf(db: any, input: UpsertPrfInput): Promise<{ id: string }
 
   const items = (input.items || [])
     .map((item) => ({
+      doc_date: item.doc_date || null,
       description: item.description.trim(),
       gl_account_id: item.gl_account_id,
       quantity: toNumber(item.quantity || 0),
       unit: (item.unit || 'unit') as ApUnitOfMeasure,
       unit_price: toNumber(item.unit_price || 0),
       project_id: item.project_id || null,
+      project_site: item.project_site?.trim() || null,
     }))
     .filter((item) => item.description && item.gl_account_id && item.quantity > 0);
 
@@ -182,6 +217,11 @@ async function upsertPrf(db: any, input: UpsertPrfInput): Promise<{ id: string }
   const payload = {
     company_id: companyId,
     requester_id: requesterId,
+    prf_type: input.prf_type || 'payment_request',
+    prf_type_others: input.prf_type_others?.trim() || null,
+    payable_to: input.payable_to?.trim() || null,
+    payment_via: input.payment_via?.trim() || null,
+    prf_date: input.prf_date || null,
     department: input.department?.trim() || null,
     priority: input.priority || 'normal',
     required_by_date: input.required_by_date || null,
@@ -190,6 +230,22 @@ async function upsertPrf(db: any, input: UpsertPrfInput): Promise<{ id: string }
     suggested_supplier_id: input.suggested_supplier_id || null,
     quotation_ref: input.quotation_ref?.trim() || null,
     total_amount: totalAmount,
+    advance_date_received: input.advance_date_received || null,
+    advance_form_no: input.advance_form_no?.trim() || null,
+    advance_amount: toNumber(input.advance_amount),
+    refund_reimburse_amount: toNumber(input.refund_reimburse_amount),
+    management_remarks: input.management_remarks?.trim() || null,
+    chk_invoice: input.chk_invoice ?? false,
+    chk_purchase_order: input.chk_purchase_order ?? false,
+    chk_delivery_order: input.chk_delivery_order ?? false,
+    chk_purchase_req_form: input.chk_purchase_req_form ?? false,
+    chk_quotation: input.chk_quotation ?? false,
+    chk_work_order: input.chk_work_order ?? false,
+    chk_letter: input.chk_letter ?? false,
+    chk_memo: input.chk_memo ?? false,
+    chk_others: input.chk_others ?? false,
+    chk_others_text: input.chk_others_text?.trim() || null,
+    accounts_dept_remarks: input.accounts_dept_remarks?.trim() || null,
   };
 
   let prfId = input.id;
@@ -231,12 +287,14 @@ async function upsertPrf(db: any, input: UpsertPrfInput): Promise<{ id: string }
     .insert(
       items.map((item) => ({
         prf_id: prfId,
+        doc_date: item.doc_date,
         description: item.description,
         gl_account_id: item.gl_account_id,
         quantity: item.quantity,
         unit: item.unit,
         unit_price: roundMoney(item.unit_price),
         project_id: item.project_id,
+        project_site: item.project_site,
       })),
     );
   if (insertItemsError) throw insertItemsError;
@@ -253,24 +311,13 @@ export function usePurchaseRequisitions(filters: PurchaseRequisitionFilters = {}
   return useQuery({
     queryKey: [
       'purchase-requisitions',
-      filters.companyId || profile?.company_id || 'none',
+      filters.companyId || 'all',
       filters.status || 'all',
       filters.search || '',
       page,
       pageSize,
     ],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) {
-        return {
-          rows: [] as PurchaseRequisition[],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        };
-      }
-
       let q = db
         .from('purchase_requisitions')
         .select(
@@ -286,15 +333,18 @@ export function usePurchaseRequisitions(filters: PurchaseRequisitionFilters = {}
           `,
           { count: 'exact' },
         )
-        .eq('company_id', companyId)
         .order('created_at', { ascending: false });
+
+      if (filters.companyId) {
+        q = q.eq('company_id', filters.companyId);
+      }
 
       if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
 
       const search = (filters.search || '').trim();
       if (search) {
         q = q.or(
-          `prf_number.ilike.%${search}%,purpose.ilike.%${search}%,justification.ilike.%${search}%,quotation_ref.ilike.%${search}%`,
+          `prf_number.ilike.%${search}%,payable_to.ilike.%${search}%,purpose.ilike.%${search}%,management_remarks.ilike.%${search}%`,
         );
       }
 
@@ -314,7 +364,7 @@ export function usePurchaseRequisitions(filters: PurchaseRequisitionFilters = {}
         totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
+    enabled: !!profile?.id,
     staleTime: 20 * 1000,
   });
 }
@@ -940,16 +990,28 @@ export interface PaymentVoucherAllocationInput {
   allocated_amount: number;
 }
 
+export interface PaymentVoucherLineInput {
+  line_date: string;
+  description: string;
+  cheque_no?: string | null;
+  amount: number;
+}
+
 export interface UpsertPaymentVoucherInput {
   id?: string;
   company_id?: string | null;
-  supplier_id: string;
+  supplier_id?: string | null;
   bank_account_id: string;
   payment_date: string;
   payment_method?: ApPaymentMethod;
+  payment_method_other?: string | null;
   reference_no?: string | null;
+  pay_to?: string | null;
+  pay_for?: string | null;
+  is_recurring?: boolean;
   remarks?: string | null;
-  allocations: PaymentVoucherAllocationInput[];
+  allocations?: PaymentVoucherAllocationInput[];
+  lines?: PaymentVoucherLineInput[];
 }
 
 export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
@@ -969,17 +1031,6 @@ export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
       pageSize,
     ],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) {
-        return {
-          rows: [] as PaymentVoucher[],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        };
-      }
-
       let q = db
         .from('payment_vouchers')
         .select(
@@ -990,13 +1041,17 @@ export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
             allocations:payment_voucher_allocations(
               *,
               ap_invoice:ap_invoices(id, invoice_number, total_amount, paid_amount, status)
-            )
+            ),
+            lines:payment_voucher_lines(*)
           `,
           { count: 'exact' },
         )
-        .eq('company_id', companyId)
         .order('payment_date', { ascending: false })
         .order('created_at', { ascending: false });
+
+      if (filters.companyId) {
+        q = q.eq('company_id', filters.companyId);
+      }
 
       if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters.supplierId && filters.supplierId !== 'all') q = q.eq('supplier_id', filters.supplierId);
@@ -1031,7 +1086,6 @@ export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
 
 async function upsertPaymentVoucher(db: any, input: UpsertPaymentVoucherInput, createNumber: boolean): Promise<{ id: string }> {
   const companyId = await resolveCompanyId(db, input.company_id);
-  if (!input.supplier_id) throw new Error('Supplier is required');
   if (!input.bank_account_id) throw new Error('Bank account is required');
   if (!input.payment_date) throw new Error('Payment date is required');
 
@@ -1042,10 +1096,22 @@ async function upsertPaymentVoucher(db: any, input: UpsertPaymentVoucherInput, c
     }))
     .filter((allocation) => allocation.ap_invoice_id && allocation.allocated_amount > 0);
 
-  if (!allocations.length) throw new Error('At least one invoice allocation is required');
+  const lines = (input.lines || [])
+    .map((line, index) => ({
+      line_date: line.line_date,
+      description: (line.description || '').trim(),
+      cheque_no: line.cheque_no?.trim() || null,
+      amount: roundMoney(toNumber(line.amount)),
+      sort_order: index,
+    }))
+    .filter((line) => line.amount > 0 || line.description);
 
-  const totalAmount = roundMoney(allocations.reduce((sum, allocation) => sum + allocation.allocated_amount, 0));
-  if (totalAmount <= 0) throw new Error('Allocated amount must be greater than zero');
+  if (!allocations.length && !lines.length) throw new Error('Add at least one line item or invoice allocation');
+
+  const allocationTotal = roundMoney(allocations.reduce((sum, a) => sum + a.allocated_amount, 0));
+  const lineTotal = roundMoney(lines.reduce((sum, l) => sum + l.amount, 0));
+  const totalAmount = roundMoney(allocationTotal + lineTotal);
+  if (totalAmount <= 0) throw new Error('Total amount must be greater than zero');
 
   let pvId = input.id;
 
@@ -1063,11 +1129,15 @@ async function upsertPaymentVoucher(db: any, input: UpsertPaymentVoucherInput, c
 
   const payload = {
     company_id: companyId,
-    supplier_id: input.supplier_id,
+    supplier_id: input.supplier_id || null,
     bank_account_id: input.bank_account_id,
     payment_date: input.payment_date,
     payment_method: (input.payment_method || 'online_transfer') as ApPaymentMethod,
+    payment_method_other: input.payment_method_other?.trim() || null,
     reference_no: input.reference_no?.trim() || null,
+    pay_to: input.pay_to?.trim() || null,
+    pay_for: input.pay_for?.trim() || null,
+    is_recurring: input.is_recurring ?? false,
     remarks: input.remarks?.trim() || null,
     total_amount: totalAmount,
   };
@@ -1095,22 +1165,48 @@ async function upsertPaymentVoucher(db: any, input: UpsertPaymentVoucherInput, c
     pvId = data.id as string;
   }
 
-  const { error: deleteError } = await db
+  // Upsert allocations
+  const { error: deleteAllocError } = await db
     .from('payment_voucher_allocations')
     .delete()
     .eq('pv_id', pvId);
-  if (deleteError) throw deleteError;
+  if (deleteAllocError) throw deleteAllocError;
 
-  const { error: insertError } = await db
-    .from('payment_voucher_allocations')
-    .insert(
-      allocations.map((allocation) => ({
-        pv_id: pvId,
-        ap_invoice_id: allocation.ap_invoice_id,
-        allocated_amount: allocation.allocated_amount,
-      })),
-    );
-  if (insertError) throw insertError;
+  if (allocations.length) {
+    const { error: insertAllocError } = await db
+      .from('payment_voucher_allocations')
+      .insert(
+        allocations.map((allocation) => ({
+          pv_id: pvId,
+          ap_invoice_id: allocation.ap_invoice_id,
+          allocated_amount: allocation.allocated_amount,
+        })),
+      );
+    if (insertAllocError) throw insertAllocError;
+  }
+
+  // Upsert lines
+  const { error: deleteLinesError } = await db
+    .from('payment_voucher_lines')
+    .delete()
+    .eq('pv_id', pvId);
+  if (deleteLinesError) throw deleteLinesError;
+
+  if (lines.length) {
+    const { error: insertLinesError } = await db
+      .from('payment_voucher_lines')
+      .insert(
+        lines.map((line) => ({
+          pv_id: pvId,
+          line_date: line.line_date,
+          description: line.description,
+          cheque_no: line.cheque_no,
+          amount: line.amount,
+          sort_order: line.sort_order,
+        })),
+      );
+    if (insertLinesError) throw insertLinesError;
+  }
 
   return { id: pvId };
 }
@@ -1252,7 +1348,8 @@ export function usePostPV() {
               ap_invoice_id,
               allocated_amount,
               ap_invoice:ap_invoices(id, invoice_number, total_amount, paid_amount, status)
-            )
+            ),
+            lines:payment_voucher_lines(*)
           `,
         )
         .eq('id', input.pvId)

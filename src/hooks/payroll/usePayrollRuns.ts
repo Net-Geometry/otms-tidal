@@ -71,16 +71,9 @@ export function usePayrollRuns(options?: { filter?: PayrollRunsFilter }) {
         throw new Error('A payroll run already exists for this company and period');
       }
 
-      // Generate run number with sequence
-      const { data: countData } = await db
-        .from('payroll_runs')
-        .select('id', { count: 'exact', head: true })
-        .eq('pay_period_month', input.pay_period_month)
-        .eq('pay_period_year', input.pay_period_year);
-
-      const seq = String((countData?.length ?? 0) + 1).padStart(3, '0');
+      // Generate run number: always 001 per company per period
       const m = String(input.pay_period_month).padStart(2, '0');
-      const run_number = `PR-${input.pay_period_year}-${m}-${seq}`;
+      const run_number = `PR-${input.pay_period_year}-${m}-001`;
 
       const { data, error } = await db
         .from('payroll_runs')

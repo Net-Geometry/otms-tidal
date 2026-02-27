@@ -1,7 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Check, ChevronsUpDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   Dialog,
   DialogContent,
@@ -14,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
   Form,
   FormControl,
@@ -60,6 +64,8 @@ export function PettyCashTxnForm({
   departments,
   isSubmitting,
 }: PettyCashTxnFormProps) {
+  const [coaOpen, setCoaOpen] = useState(false);
+
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -219,26 +225,65 @@ export function PettyCashTxnForm({
               <FormField
                 control={form.control}
                 name="account_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Chart of Account</FormLabel>
-                    <Select value={field.value || undefined} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select account" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {accountOptions.map((row) => (
-                          <SelectItem key={row.id} value={row.id}>
-                            {row.account_code} - {row.account_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                render={({ field }) => {
+                  const selected = accountOptions.find((a) => a.id === field.value);
+                  return (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Chart of Account</FormLabel>
+                      <Popover open={coaOpen} onOpenChange={setCoaOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={coaOpen}
+                              className={cn(
+                                'w-full justify-between font-normal',
+                                !field.value && 'text-muted-foreground',
+                              )}
+                            >
+                              <span className="truncate">
+                                {selected
+                                  ? `${selected.account_code} - ${selected.account_name}`
+                                  : 'Select account'}
+                              </span>
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search account..." />
+                            <CommandList>
+                              <CommandEmpty>No account found.</CommandEmpty>
+                              <CommandGroup>
+                                {accountOptions.map((row) => (
+                                  <CommandItem
+                                    key={row.id}
+                                    value={`${row.account_code} - ${row.account_name}`}
+                                    onSelect={() => {
+                                      field.onChange(row.id);
+                                      setCoaOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        'mr-2 h-4 w-4',
+                                        field.value === row.id ? 'opacity-100' : 'opacity-0',
+                                      )}
+                                    />
+                                    {row.account_code} - {row.account_name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
             </div>
 

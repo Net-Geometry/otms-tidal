@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Eye, PlusCircle } from 'lucide-react';
+import { Eye, PlusCircle, Plus, Trash2 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select,
   SelectContent,
@@ -53,14 +54,26 @@ import {
   type PaymentVoucher,
 } from '@/types/finance';
 
+interface PvLineRow {
+  line_date: string;
+  description: string;
+  cheque_no: string;
+  amount: string;
+}
+
 interface PvFormState {
   company_id: string;
   supplier_id: string;
   bank_account_id: string;
   payment_date: string;
   payment_method: ApPaymentMethod;
+  payment_method_other: string;
   reference_no: string;
+  pay_to: string;
+  pay_for: string;
+  is_recurring: boolean;
   remarks: string;
+  lines: PvLineRow[];
   allocations: Record<string, string>;
 }
 
@@ -73,15 +86,25 @@ function formatMoney(value: number) {
   }).format(Number(value || 0));
 }
 
+function makeEmptyLine(date: string): PvLineRow {
+  return { line_date: date, description: '', cheque_no: '', amount: '' };
+}
+
 function makeInitialForm(companyId: string): PvFormState {
+  const today = new Date().toISOString().slice(0, 10);
   return {
     company_id: companyId,
     supplier_id: '',
     bank_account_id: '',
-    payment_date: new Date().toISOString().slice(0, 10),
+    payment_date: today,
     payment_method: 'online_transfer',
+    payment_method_other: '',
     reference_no: '',
+    pay_to: '',
+    pay_for: '',
+    is_recurring: false,
     remarks: '',
+    lines: [makeEmptyLine(today)],
     allocations: {},
   };
 }
@@ -187,15 +210,29 @@ export default function PaymentVouchers() {
       allocations[allocation.ap_invoice_id] = String(allocation.allocated_amount || 0);
     }
 
+    const existingLines: PvLineRow[] = (voucher.lines || [])
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((line) => ({
+        line_date: line.line_date,
+        description: line.description || '',
+        cheque_no: line.cheque_no || '',
+        amount: String(line.amount || 0),
+      }));
+
     setEditingVoucher(voucher);
     setForm({
       company_id: voucher.company_id,
-      supplier_id: voucher.supplier_id,
+      supplier_id: voucher.supplier_id || '',
       bank_account_id: voucher.bank_account_id,
       payment_date: voucher.payment_date,
       payment_method: voucher.payment_method,
+      payment_method_other: voucher.payment_method_other || '',
       reference_no: voucher.reference_no || '',
+      pay_to: voucher.pay_to || '',
+      pay_for: voucher.pay_for || '',
+      is_recurring: voucher.is_recurring ?? false,
       remarks: voucher.remarks || '',
+      lines: existingLines.length ? existingLines : [makeEmptyLine(voucher.payment_date)],
       allocations,
     });
     setDialogOpen(true);
@@ -224,14 +261,34 @@ export default function PaymentVouchers() {
     }));
   };
 
+  const linesTotal = useMemo(() => {
+    return form.lines.reduce((sum, line) => sum + Number(line.amount || 0), 0);
+  }, [form.lines]);
+
+  const addLine = () => {
+    setForm((prev) => ({
+      ...prev,
+      lines: [...prev.lines, makeEmptyLine(prev.payment_date)],
+    }));
+  };
+
+  const removeLine = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      lines: prev.lines.filter((_, i) => i !== index),
+    }));
+  };
+
+  const updateLine = (index: number, field: keyof PvLineRow, value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      lines: prev.lines.map((line, i) => (i === index ? { ...line, [field]: value } : line)),
+    }));
+  };
+
   const saveDraft = async () => {
     if (!form.company_id) {
       toast({ title: 'Company is required', variant: 'destructive' });
-      return;
-    }
-
-    if (!form.supplier_id) {
-      toast({ title: 'Supplier is required', variant: 'destructive' });
       return;
     }
 
@@ -247,11 +304,6 @@ export default function PaymentVouchers() {
       }))
       .filter((item) => item.allocated_amount > 0);
 
-    if (!allocations.length) {
-      toast({ title: 'Add at least one allocation', variant: 'destructive' });
-      return;
-    }
-
     for (const allocation of allocations) {
       const outstanding = outstandingByInvoiceId.get(allocation.ap_invoice_id);
       if (outstanding == null) {
@@ -264,16 +316,35 @@ export default function PaymentVouchers() {
       }
     }
 
+    const lines = form.lines
+      .filter((line) => line.description.trim() || Number(line.amount || 0) > 0)
+      .map((line) => ({
+        line_date: line.line_date,
+        description: line.description,
+        cheque_no: line.cheque_no || null,
+        amount: Number(line.amount || 0),
+      }));
+
+    if (!allocations.length && !lines.length) {
+      toast({ title: 'Add at least one line item or invoice allocation', variant: 'destructive' });
+      return;
+    }
+
     const payload = {
       id: editingVoucher?.id,
       company_id: form.company_id,
-      supplier_id: form.supplier_id,
+      supplier_id: form.supplier_id || null,
       bank_account_id: form.bank_account_id,
       payment_date: form.payment_date,
       payment_method: form.payment_method,
+      payment_method_other: form.payment_method === 'others' ? form.payment_method_other.trim() || null : null,
       reference_no: form.reference_no.trim() || null,
+      pay_to: form.pay_to.trim() || null,
+      pay_for: form.pay_for.trim() || null,
+      is_recurring: form.is_recurring,
       remarks: form.remarks.trim() || null,
       allocations,
+      lines,
     };
 
     if (editingVoucher) {
@@ -386,7 +457,8 @@ export default function PaymentVouchers() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>PV No</TableHead>
-                      <TableHead>Supplier</TableHead>
+                      <TableHead>Pay To</TableHead>
+                      <TableHead>Pay For</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
@@ -398,9 +470,10 @@ export default function PaymentVouchers() {
                     {rows.map((voucher) => (
                       <TableRow key={voucher.id}>
                         <TableCell className="font-medium">{voucher.pv_number || 'Draft'}</TableCell>
-                        <TableCell>{voucher.supplier?.supplier_name || '-'}</TableCell>
+                        <TableCell>{voucher.pay_to || voucher.supplier?.supplier_name || '-'}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{voucher.pay_for || '-'}</TableCell>
                         <TableCell>{format(new Date(voucher.payment_date), 'dd MMM yyyy')}</TableCell>
-                        <TableCell>{AP_PAYMENT_METHOD_LABELS[voucher.payment_method]}</TableCell>
+                        <TableCell>{voucher.payment_method === 'others' ? (voucher.payment_method_other || 'Others') : AP_PAYMENT_METHOD_LABELS[voucher.payment_method]}</TableCell>
                         <TableCell className="text-right">{formatMoney(voucher.total_amount)}</TableCell>
                         <TableCell>
                           <Badge variant={voucher.status === 'posted' ? 'default' : 'secondary'}>
@@ -489,6 +562,7 @@ export default function PaymentVouchers() {
             </DialogHeader>
 
             <div className="space-y-4">
+              {/* Row 1: Company & Ref No / Date */}
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Company</Label>
@@ -511,27 +585,16 @@ export default function PaymentVouchers() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Supplier</Label>
-                  <Select
-                    value={form.supplier_id || 'none'}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, supplier_id: value === 'none' ? '' : value, allocations: {} }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Select supplier</SelectItem>
-                      {filteredSuppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.supplier_code} - {supplier.supplier_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Ref No.</Label>
+                  <Input
+                    value={form.reference_no}
+                    onChange={(event) => setForm((prev) => ({ ...prev, reference_no: event.target.value }))}
+                    placeholder="Auto-generated or manual"
+                  />
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Payment Date</Label>
+                  <Label>Date</Label>
                   <Input
                     type="date"
                     value={form.payment_date}
@@ -540,9 +603,31 @@ export default function PaymentVouchers() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              {/* Row 2: Pay To & Pay For */}
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Bank Account</Label>
+                  <Label>Pay To</Label>
+                  <Input
+                    value={form.pay_to}
+                    onChange={(event) => setForm((prev) => ({ ...prev, pay_to: event.target.value }))}
+                    placeholder="Payee name"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Pay For</Label>
+                  <Input
+                    value={form.pay_for}
+                    onChange={(event) => setForm((prev) => ({ ...prev, pay_for: event.target.value }))}
+                    placeholder="Payment purpose / description"
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Payment Method (bank account + method type + recurring) */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Payment Method (Bank Account)</Label>
                   <Select
                     value={form.bank_account_id || 'none'}
                     onValueChange={(value) => setForm((prev) => ({ ...prev, bank_account_id: value === 'none' ? '' : value }))}
@@ -554,44 +639,222 @@ export default function PaymentVouchers() {
                       <SelectItem value="none">Select bank account</SelectItem>
                       {filteredBankAccounts.map((account) => (
                         <SelectItem key={account.id} value={account.id}>
-                          {account.account_code} - {account.account_name}
+                          {account.bank_name ? `${account.bank_name} - ` : ''}{account.account_code} {account.account_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select
+                <div className="space-y-3">
+                  <Label>Type</Label>
+                  <RadioGroup
                     value={form.payment_method}
                     onValueChange={(value) => setForm((prev) => ({ ...prev, payment_method: value as ApPaymentMethod }))}
+                    className="flex flex-wrap items-center gap-x-4 gap-y-2"
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(AP_PAYMENT_METHOD_LABELS) as ApPaymentMethod[]).map((method) => (
-                        <SelectItem key={method} value={method}>
+                    {(['cheque', 'online_transfer', 'cash', 'auto_debit', 'others'] as ApPaymentMethod[]).map((method) => (
+                      <div key={method} className="flex items-center gap-1.5">
+                        <RadioGroupItem value={method} id={`method-${method}`} />
+                        <Label htmlFor={`method-${method}`} className="font-normal cursor-pointer text-sm">
                           {AP_PAYMENT_METHOD_LABELS[method]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Reference No</Label>
-                  <Input
-                    value={form.reference_no}
-                    onChange={(event) => setForm((prev) => ({ ...prev, reference_no: event.target.value }))}
-                    placeholder="Cheque no / transfer ref"
-                  />
+                        </Label>
+                      </div>
+                    ))}
+                    {form.payment_method === 'others' && (
+                      <Input
+                        className="w-40"
+                        value={form.payment_method_other}
+                        onChange={(event) => setForm((prev) => ({ ...prev, payment_method_other: event.target.value }))}
+                        placeholder="Specify..."
+                      />
+                    )}
+                  </RadioGroup>
                 </div>
               </div>
 
+              {/* Recurring / Non-Recurring */}
               <div className="space-y-2">
-                <Label>Remarks</Label>
+                <Label>Recurring</Label>
+                <RadioGroup
+                  value={form.is_recurring ? 'recurring' : 'non_recurring'}
+                  onValueChange={(value) => setForm((prev) => ({ ...prev, is_recurring: value === 'recurring' }))}
+                  className="flex items-center gap-4"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <RadioGroupItem value="recurring" id="recurring" />
+                    <Label htmlFor="recurring" className="font-normal cursor-pointer">Recurring</Label>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <RadioGroupItem value="non_recurring" id="non_recurring" />
+                    <Label htmlFor="non_recurring" className="font-normal cursor-pointer">Non-Recurring</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Optional supplier (for AP invoice allocation) */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Supplier <span className="text-muted-foreground text-xs">(optional, for invoice allocation)</span></Label>
+                  <Select
+                    value={form.supplier_id || 'none'}
+                    onValueChange={(value) => setForm((prev) => ({ ...prev, supplier_id: value === 'none' ? '' : value, allocations: {} }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">— None —</SelectItem>
+                      {filteredSuppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {supplier.supplier_code} - {supplier.supplier_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Line Items Table (Date, Description, Cheque No., Amount) */}
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm">Line Items</CardTitle>
+                  <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                    <Plus className="mr-1 h-3 w-3" />
+                    Add Line
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[140px]">Date</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="w-[140px]">Cheque No.</TableHead>
+                          <TableHead className="w-[150px] text-right">Amount (RM)</TableHead>
+                          <TableHead className="w-[50px]" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {form.lines.map((line, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              <Input
+                                type="date"
+                                value={line.line_date}
+                                onChange={(e) => updateLine(index, 'line_date', e.target.value)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={line.description}
+                                onChange={(e) => updateLine(index, 'description', e.target.value)}
+                                placeholder="Description"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={line.cheque_no}
+                                onChange={(e) => updateLine(index, 'cheque_no', e.target.value)}
+                                placeholder="Cheque no."
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="text-right"
+                                value={line.amount}
+                                onChange={(e) => updateLine(index, 'amount', e.target.value)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {form.lines.length > 1 && (
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => removeLine(index)}>
+                                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="mt-2 text-right text-sm font-medium">
+                    Line Total: {formatMoney(linesTotal)}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Invoice Allocation (shown only when supplier is selected) */}
+              {form.supplier_id && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">Invoice Allocation</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {!outstandingInvoices.length ? (
+                      <p className="text-sm text-muted-foreground">No outstanding invoices for this supplier.</p>
+                    ) : (
+                      <div className="rounded-md border">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-[60px]">Use</TableHead>
+                              <TableHead>Invoice</TableHead>
+                              <TableHead className="text-right">Total</TableHead>
+                              <TableHead className="text-right">Paid</TableHead>
+                              <TableHead className="text-right">Outstanding</TableHead>
+                              <TableHead className="text-right">Allocate</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {outstandingInvoices.map((invoice) => {
+                              const checked = form.allocations[invoice.id] != null;
+                              const allocatedValue = form.allocations[invoice.id] || '';
+                              const invalid = Number(allocatedValue || 0) > Number(invoice.outstanding || 0);
+
+                              return (
+                                <TableRow key={invoice.id}>
+                                  <TableCell>
+                                    <Checkbox checked={checked} onCheckedChange={(value) => toggleAllocation(invoice.id, value === true)} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="space-y-1">
+                                      <div className="font-medium">{invoice.invoice_number || invoice.id}</div>
+                                      <div className="text-xs text-muted-foreground">Due {format(new Date(invoice.due_date), 'dd MMM yyyy')}</div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right">{formatMoney(invoice.total_amount)}</TableCell>
+                                  <TableCell className="text-right">{formatMoney(invoice.paid_amount)}</TableCell>
+                                  <TableCell className="text-right">{formatMoney(invoice.outstanding)}</TableCell>
+                                  <TableCell className="text-right">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      className={`w-36 ml-auto ${invalid ? 'border-destructive' : ''}`}
+                                      disabled={!checked}
+                                      value={allocatedValue}
+                                      onChange={(event) => updateAllocationAmount(invoice.id, event.target.value)}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Remarks */}
+              <div className="space-y-2">
+                <Label>Remarks (Account Dept.)</Label>
                 <Textarea
                   rows={2}
                   value={form.remarks}
@@ -600,71 +863,11 @@ export default function PaymentVouchers() {
                 />
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Outstanding Invoices</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!form.supplier_id ? (
-                    <p className="text-sm text-muted-foreground">Select supplier to load outstanding invoices.</p>
-                  ) : !outstandingInvoices.length ? (
-                    <p className="text-sm text-muted-foreground">No outstanding invoices for this supplier.</p>
-                  ) : (
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[60px]">Use</TableHead>
-                            <TableHead>Invoice</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
-                            <TableHead className="text-right">Paid</TableHead>
-                            <TableHead className="text-right">Outstanding</TableHead>
-                            <TableHead className="text-right">Allocate</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {outstandingInvoices.map((invoice) => {
-                            const checked = form.allocations[invoice.id] != null;
-                            const allocatedValue = form.allocations[invoice.id] || '';
-                            const invalid = Number(allocatedValue || 0) > Number(invoice.outstanding || 0);
-
-                            return (
-                              <TableRow key={invoice.id}>
-                                <TableCell>
-                                  <Checkbox checked={checked} onCheckedChange={(value) => toggleAllocation(invoice.id, value === true)} />
-                                </TableCell>
-                                <TableCell>
-                                  <div className="space-y-1">
-                                    <div className="font-medium">{invoice.invoice_number || invoice.id}</div>
-                                    <div className="text-xs text-muted-foreground">Due {format(new Date(invoice.due_date), 'dd MMM yyyy')}</div>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right">{formatMoney(invoice.total_amount)}</TableCell>
-                                <TableCell className="text-right">{formatMoney(invoice.paid_amount)}</TableCell>
-                                <TableCell className="text-right">{formatMoney(invoice.outstanding)}</TableCell>
-                                <TableCell className="text-right">
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className={`w-36 ml-auto ${invalid ? 'border-destructive' : ''}`}
-                                    disabled={!checked}
-                                    value={allocatedValue}
-                                    onChange={(event) => updateAllocationAmount(invoice.id, event.target.value)}
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <div className="text-right text-sm font-medium">
-                Total Allocated: {formatMoney(totalAllocated)}
+              {/* Totals Summary */}
+              <div className="text-right text-sm font-medium space-y-1">
+                {totalAllocated > 0 && <div>Invoice Allocation: {formatMoney(totalAllocated)}</div>}
+                {linesTotal > 0 && totalAllocated > 0 && <div>Line Items: {formatMoney(linesTotal)}</div>}
+                <div className="text-base">Total: {formatMoney(linesTotal + totalAllocated)}</div>
               </div>
             </div>
 
@@ -690,35 +893,78 @@ export default function PaymentVouchers() {
               <div className="space-y-4">
                 <div className="grid gap-2 text-sm md:grid-cols-2">
                   <p><span className="text-muted-foreground">PV No:</span> {detailVoucher.pv_number || 'Draft'}</p>
-                  <p><span className="text-muted-foreground">Supplier:</span> {detailVoucher.supplier?.supplier_name || '-'}</p>
-                  <p><span className="text-muted-foreground">Payment Date:</span> {format(new Date(detailVoucher.payment_date), 'dd MMM yyyy')}</p>
-                  <p><span className="text-muted-foreground">Method:</span> {AP_PAYMENT_METHOD_LABELS[detailVoucher.payment_method]}</p>
+                  <p><span className="text-muted-foreground">Ref No:</span> {detailVoucher.reference_no || '-'}</p>
+                  <p><span className="text-muted-foreground">Pay To:</span> {detailVoucher.pay_to || detailVoucher.supplier?.supplier_name || '-'}</p>
+                  <p><span className="text-muted-foreground">Pay For:</span> {detailVoucher.pay_for || '-'}</p>
+                  <p><span className="text-muted-foreground">Date:</span> {format(new Date(detailVoucher.payment_date), 'dd MMM yyyy')}</p>
+                  <p><span className="text-muted-foreground">Method:</span> {detailVoucher.payment_method === 'others' ? (detailVoucher.payment_method_other || 'Others') : AP_PAYMENT_METHOD_LABELS[detailVoucher.payment_method]}</p>
+                  <p><span className="text-muted-foreground">Recurring:</span> {detailVoucher.is_recurring ? 'Yes' : 'No'}</p>
                   <p><span className="text-muted-foreground">Status:</span> {AP_PV_STATUS_LABELS[detailVoucher.status]}</p>
                   <p><span className="text-muted-foreground">Amount:</span> {formatMoney(detailVoucher.total_amount)}</p>
+                  {detailVoucher.remarks && (
+                    <p className="md:col-span-2"><span className="text-muted-foreground">Remarks:</span> {detailVoucher.remarks}</p>
+                  )}
                 </div>
 
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Invoice</TableHead>
-                        <TableHead className="text-right">Invoice Total</TableHead>
-                        <TableHead className="text-right">Paid</TableHead>
-                        <TableHead className="text-right">Allocated</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(detailVoucher.allocations || []).map((allocation) => (
-                        <TableRow key={allocation.id}>
-                          <TableCell>{allocation.ap_invoice?.invoice_number || allocation.ap_invoice_id}</TableCell>
-                          <TableCell className="text-right">{formatMoney(allocation.ap_invoice?.total_amount || 0)}</TableCell>
-                          <TableCell className="text-right">{formatMoney(allocation.ap_invoice?.paid_amount || 0)}</TableCell>
-                          <TableCell className="text-right">{formatMoney(allocation.allocated_amount)}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                {/* Line Items */}
+                {(detailVoucher.lines || []).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Line Items</h4>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Cheque No.</TableHead>
+                            <TableHead className="text-right">Amount (RM)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(detailVoucher.lines || [])
+                            .sort((a, b) => a.sort_order - b.sort_order)
+                            .map((line) => (
+                              <TableRow key={line.id}>
+                                <TableCell>{format(new Date(line.line_date), 'dd-MM-yyyy')}</TableCell>
+                                <TableCell>{line.description}</TableCell>
+                                <TableCell>{line.cheque_no || '-'}</TableCell>
+                                <TableCell className="text-right">{formatMoney(line.amount)}</TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Invoice Allocations */}
+                {(detailVoucher.allocations || []).length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Invoice Allocations</h4>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Invoice</TableHead>
+                            <TableHead className="text-right">Invoice Total</TableHead>
+                            <TableHead className="text-right">Paid</TableHead>
+                            <TableHead className="text-right">Allocated</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(detailVoucher.allocations || []).map((allocation) => (
+                            <TableRow key={allocation.id}>
+                              <TableCell>{allocation.ap_invoice?.invoice_number || allocation.ap_invoice_id}</TableCell>
+                              <TableCell className="text-right">{formatMoney(allocation.ap_invoice?.total_amount || 0)}</TableCell>
+                              <TableCell className="text-right">{formatMoney(allocation.ap_invoice?.paid_amount || 0)}</TableCell>
+                              <TableCell className="text-right">{formatMoney(allocation.allocated_amount)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>

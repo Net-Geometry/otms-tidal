@@ -172,7 +172,10 @@ export function useDoaRules(options: UseDoaRulesOptions = {}) {
       toast({ title: 'Saved', description: 'DOA rule saved successfully' });
     },
     onError: (error: Error) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      const msg = error.message?.includes('idx_doa_rules_unique_window')
+        ? 'A rule with this company, document type, level, amount, and role already exists.'
+        : error.message;
+      toast({ title: 'Error', description: msg, variant: 'destructive' });
     },
   });
 
