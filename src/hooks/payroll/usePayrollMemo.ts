@@ -154,8 +154,8 @@ export function usePayrollMemo(month: number, year: number) {
         .single();
 
       if (fetchErr) throw fetchErr;
-      if (current.status !== 'draft') {
-        throw new Error('Only draft memos can be deleted');
+      if (current.status !== 'draft' && current.status !== 'rejected') {
+        throw new Error('Only draft or rejected memos can be deleted');
       }
 
       // Unlink runs
@@ -352,6 +352,7 @@ export function usePayrollMemo(month: number, year: number) {
           // Set HR approval with current user
           hr_id: authData.user.id,
           hr_approved_at: now,
+          hr_remarks: null,
           // Clear downstream approvals
           director_id: null,
           director_approved_at: null,

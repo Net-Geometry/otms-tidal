@@ -189,9 +189,9 @@ export default function PayrollRunDetail() {
               onEdit={(item) => setEditItem(item)}
               onRecalculate={handleRecalculateSingle}
               isRecalculating={isRecalculatingSingle}
-              readOnly={!isDraft}
+              readOnly={!isDraft || hasMemo}
               search={employeeSearch}
-              onSearchChange={isDraft ? setEmployeeSearch : undefined}
+              onSearchChange={isDraft && !hasMemo ? setEmployeeSearch : undefined}
             />
           </CardContent>
         </Card>
@@ -206,7 +206,7 @@ export default function PayrollRunDetail() {
           }}
           isSaving={isUpdatingItem}
           allowanceTypes={allowanceTypes || []}
-          readOnly={!isDraft}
+          readOnly={!isDraft || hasMemo}
         />
 
         {run && (
