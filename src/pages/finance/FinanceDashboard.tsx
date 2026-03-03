@@ -35,7 +35,7 @@ const MORE_ACTIONS = {
     { to: '/finance/claims', label: 'Claims Posting', icon: Receipt },
   ],
   'Project & Reports': [
-    { to: '/finance/project-costing', label: 'Project Costing', icon: BarChart3 },
+    // { to: '/finance/project-costing', label: 'Project Costing', icon: BarChart3 },
     { to: '/finance/reports', label: 'Reports', icon: FileText },
   ],
   'Setup': [

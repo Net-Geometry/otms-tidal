@@ -100,10 +100,16 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
 
   // Determine which group contains the active route
   const getActiveGroup = () => {
+    // Role-aware: /hr/payroll is shared across HR, Finance, and Management groups
+    if (currentPath.startsWith('/hr/payroll')) {
+      if (activeRole === 'finance') return 'financeManagement';
+      if (['management', 'director', 'gm', 'head_finance'].includes(activeRole || '')) return 'reports';
+      return 'hrManagement';
+    }
     if (currentPath === '/finance/dashboard' || currentPath === '/finance/workflow/inbox') return 'financeManagement';
     if (currentPath.startsWith('/finance/setup/') || currentPath.startsWith('/finance/masters/')) return 'financeSetup';
     if (currentPath.startsWith('/finance/petty-cash') || currentPath.startsWith('/finance/gl/cashbook') || currentPath.startsWith('/finance/bank/') || currentPath.startsWith('/finance/gl/opening-balance')) return 'financeCash';
-    if (currentPath.startsWith('/finance/gl/') || currentPath.startsWith('/finance/claims') || currentPath.startsWith('/finance/wages') || currentPath.startsWith('/finance/project-costing')) return 'financeGL';
+    if (currentPath.startsWith('/finance/gl/') || currentPath.startsWith('/finance/claims') || currentPath.startsWith('/finance/wages')) return 'financeGL';
     if (currentPath.startsWith('/finance/ap/')) return 'financeAP';
     if (currentPath.startsWith('/finance/ar/')) return 'financeAR';
     if (currentPath.startsWith('/finance/reports')) return 'financeReports';
@@ -174,6 +180,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/finance/dashboard', label: 'Finance Dashboard', icon: LayoutDashboard, roles: ['finance', 'admin'] },
         { path: '/finance/workflow/inbox', label: 'Approval Inbox', icon: CheckCircle, roles: ['finance', 'admin'] },
+        { path: '/hr/payroll', label: 'Payroll Approval', icon: Wallet, roles: ['finance', 'admin'] },
       ],
     },
     financeSetup: {
@@ -202,7 +209,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/finance/gl/journal-entries', label: 'Journal Entries', icon: BookOpen, roles: ['finance', 'admin'] },
         { path: '/finance/claims', label: 'Claims Posting', icon: Receipt, roles: ['finance', 'admin'] },
         { path: '/finance/wages', label: 'Wages', icon: Banknote, roles: ['finance', 'admin'] },
-        { path: '/finance/project-costing', label: 'Project Costing', icon: BarChart3, roles: ['finance', 'admin'] },
+        // { path: '/finance/project-costing', label: 'Project Costing', icon: BarChart3, roles: ['finance', 'admin'] },
       ],
     },
     financeAP: {
@@ -234,6 +241,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/hr/ot-reports', label: 'OT Reports', icon: FileText, roles: ['hr', 'admin'] },
         { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
         { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/hr/payroll', label: 'Approve Payroll', icon: Wallet, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
         { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
@@ -383,7 +391,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       'bank': 'Banking',
       'reconciliation': 'Bank Reconciliation',
       'petty-cash': 'Petty Cash',
-      'project-costing': 'Project Costing',
+      // 'project-costing': 'Project Costing',
       'wages': 'Wages',
       'ot-reports': 'OT Reports',
       'report': 'Report',

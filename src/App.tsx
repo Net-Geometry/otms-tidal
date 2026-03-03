@@ -75,7 +75,7 @@ const PayrollRunDetail = lazy(() => import("./pages/hr/PayrollRunDetail"));
 const ChartOfAccounts = lazy(() => import("./pages/finance/ChartOfAccounts"));
 const ClaimsPosting = lazy(() => import("./pages/finance/ClaimsPosting"));
 const PettyCash = lazy(() => import("./pages/finance/PettyCash"));
-const ProjectCosting = lazy(() => import("./pages/finance/ProjectCosting"));
+// const ProjectCosting = lazy(() => import("./pages/finance/ProjectCosting"));
 const Wages = lazy(() => import("./pages/finance/Wages"));
 const FinanceReports = lazy(() => import("./pages/finance/FinanceReports"));
 const SetupCompanyProfile = lazy(() => import("./pages/finance/SetupCompanyProfile"));
@@ -195,7 +195,7 @@ const App = () => (
                 <Route path="/finance/bank/reconciliation" element={<ProtectedRoute requiredRole={['finance', 'admin']}><BankReconciliation /></ProtectedRoute>} />
                 <Route path="/finance/claims" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ClaimsPosting /></ProtectedRoute>} />
                 <Route path="/finance/petty-cash" element={<ProtectedRoute requiredRole={['finance', 'admin']}><PettyCash /></ProtectedRoute>} />
-                <Route path="/finance/project-costing" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ProjectCosting /></ProtectedRoute>} />
+                {/* <Route path="/finance/project-costing" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ProjectCosting /></ProtectedRoute>} /> */}
                 <Route path="/finance/wages" element={<ProtectedRoute requiredRole={['finance', 'admin']}><Wages /></ProtectedRoute>} />
                 <Route path="/finance/reports" element={<ProtectedRoute requiredRole={['finance', 'admin']}><FinanceReports /></ProtectedRoute>} />
 
