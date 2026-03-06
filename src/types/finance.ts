@@ -163,6 +163,10 @@ export interface PettyCashTransaction {
   created_at: string;
   updated_at: string;
 
+  fund_account_id: string | null;
+  lines?: PettyCashTransactionLine[];
+  fund_account?: Pick<ChartOfAccount, 'id' | 'account_code' | 'account_name'>;
+
   account?: Pick<ChartOfAccount, 'id' | 'account_code' | 'account_name'>;
   project?: {
     id: string;
@@ -184,6 +188,17 @@ export interface PettyCashTransaction {
     employee_id: string;
     full_name: string;
   } | null;
+}
+
+export interface PettyCashTransactionLine {
+  id: string;
+  txn_id: string;
+  account_id: string;
+  description: string;
+  amount: number;
+  sort_order: number;
+  created_at: string;
+  account?: Pick<ChartOfAccount, 'id' | 'account_code' | 'account_name'>;
 }
 
 export type ProjectStatus = 'active' | 'completed' | 'on_hold' | 'cancelled';
@@ -573,15 +588,35 @@ export interface ApprovalHistory {
   metadata: Record<string, unknown>;
 }
 
-export type ApPrfStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type ApPrfStatus = 'draft' | 'prepared' | 'verified' | 'checked' | 'approved' | 'rejected' | 'cancelled';
 
 export const AP_PRF_STATUS_LABELS: Record<ApPrfStatus, string> = {
   draft: 'Draft',
-  pending: 'Pending',
+  prepared: 'Prepared',
+  verified: 'Verified',
+  checked: 'Checked',
   approved: 'Approved',
   rejected: 'Rejected',
   cancelled: 'Cancelled',
 };
+
+export const PRF_STATUS_TRANSITIONS = [
+  { from: 'draft', to: 'prepared', role: 'finance_admin' },
+  { from: 'draft', to: 'cancelled', role: 'finance_admin' },
+  { from: 'prepared', to: 'verified', role: 'management' },
+  { from: 'prepared', to: 'rejected', role: 'management' },
+  { from: 'verified', to: 'checked', role: 'assistant_manager' },
+  { from: 'verified', to: 'rejected', role: 'assistant_manager' },
+  { from: 'checked', to: 'approved', role: 'dmd' },
+  { from: 'checked', to: 'rejected', role: 'dmd' },
+  { from: 'rejected', to: 'prepared', role: 'finance_admin' },
+] as const;
+
+export function canTransitionPRF(from: string, to: string, role: string): boolean {
+  return PRF_STATUS_TRANSITIONS.some(
+    (t) => t.from === from && t.to === to && t.role === role,
+  );
+}
 
 export type ApInvoiceStatus =
   | 'draft'
@@ -604,15 +639,24 @@ export const AP_INVOICE_STATUS_LABELS: Record<ApInvoiceStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-export type ApPvStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'posted' | 'cancelled';
+export type ApPvStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'paid' | 'posted' | 'cancelled';
 
 export const AP_PV_STATUS_LABELS: Record<ApPvStatus, string> = {
   draft: 'Draft',
   pending: 'Pending',
   approved: 'Approved',
   rejected: 'Rejected',
+  paid: 'Paid',
   posted: 'Posted',
   cancelled: 'Cancelled',
+};
+
+export type PvPostToType = 'cashbook' | 'ap_payment' | 'ap_credit_note';
+
+export const PV_POST_TO_LABELS: Record<PvPostToType, string> = {
+  cashbook: 'Cashbook',
+  ap_payment: 'AP Payment',
+  ap_credit_note: 'AP Credit Note',
 };
 
 export type ApPaymentMethod = 'cheque' | 'online_transfer' | 'cash' | 'auto_debit' | 'others';
@@ -727,6 +771,14 @@ export interface PurchaseRequisition {
   status: ApPrfStatus;
   submitted_at: string | null;
   approved_at: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
+  rejection_remarks: string | null;
+  rejection_stage: string | null;
+  verified_by: string | null;
+  verified_at: string | null;
+  checked_by: string | null;
+  checked_at: string | null;
   created_at?: string;
   updated_at?: string;
   requester?: {
@@ -736,6 +788,21 @@ export interface PurchaseRequisition {
   } | null;
   suggested_supplier?: Pick<Supplier, 'id' | 'supplier_code' | 'supplier_name'> | null;
   items?: PurchaseRequisitionItem[];
+  verified_by_profile?: {
+    id: string;
+    employee_id: string;
+    full_name: string;
+  } | null;
+  checked_by_profile?: {
+    id: string;
+    employee_id: string;
+    full_name: string;
+  } | null;
+  rejected_by_profile?: {
+    id: string;
+    employee_id: string;
+    full_name: string;
+  } | null;
 }
 
 export interface ApInvoiceLine {
@@ -824,6 +891,9 @@ export interface PaymentVoucher {
   submitted_at: string | null;
   approved_at: string | null;
   posted_at: string | null;
+  paid_at: string | null;
+  paid_by: string | null;
+  post_to_type: PvPostToType | null;
   created_at?: string;
   updated_at?: string;
   supplier?: Pick<Supplier, 'id' | 'supplier_code' | 'supplier_name'> | null;
@@ -938,7 +1008,8 @@ export interface OfficialReceipt {
   id: string;
   company_id: string;
   receipt_number: string | null;
-  customer_id: string;
+  customer_id: string | null;
+  received_from: string | null;
   bank_account_id: string;
   receipt_date: string;
   payment_method: ArPaymentMethod;
