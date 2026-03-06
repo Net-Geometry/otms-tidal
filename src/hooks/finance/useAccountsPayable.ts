@@ -21,6 +21,7 @@ import type {
   PrfType,
   PurchaseRequisition,
   PurchaseRequisitionItem,
+  PvPostToType,
 } from '@/types/finance';
 
 function toNumber(value: unknown) {
@@ -257,8 +258,8 @@ async function upsertPrf(db: any, input: UpsertPrfInput): Promise<{ id: string }
       .eq('id', prfId)
       .single();
     if (currentError) throw currentError;
-    if (!current || current.status !== 'draft') {
-      throw new Error('Only draft PRFs can be edited');
+    if (!current || (current.status !== 'draft' && current.status !== 'rejected')) {
+      throw new Error('Only draft or rejected PRFs can be edited');
     }
 
     const { error } = await db
@@ -325,6 +326,9 @@ export function usePurchaseRequisitions(filters: PurchaseRequisitionFilters = {}
             *,
             requester:profiles!purchase_requisitions_requester_id_fkey(id, employee_id, full_name),
             suggested_supplier:suppliers!purchase_requisitions_suggested_supplier_id_fkey(id, supplier_code, supplier_name),
+            verified_by_profile:profiles!purchase_requisitions_verified_by_fkey(id, employee_id, full_name),
+            checked_by_profile:profiles!purchase_requisitions_checked_by_fkey(id, employee_id, full_name),
+            rejected_by_profile:profiles!purchase_requisitions_rejected_by_fkey(id, employee_id, full_name),
             items:purchase_requisition_items(
               *,
               gl_account:chart_of_accounts(id, account_code, account_name),
@@ -437,7 +441,7 @@ export function useSubmitPRF() {
         .from('purchase_requisitions')
         .update({
           prf_number: prfNumber,
-          status: 'pending',
+          status: 'prepared',
           submitted_at: new Date().toISOString(),
         })
         .eq('id', input.prfId)
@@ -450,7 +454,7 @@ export function useSubmitPRF() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] });
-      toast({ title: 'Submitted', description: 'Purchase requisition submitted for approval' });
+      toast({ title: 'Submitted', description: 'Purchase requisition submitted for verification' });
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -460,6 +464,82 @@ export function useSubmitPRF() {
   return {
     submitPRF: mutation.mutateAsync,
     isSubmitting: mutation.isPending,
+  };
+}
+
+export function useVerifyPRF() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: { prfId: string }) => {
+      const userId = await getCurrentUserId();
+      const { data, error } = await db
+        .from('purchase_requisitions')
+        .update({
+          status: 'verified',
+          verified_by: userId,
+          verified_at: new Date().toISOString(),
+        })
+        .eq('id', input.prfId)
+        .eq('status', 'prepared')
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('Only prepared PRFs can be verified');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] });
+      toast({ title: 'Verified', description: 'Purchase requisition verified' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    verifyPRF: mutation.mutateAsync,
+    isVerifying: mutation.isPending,
+  };
+}
+
+export function useCheckPRF() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: { prfId: string }) => {
+      const userId = await getCurrentUserId();
+      const { data, error } = await db
+        .from('purchase_requisitions')
+        .update({
+          status: 'checked',
+          checked_by: userId,
+          checked_at: new Date().toISOString(),
+        })
+        .eq('id', input.prfId)
+        .eq('status', 'verified')
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('Only verified PRFs can be checked');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] });
+      toast({ title: 'Checked', description: 'Purchase requisition checked' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    checkPRF: mutation.mutateAsync,
+    isChecking: mutation.isPending,
   };
 }
 
@@ -477,12 +557,12 @@ export function useApprovePRF() {
           approved_at: new Date().toISOString(),
         })
         .eq('id', input.prfId)
-        .eq('status', 'pending')
+        .eq('status', 'checked')
         .select('id')
         .maybeSingle();
 
       if (error) throw error;
-      if (!data) throw new Error('Only pending PRFs can be approved');
+      if (!data) throw new Error('Only checked PRFs can be approved');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] });
@@ -499,6 +579,103 @@ export function useApprovePRF() {
   };
 }
 
+export function useRejectPRF() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: { prfId: string; remarks: string }) => {
+      const userId = await getCurrentUserId();
+
+      const { data: current, error: currentError } = await db
+        .from('purchase_requisitions')
+        .select('id, status')
+        .eq('id', input.prfId)
+        .single();
+      if (currentError) throw currentError;
+
+      const rejectableStatuses = ['prepared', 'verified', 'checked'];
+      if (!current || !rejectableStatuses.includes(current.status)) {
+        throw new Error('Only prepared, verified, or checked PRFs can be rejected');
+      }
+
+      const { data, error } = await db
+        .from('purchase_requisitions')
+        .update({
+          status: 'rejected',
+          rejected_by: userId,
+          rejected_at: new Date().toISOString(),
+          rejection_remarks: input.remarks.trim() || null,
+          rejection_stage: current.status,
+        })
+        .eq('id', input.prfId)
+        .eq('status', current.status)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('PRF was already updated by another user');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] });
+      toast({ title: 'Rejected', description: 'Purchase requisition rejected' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    rejectPRF: mutation.mutateAsync,
+    isRejecting: mutation.isPending,
+  };
+}
+
+export function useResubmitPRF() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: { prfId: string }) => {
+      const { data, error } = await db
+        .from('purchase_requisitions')
+        .update({
+          status: 'prepared',
+          rejected_by: null,
+          rejected_at: null,
+          rejection_remarks: null,
+          rejection_stage: null,
+          verified_by: null,
+          verified_at: null,
+          checked_by: null,
+          checked_at: null,
+          approved_at: null,
+        })
+        .eq('id', input.prfId)
+        .eq('status', 'rejected')
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('Only rejected PRFs can be resubmitted');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] });
+      toast({ title: 'Resubmitted', description: 'Purchase requisition resubmitted for verification' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    resubmitPRF: mutation.mutateAsync,
+    isResubmitting: mutation.isPending,
+  };
+}
+
 export function useCancelPRF() {
   const db = supabase as any;
   const queryClient = useQueryClient();
@@ -510,11 +687,11 @@ export function useCancelPRF() {
         .from('purchase_requisitions')
         .update({ status: 'cancelled' })
         .eq('id', input.prfId)
-        .in('status', ['draft', 'pending'])
+        .eq('status', 'draft')
         .select('id')
         .maybeSingle();
       if (error) throw error;
-      if (!data) throw new Error('Only draft or pending PRFs can be cancelled');
+      if (!data) throw new Error('Only draft PRFs can be cancelled');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-requisitions'] });
@@ -1330,13 +1507,56 @@ export function useApprovePV() {
   };
 }
 
+export function useMarkPVPaid() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { profile } = useAuth();
+
+  const mutation = useMutation({
+    mutationFn: async (input: { pvIds: string[] }) => {
+      if (!input.pvIds.length) throw new Error('No payment vouchers selected');
+
+      const { data, error } = await db
+        .from('payment_vouchers')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          paid_by: profile?.id,
+        })
+        .in('id', input.pvIds)
+        .eq('status', 'approved')
+        .select('id');
+
+      if (error) throw error;
+      if (!data?.length) throw new Error('No approved payment vouchers found to mark as paid');
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      toast({
+        title: 'Marked as Paid',
+        description: `${data.length} payment voucher(s) marked as paid`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    markPaid: mutation.mutateAsync,
+    isMarkingPaid: mutation.isPending,
+  };
+}
+
 export function usePostPV() {
   const db = supabase as any;
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const mutation = useMutation({
-    mutationFn: async (input: { pvId: string }) => {
+    mutationFn: async (input: { pvId: string; postToType: PvPostToType }) => {
       const { data: pvRaw, error: pvError } = await db
         .from('payment_vouchers')
         .select(
@@ -1357,7 +1577,7 @@ export function usePostPV() {
       if (pvError) throw pvError;
 
       const voucher = normalizePv(pvRaw);
-      if (voucher.status !== 'approved') throw new Error('Only approved payment vouchers can be posted');
+      if (voucher.status !== 'paid') throw new Error('Only paid payment vouchers can be posted');
       if (voucher.journal_entry_id) throw new Error('Payment voucher is already posted to GL');
 
       const allocations = voucher.allocations || [];
@@ -1425,6 +1645,7 @@ export function usePostPV() {
           posted_at: new Date().toISOString(),
           journal_entry_id: posting.journal_entry_id,
           total_amount: totalAllocated,
+          post_to_type: input.postToType,
         })
         .eq('id', voucher.id);
       if (voucherUpdateError) throw voucherUpdateError;
