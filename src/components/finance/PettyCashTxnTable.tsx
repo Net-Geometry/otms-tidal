@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/table';
 import type { PettyCashStatus, PettyCashTransaction } from '@/types/finance';
 import { PETTY_CASH_STATUS_LABELS, PETTY_CASH_TXN_TYPE_LABELS } from '@/types/finance';
-import { PettyCashApprovalActions } from '@/components/finance/PettyCashApprovalActions';
 import { formatCurrency } from '@/lib/otCalculations';
 import { StatusWithMetadata, getPettyCashApproverMetadata } from '@/components/StatusWithMetadata';
 
@@ -25,20 +24,14 @@ function statusVariant(status: PettyCashStatus) {
 interface PettyCashTxnTableProps {
   transactions: PettyCashTransaction[];
   isLoading?: boolean;
-  onApprove: (txnId: string, remarks?: string) => Promise<void>;
-  onReject: (txnId: string, remarks?: string) => Promise<void>;
   onPost: (txnId: string) => Promise<void>;
-  isApproving?: boolean;
   isPosting?: boolean;
 }
 
 export function PettyCashTxnTable({
   transactions,
   isLoading,
-  onApprove,
-  onReject,
   onPost,
-  isApproving,
   isPosting,
 }: PettyCashTxnTableProps) {
   if (isLoading) {
@@ -55,6 +48,7 @@ export function PettyCashTxnTable({
         <TableHeader>
           <TableRow>
             <TableHead>Txn #</TableHead>
+            <TableHead>Fund</TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Description</TableHead>
             <TableHead>Type</TableHead>
@@ -69,6 +63,7 @@ export function PettyCashTxnTable({
           {transactions.map((txn) => (
             <TableRow key={txn.id}>
               <TableCell className="font-medium">{txn.txn_number}</TableCell>
+              <TableCell>{txn.fund_account ? `${txn.fund_account.account_name}` : '-'}</TableCell>
               <TableCell>{txn.txn_date ? format(new Date(txn.txn_date), 'dd MMM yyyy') : '-'}</TableCell>
               <TableCell>
                 <div className="space-y-1">
@@ -87,7 +82,7 @@ export function PettyCashTxnTable({
               <TableCell>{txn.account ? `${txn.account.account_code} - ${txn.account.account_name}` : '-'}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
-                  <StatusWithMetadata 
+                  <StatusWithMetadata
                     status={txn.status}
                     label={PETTY_CASH_STATUS_LABELS[txn.status]}
                     metadata={getPettyCashApproverMetadata(txn)}
@@ -103,13 +98,6 @@ export function PettyCashTxnTable({
               <TableCell className="text-right">{Number(txn.running_balance || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
-                  {txn.status === 'pending' && (
-                    <PettyCashApprovalActions
-                      onApprove={(remarks) => onApprove(txn.id, remarks)}
-                      onReject={(remarks) => onReject(txn.id, remarks)}
-                      isLoading={isApproving}
-                    />
-                  )}
                   {txn.status === 'approved' && !txn.is_posted && (
                     <Button size="sm" variant="outline" onClick={() => onPost(txn.id)} disabled={isPosting}>
                       {isPosting ? 'Posting...' : 'Post'}

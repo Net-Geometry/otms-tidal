@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Dialog,
@@ -19,6 +19,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Form,
   FormControl,
   FormField,
@@ -30,12 +39,18 @@ import { PettyCashReceiptUpload } from '@/components/finance/PettyCashReceiptUpl
 import type { ChartOfAccount, Project } from '@/types/finance';
 import type { DepartmentWithCount } from '@/hooks/hr/useDepartments';
 
+const lineSchema = z.object({
+  account_id: z.string().min(1, 'Account is required'),
+  description: z.string().default(''),
+  amount: z.coerce.number().min(0, 'Amount must be >= 0'),
+});
+
 const schema = z.object({
   txn_type: z.enum(['top_up', 'expenditure']),
   txn_date: z.string().min(1, 'Date is required'),
-  amount: z.coerce.number().positive('Amount must be greater than 0'),
+  fund_account_id: z.string().min(1, 'Fund account is required'),
   description: z.string().min(1, 'Description is required').max(500),
-  account_id: z.string().min(1, 'Account is required'),
+  lines: z.array(lineSchema).min(1, 'At least one line item is required'),
   project_id: z.string().optional().nullable(),
   receipt_urls: z.array(z.string().url()).default([]),
   payee: z.string().optional().nullable(),
@@ -50,9 +65,72 @@ interface PettyCashTxnFormProps {
   onOpenChange: (open: boolean) => void;
   onSubmit: (values: Values) => Promise<void>;
   accounts: ChartOfAccount[];
+  fundAccounts: ChartOfAccount[];
   projects: Project[];
   departments: DepartmentWithCount[];
   isSubmitting?: boolean;
+}
+
+function LineAccountCombobox({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: ChartOfAccount[];
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = options.find((a) => a.id === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            'w-full justify-between font-normal h-8 text-xs',
+            !value && 'text-muted-foreground',
+          )}
+        >
+          <span className="truncate">
+            {selected ? `${selected.account_code} - ${selected.account_name}` : 'Select account'}
+          </span>
+          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search account..." />
+          <CommandList>
+            <CommandEmpty>No account found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((row) => (
+                <CommandItem
+                  key={row.id}
+                  value={`${row.account_code} - ${row.account_name}`}
+                  onSelect={() => {
+                    onChange(row.id);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      'mr-2 h-4 w-4',
+                      value === row.id ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  {row.account_code} - {row.account_name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export function PettyCashTxnForm({
@@ -60,26 +138,30 @@ export function PettyCashTxnForm({
   onOpenChange,
   onSubmit,
   accounts,
+  fundAccounts,
   projects,
   departments,
   isSubmitting,
 }: PettyCashTxnFormProps) {
-  const [coaOpen, setCoaOpen] = useState(false);
-
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
       txn_type: 'expenditure',
       txn_date: new Date().toISOString().slice(0, 10),
-      amount: 0,
+      fund_account_id: '',
       description: '',
-      account_id: '',
+      lines: [{ account_id: '', description: '', amount: 0 }],
       project_id: null,
       receipt_urls: [],
       payee: '',
       department: '',
       tax_amount: 0,
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'lines',
   });
 
   const accountOptions = useMemo(() => {
@@ -89,31 +171,40 @@ export function PettyCashTxnForm({
       .sort((a, b) => a.account_code.localeCompare(b.account_code));
   }, [accounts]);
 
+  const watchedLines = form.watch('lines');
+  const linesTotal = (watchedLines || []).reduce(
+    (sum, l) => sum + Number(l.amount || 0),
+    0,
+  );
+
   const submit = async (values: Values) => {
     await onSubmit(values);
     form.reset({
       txn_type: 'expenditure',
       txn_date: new Date().toISOString().slice(0, 10),
-      amount: 0,
+      fund_account_id: '',
       description: '',
-      account_id: '',
+      lines: [{ account_id: '', description: '', amount: 0 }],
       project_id: null,
       receipt_urls: [],
+      payee: '',
+      department: '',
+      tax_amount: 0,
     });
     onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Petty Cash Transaction</DialogTitle>
-          <DialogDescription>Create top-up or expenditure with receipts and optional project tagging.</DialogDescription>
+          <DialogDescription>Create top-up or expenditure with line items, receipts, and optional project tagging.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submit)} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <FormField
                 control={form.control}
                 name="txn_type"
@@ -145,6 +236,31 @@ export function PettyCashTxnForm({
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="fund_account_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Petty Cash Fund</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select fund" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {fundAccounts.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.account_code} - {a.account_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -193,98 +309,121 @@ export function PettyCashTxnForm({
               />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Amount (RM)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="0" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="tax_amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tax Amount (RM)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min="0" step="0.01" className="w-40" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="tax_amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tax Amount (RM)</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="0" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Line items */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <FormLabel>Line Items</FormLabel>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => append({ account_id: '', description: '', amount: 0 })}
+                >
+                  <Plus className="mr-1 h-3 w-3" />
+                  Add Line
+                </Button>
+              </div>
 
-              <FormField
-                control={form.control}
-                name="account_id"
-                render={({ field }) => {
-                  const selected = accountOptions.find((a) => a.id === field.value);
-                  return (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Chart of Account</FormLabel>
-                      <Popover open={coaOpen} onOpenChange={setCoaOpen}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={coaOpen}
-                              className={cn(
-                                'w-full justify-between font-normal',
-                                !field.value && 'text-muted-foreground',
-                              )}
-                            >
-                              <span className="truncate">
-                                {selected
-                                  ? `${selected.account_code} - ${selected.account_name}`
-                                  : 'Select account'}
-                              </span>
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Search account..." />
-                            <CommandList>
-                              <CommandEmpty>No account found.</CommandEmpty>
-                              <CommandGroup>
-                                {accountOptions.map((row) => (
-                                  <CommandItem
-                                    key={row.id}
-                                    value={`${row.account_code} - ${row.account_name}`}
-                                    onSelect={() => {
-                                      field.onChange(row.id);
-                                      setCoaOpen(false);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        'mr-2 h-4 w-4',
-                                        field.value === row.id ? 'opacity-100' : 'opacity-0',
-                                      )}
-                                    />
-                                    {row.account_code} - {row.account_name}
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  );
-                }}
-              />
+              {form.formState.errors.lines?.message && (
+                <p className="text-sm text-destructive">{form.formState.errors.lines.message}</p>
+              )}
+
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40%]">Account</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="w-[120px] text-right">Amount (RM)</TableHead>
+                      <TableHead className="w-[50px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {fields.map((field, index) => (
+                      <TableRow key={field.id}>
+                        <TableCell className="p-1">
+                          <FormField
+                            control={form.control}
+                            name={`lines.${index}.account_id`}
+                            render={({ field: f }) => (
+                              <FormItem className="space-y-0">
+                                <LineAccountCombobox
+                                  value={f.value}
+                                  onChange={f.onChange}
+                                  options={accountOptions}
+                                />
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <FormField
+                            control={form.control}
+                            name={`lines.${index}.description`}
+                            render={({ field: f }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input className="h-8 text-xs" placeholder="Line description" {...f} />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="p-1">
+                          <FormField
+                            control={form.control}
+                            name={`lines.${index}.amount`}
+                            render={({ field: f }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input className="h-8 text-xs text-right" type="number" min="0" step="0.01" {...f} />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </TableCell>
+                        <TableCell className="p-1 text-center">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive"
+                            disabled={fields.length <= 1}
+                            onClick={() => remove(index)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-right font-medium">Total</TableCell>
+                      <TableCell className="text-right font-bold">
+                        {linesTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                      </TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </div>
             </div>
 
             <FormField
@@ -334,7 +473,7 @@ export function PettyCashTxnForm({
                 <FormItem>
                   <FormLabel>Receipts</FormLabel>
                   <FormControl>
-                    <PettyCashReceiptUpload value={field.value || []} onChange={field.onChange} />
+                    <PettyCashReceiptUpload value={field.value || []} onChange={field.onChange} maxFiles={10} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

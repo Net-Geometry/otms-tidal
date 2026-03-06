@@ -7,12 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PettyCashBalanceCard } from '@/components/finance/PettyCashBalanceCard';
-import { PettyCashSettingsForm } from '@/components/finance/PettyCashSettingsForm';
 import { PettyCashTxnForm } from '@/components/finance/PettyCashTxnForm';
 import { PettyCashTxnTable } from '@/components/finance/PettyCashTxnTable';
-import { usePettyCashSettings } from '@/hooks/finance/usePettyCashSettings';
 import { usePettyCashTransactions } from '@/hooks/finance/usePettyCashTransactions';
 import { usePettyCashBalance } from '@/hooks/finance/usePettyCashBalance';
 import { useProjects } from '@/hooks/finance/useProjects';
@@ -20,22 +17,29 @@ import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
 import { useDepartments } from '@/hooks/hr/useDepartments';
 
 export default function PettyCash() {
-  const [tab, setTab] = useState<'settings' | 'transactions'>('transactions');
   const [txnFormOpen, setTxnFormOpen] = useState(false);
   const [status, setStatus] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'cancelled'>('all');
   const [txnType, setTxnType] = useState<'all' | 'top_up' | 'expenditure'>('all');
   const [search, setSearch] = useState('');
+  const [selectedFundId, setSelectedFundId] = useState<string>('');
 
-  const settings = usePettyCashSettings();
-  const balance = usePettyCashBalance();
+  const balance = usePettyCashBalance(selectedFundId || undefined);
   const projects = useProjects();
-  const coa = useChartOfAccounts({ accountType: 'expense', activity: 'active', search: '' });
+  const coa = useChartOfAccounts({ accountType: 'all', activity: 'active', search: '' });
+  const expenseCoa = useChartOfAccounts({ accountType: 'expense', activity: 'active', search: '' });
   const departments = useDepartments();
+
+  const fundAccounts = useMemo(() => {
+    return (coa.accounts || []).filter(
+      (a) => a.special_type === 'CH' && a.is_postable,
+    );
+  }, [coa.accounts]);
 
   const txns = usePettyCashTransactions({
     status,
     txnType,
     search,
+    fundAccountId: selectedFundId || undefined,
   });
 
   const stats = useMemo(() => {
@@ -49,7 +53,26 @@ export default function PettyCash() {
 
   return (
     <AppLayout>
-      <PageLayout title="Petty Cash" description="Track petty cash float, approvals, postings, and transaction receipts.">
+      <PageLayout title="Petty Cash" description="Track petty cash float, postings, and transaction receipts.">
+        <div className="flex items-end gap-4 mb-4">
+          <div className="w-64">
+            <label className="text-sm font-medium mb-1 block">Petty Cash Fund</label>
+            <Select value={selectedFundId || 'all'} onValueChange={(v) => setSelectedFundId(v === 'all' ? '' : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Funds" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Funds</SelectItem>
+                {fundAccounts.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.account_code} - {a.account_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <div className="grid gap-4 lg:grid-cols-3">
           <PettyCashBalanceCard
             balance={Number(balance.data?.balance || 0)}
@@ -62,78 +85,59 @@ export default function PettyCash() {
           <DashboardCard title="Approved / Posted" value={`${stats.approved} / ${stats.posted}`} subtitle="Approval and posting progress" icon={PlusCircle} />
         </div>
 
-        <Tabs value={tab} onValueChange={(value) => setTab(value as 'settings' | 'transactions')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="transactions">Transactions</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
+        <Card>
+          <CardContent className="p-4">
+            <div className="grid gap-3 md:grid-cols-5">
+              <Input
+                className="md:col-span-2"
+                placeholder="Search transaction, account, project..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
 
-          <TabsContent value="transactions" className="space-y-4 pt-2">
-            <Card>
-              <CardContent className="p-4">
-                <div className="grid gap-3 md:grid-cols-5">
-                  <Input
-                    className="md:col-span-2"
-                    placeholder="Search transaction, account, project..."
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                  />
+              <Select value={txnType} onValueChange={(value) => setTxnType(value as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="top_up">Top-up</SelectItem>
+                  <SelectItem value="expenditure">Expenditure</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  <Select value={txnType} onValueChange={(value) => setTxnType(value as any)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="top_up">Top-up</SelectItem>
-                      <SelectItem value="expenditure">Expenditure</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <Select value={status} onValueChange={(value) => setStatus(value as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
 
-                  <Select value={status} onValueChange={(value) => setStatus(value as any)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Statuses</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <Button onClick={() => setTxnFormOpen(true)}>
+                New Transaction
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-                  <Button onClick={() => setTxnFormOpen(true)}>
-                    New Transaction
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            <PettyCashTxnTable
-              transactions={txns.transactions}
-              isLoading={txns.isLoading}
-              onApprove={(txnId, remarks) => txns.approveTransaction({ txnId, approve: true, remarks })}
-              onReject={(txnId, remarks) => txns.approveTransaction({ txnId, approve: false, remarks })}
-              onPost={(txnId) => txns.postTransaction({ txnId })}
-              isApproving={txns.isApproving}
-              isPosting={txns.isPosting}
-            />
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-4 pt-2">
-            <PettyCashSettingsForm
-              settings={settings.settings}
-              onSave={settings.updateSettings}
-              isSaving={settings.isSaving}
-            />
-          </TabsContent>
-        </Tabs>
+        <PettyCashTxnTable
+          transactions={txns.transactions}
+          isLoading={txns.isLoading}
+          onPost={(txnId) => txns.postTransaction({ txnId })}
+          isPosting={txns.isPosting}
+        />
 
         <PettyCashTxnForm
           open={txnFormOpen}
           onOpenChange={setTxnFormOpen}
-          accounts={coa.accounts}
+          accounts={expenseCoa.accounts}
+          fundAccounts={fundAccounts}
           projects={projects.projects}
           departments={departments.data || []}
           isSubmitting={txns.isCreating}
@@ -141,9 +145,13 @@ export default function PettyCash() {
             await txns.createTransaction({
               txn_type: values.txn_type,
               txn_date: values.txn_date,
-              amount: values.amount,
               description: values.description,
-              account_id: values.account_id,
+              fund_account_id: values.fund_account_id,
+              lines: values.lines.map((l) => ({
+                account_id: l.account_id,
+                description: l.description || '',
+                amount: Number(l.amount || 0),
+              })),
               project_id: values.project_id || null,
               receipt_urls: values.receipt_urls,
               payee: values.payee || null,
