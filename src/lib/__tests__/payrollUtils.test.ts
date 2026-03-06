@@ -10,6 +10,7 @@ import {
   lookupPcb,
   lookupSocso,
   calculateEmployee,
+  getAgeAtDate,
   PCB_MONTHLY_TABLE,
   type EmployeeProfile,
 } from '@/lib/payrollUtils';
@@ -454,5 +455,93 @@ describe('calculateEmployee', () => {
     expect(result.calculation_notes.socso_scheme).toBe('both');
     expect(result.calculation_notes.pro_rated).toBe(false);
     expect(result.calculation_notes.calculated_at).toBeDefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getAgeAtDate
+// ---------------------------------------------------------------------------
+
+describe('getAgeAtDate', () => {
+  it('calculates age correctly', () => {
+    expect(getAgeAtDate('1966-01-15', '2026-03-01')).toBe(60);
+    expect(getAgeAtDate('1966-03-15', '2026-03-01')).toBe(59);
+    expect(getAgeAtDate('1966-03-01', '2026-03-01')).toBe(60);
+  });
+
+  it('returns negative for future DOB', () => {
+    expect(getAgeAtDate('2030-01-01', '2026-03-01')).toBe(-4);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// calculateEmployee - age-based EIS/SOCSO rules
+// ---------------------------------------------------------------------------
+
+describe('calculateEmployee - age-based EIS/SOCSO rules', () => {
+  const socsoTable = makeSocsoTable();
+
+  it('zeroes EIS for employee aged 60+', () => {
+    const profile = makeProfile({
+      basic_salary: 5000,
+      date_of_birth: '1966-01-15',
+    });
+    const settings = makeSettings();
+    const result = calculateEmployee(profile, settings, socsoTable, 1, 2026);
+
+    expect(result.employer_eis).toBe(0);
+    expect(result.employee_eis).toBe(0);
+  });
+
+  it('uses employment_injury SOCSO scheme for employee aged 60+', () => {
+    const profile = makeProfile({
+      basic_salary: 5000,
+      date_of_birth: '1966-01-15',
+    });
+    const settings = makeSettings({ socso_scheme: 'both' });
+    const result = calculateEmployee(profile, settings, socsoTable, 1, 2026);
+
+    expect(result.employer_socso).toBe(36.9);
+    expect(result.employee_socso).toBe(0);
+  });
+
+  it('applies normal rules when DOB is null', () => {
+    const profile = makeProfile({
+      basic_salary: 5000,
+      date_of_birth: undefined,
+    });
+    const settings = makeSettings();
+    const result = calculateEmployee(profile, settings, socsoTable, 1, 2026);
+
+    expect(result.employer_eis).toBe(10);
+    expect(result.employee_eis).toBe(10);
+    expect(result.employee_socso).toBe(18.5);
+  });
+
+  it('applies normal rules when employee is under 60', () => {
+    const profile = makeProfile({
+      basic_salary: 5000,
+      date_of_birth: '1990-05-20',
+    });
+    const settings = makeSettings();
+    const result = calculateEmployee(profile, settings, socsoTable, 1, 2026);
+
+    expect(result.employer_eis).toBe(10);
+    expect(result.employee_eis).toBe(10);
+    expect(result.employee_socso).toBe(18.5);
+  });
+
+  it('zeroes EIS even with custom rate overrides for above 60', () => {
+    const profile = makeProfile({
+      basic_salary: 5000,
+      date_of_birth: '1966-01-15',
+      employee_eis_rate: 0.2,
+      employer_eis_rate: 0.2,
+    });
+    const settings = makeSettings();
+    const result = calculateEmployee(profile, settings, socsoTable, 1, 2026);
+
+    expect(result.employer_eis).toBe(0);
+    expect(result.employee_eis).toBe(0);
   });
 });

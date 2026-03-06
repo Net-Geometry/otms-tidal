@@ -31,7 +31,7 @@ export function usePayrollCalculation() {
       // Fetch employees for this company
       const { data: employees, error: empError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('company_id', input.companyId)
         .is('deleted_at', null);
 
@@ -175,7 +175,7 @@ export function usePayrollCalculation() {
 
       const { data: profile, error: profileError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('id', input.employeeId)
         .single();
 
@@ -239,7 +239,7 @@ export function usePayrollCalculation() {
 
       const { data: profile, error: profileError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('id', input.employeeId)
         .single();
 

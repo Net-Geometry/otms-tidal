@@ -15,6 +15,7 @@ export interface EmployeeProfile {
   company_id: string;
   joining_date: string | null;
   deleted_at: string | null;
+  date_of_birth?: string | null;
   // Per-employee contribution rate overrides
   employee_epf_rate?: number | null;
   employer_epf_rate?: number | null;
@@ -61,6 +62,17 @@ export interface CalculatedItem {
 
 export function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+export function getAgeAtDate(dob: string, referenceDate: string): number {
+  const birth = new Date(dob);
+  const ref = new Date(referenceDate);
+  let age = ref.getFullYear() - birth.getFullYear();
+  const monthDiff = ref.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && ref.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
 }
 
 /**
@@ -171,6 +183,14 @@ export function calculateEmployee(
   // Gross = pro-rated salary (OT will be added separately if available)
   const grossSalary = proRatedSalary;
 
+  // Calculate employee age for age-based contribution rules
+  const periodEnd = new Date(year, month, 0); // last day of pay period month
+  const periodEndStr = `${year}-${String(month).padStart(2, '0')}-${String(periodEnd.getDate()).padStart(2, '0')}`;
+  const employeeAge = profile.date_of_birth
+    ? getAgeAtDate(profile.date_of_birth, periodEndStr)
+    : null;
+  const isAbove60 = employeeAge !== null && employeeAge >= 60;
+
   // EPF calculation - use per-employee rate if set, otherwise use global settings
   const epfAbleWage = grossSalary;
   const employerEpfRate = (profile.employer_epf_rate !== null && profile.employer_epf_rate !== undefined)
@@ -185,10 +205,19 @@ export function calculateEmployee(
   const employerEpf = round2(epfAbleWage * employerEpfRate);
   const employeeEpf = round2(epfAbleWage * employeeEpfRate);
 
-  // SOCSO calculation - use per-employee rate if set, otherwise use lookup table
+  // SOCSO calculation
   let employerSocso: number;
   let employeeSocso: number;
-  if (profile.employer_socso_rate !== null && profile.employer_socso_rate !== undefined &&
+  if (isAbove60) {
+    // Above 60: employer contributes (employment_injury scheme), employee = 0
+    if (profile.employer_socso_rate !== null && profile.employer_socso_rate !== undefined) {
+      employerSocso = round2(grossSalary * (Number(profile.employer_socso_rate) / 100));
+    } else {
+      const socso = lookupSocso(grossSalary, socsoTable, 'employment_injury');
+      employerSocso = socso.employer;
+    }
+    employeeSocso = 0;
+  } else if (profile.employer_socso_rate !== null && profile.employer_socso_rate !== undefined &&
       profile.employee_socso_rate !== null && profile.employee_socso_rate !== undefined) {
     employerSocso = round2(grossSalary * (Number(profile.employer_socso_rate) / 100));
     employeeSocso = round2(grossSalary * (Number(profile.employee_socso_rate) / 100));
@@ -198,16 +227,24 @@ export function calculateEmployee(
     employeeSocso = socso.employee;
   }
 
-  // EIS calculation - use per-employee rate if set, otherwise use global settings
-  const eisWage = Math.min(grossSalary, Number(settings.eis_wage_ceiling));
-  const employerEisRate = (profile.employer_eis_rate !== null && profile.employer_eis_rate !== undefined)
-    ? Number(profile.employer_eis_rate) / 100
-    : Number(settings.eis_employer_rate) / 100;
-  const employeeEisRate = (profile.employee_eis_rate !== null && profile.employee_eis_rate !== undefined)
-    ? Number(profile.employee_eis_rate) / 100
-    : Number(settings.eis_employee_rate) / 100;
-  const employerEis = round2(eisWage * employerEisRate);
-  const employeeEis = round2(eisWage * employeeEisRate);
+  // EIS calculation
+  let employerEis: number;
+  let employeeEis: number;
+  if (isAbove60) {
+    // Above 60: no EIS contribution at all
+    employerEis = 0;
+    employeeEis = 0;
+  } else {
+    const eisWage = Math.min(grossSalary, Number(settings.eis_wage_ceiling));
+    const employerEisRate = (profile.employer_eis_rate !== null && profile.employer_eis_rate !== undefined)
+      ? Number(profile.employer_eis_rate) / 100
+      : Number(settings.eis_employer_rate) / 100;
+    const employeeEisRate = (profile.employee_eis_rate !== null && profile.employee_eis_rate !== undefined)
+      ? Number(profile.employee_eis_rate) / 100
+      : Number(settings.eis_employee_rate) / 100;
+    employerEis = round2(eisWage * employerEisRate);
+    employeeEis = round2(eisWage * employeeEisRate);
+  }
 
   // HRDC
   const employerHrdc = settings.hrdc_enabled
@@ -268,6 +305,8 @@ export function calculateEmployee(
       epf_rate: `${(employerEpfRate * 100).toFixed(2)}% / ${employeeEpfRateRaw.toFixed(2)}%`,
       pcb_amount: pcbAmount,
       socso_scheme: settings.socso_scheme,
+      age_at_payroll: employeeAge,
+      is_above_60: isAbove60,
       pro_rated: isProRated,
       used_custom_rates: {
         epf: profile.employer_epf_rate !== null || profile.employee_epf_rate !== null,
