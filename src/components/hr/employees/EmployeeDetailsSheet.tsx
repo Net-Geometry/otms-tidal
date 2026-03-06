@@ -36,9 +36,10 @@ import { useResetEmployeePassword } from '@/hooks/hr/useResetEmployeePassword';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency } from '@/lib/otCalculations';
 import { calculateYearsOfService } from '@/utils/yearsOfService';
-import { KeyRound, AlertTriangle, Copy, Check } from 'lucide-react';
+import { KeyRound, AlertTriangle, Copy, Check, Trash2, Plus } from 'lucide-react';
 import { RoleSelector } from '@/components/RoleSelector';
 import { StateSelector } from '@/components/hr/StateSelector';
+import { useEmployeeDependents } from '@/hooks/hr/useEmployeeDependents';
 
 interface EmployeeDetailsSheetProps {
   employee: Profile | null;
@@ -62,6 +63,14 @@ export function EmployeeDetailsSheet({
   const [showResetCodeDialog, setShowResetCodeDialog] = useState(false);
   const [resetCodeData, setResetCodeData] = useState<{ code: string; expiresAt: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showAddDependent, setShowAddDependent] = useState(false);
+  const [newDependent, setNewDependent] = useState({
+    relationship: 'child' as 'spouse' | 'child',
+    name: '',
+    date_of_birth: '',
+    is_disabled: false,
+    is_studying: false,
+  });
 
   const { hasRole } = useAuth();
   const updateEmployee = useUpdateEmployee();
@@ -71,6 +80,7 @@ export function EmployeeDetailsSheet({
   const { data: employees = [] } = useEmployees();
   const { data: positions = [], isLoading: isLoadingPositions } = usePositions(formData.department_id || undefined);
   const { data: locations = [] } = useCompanyLocations();
+  const { dependents, addDependent, deleteDependent } = useEmployeeDependents(employee?.id);
 
   const isAdmin = hasRole('admin');
 
@@ -230,7 +240,7 @@ export function EmployeeDetailsSheet({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Company Email</Label>
               {isEditing ? (
                 <Input
                   id="email"
@@ -247,7 +257,25 @@ export function EmployeeDetailsSheet({
               )}
             </div>
 
-            {/* Row 3: Phone No + Company */}
+            {/* Row 3: Personal Email + Company Email */}
+            <div className="grid gap-2">
+              <Label htmlFor="personal_email">Personal Email</Label>
+              {isEditing ? (
+                <Input
+                  id="personal_email"
+                  type="email"
+                  value={formData.personal_email || ''}
+                  onChange={(e) =>
+                    setFormData({ ...formData, personal_email: e.target.value })
+                  }
+                  placeholder="Personal email address"
+                />
+              ) : (
+                <div className="text-sm">{employee.personal_email || '-'}</div>
+              )}
+            </div>
+
+            {/* Row 4: Phone No + Company */}
             <div className="grid gap-2">
               <Label htmlFor="phone_no">Phone No</Label>
               {isEditing ? (
@@ -434,6 +462,65 @@ export function EmployeeDetailsSheet({
               ) : (
                 <div className="text-sm">
                   {employee.epf_category === 'above_60' ? 'Above 60' : 'Below 60'}
+                </div>
+              )}
+            </div>
+
+            {/* Marital Status */}
+            <div className="grid gap-2">
+              <Label htmlFor="marital_status">Marital Status</Label>
+              {isEditing ? (
+                <Select
+                  value={formData.marital_status || 'single'}
+                  onValueChange={(value) => {
+                    const updates: any = { marital_status: value };
+                    if (value === 'married') {
+                      updates.pcb_category = '2';
+                    } else {
+                      updates.pcb_category = '1';
+                    }
+                    setFormData({ ...formData, ...updates });
+                  }}
+                >
+                  <SelectTrigger id="marital_status">
+                    <SelectValue placeholder="Select Marital Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Single</SelectItem>
+                    <SelectItem value="married">Married</SelectItem>
+                    <SelectItem value="divorced">Divorced</SelectItem>
+                    <SelectItem value="widowed">Widowed</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm capitalize">
+                  {employee.marital_status || '-'}
+                </div>
+              )}
+            </div>
+
+            {/* PCB Category */}
+            <div className="grid gap-2">
+              <Label htmlFor="pcb_category">PCB Category</Label>
+              {isEditing ? (
+                <Select
+                  value={formData.pcb_category || '1'}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, pcb_category: value })
+                  }
+                >
+                  <SelectTrigger id="pcb_category">
+                    <SelectValue placeholder="Select PCB Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Category 1 - Single / Divorced</SelectItem>
+                    <SelectItem value="2">Category 2 - Married, spouse not working</SelectItem>
+                    <SelectItem value="3">Category 3 - Married, spouse working</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm">
+                  Category {employee.pcb_category || '1'}
                 </div>
               )}
             </div>
@@ -887,6 +974,139 @@ export function EmployeeDetailsSheet({
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Dependents Section */}
+            <div className="col-span-2 mt-4">
+              <Separator className="my-4" />
+              <h4 className="text-sm font-semibold mb-3">Dependents</h4>
+
+              {dependents.length === 0 && !showAddDependent && (
+                <p className="text-sm text-muted-foreground mb-3">No dependents recorded.</p>
+              )}
+
+              {dependents.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {dependents.map((dep) => (
+                    <div key={dep.id} className="flex items-center justify-between bg-muted/50 p-2 rounded text-sm">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">{dep.name}</span>
+                        <Badge variant="outline" className="capitalize text-xs">{dep.relationship}</Badge>
+                        {dep.date_of_birth && (
+                          <span className="text-muted-foreground text-xs">DOB: {dep.date_of_birth}</span>
+                        )}
+                        {dep.is_disabled && <Badge variant="secondary" className="text-xs">Disabled</Badge>}
+                        {dep.is_studying && <Badge variant="secondary" className="text-xs">Studying</Badge>}
+                      </div>
+                      {isEditing && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteDependent.mutate(dep.id)}
+                          disabled={deleteDependent.isPending}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {isEditing && !showAddDependent && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddDependent(true)}
+                  className="gap-1"
+                >
+                  <Plus className="h-4 w-4" /> Add Dependent
+                </Button>
+              )}
+
+              {isEditing && showAddDependent && (
+                <div className="border rounded p-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Relationship</Label>
+                      <Select
+                        value={newDependent.relationship}
+                        onValueChange={(value: 'spouse' | 'child') =>
+                          setNewDependent({ ...newDependent, relationship: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="spouse">Spouse</SelectItem>
+                          <SelectItem value="child">Child</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Name</Label>
+                      <Input
+                        value={newDependent.name}
+                        onChange={(e) => setNewDependent({ ...newDependent, name: e.target.value })}
+                        placeholder="Dependent name"
+                      />
+                    </div>
+                    <div className="grid gap-1">
+                      <Label className="text-xs">Date of Birth</Label>
+                      <Input
+                        type="date"
+                        value={newDependent.date_of_birth}
+                        onChange={(e) => setNewDependent({ ...newDependent, date_of_birth: e.target.value })}
+                      />
+                    </div>
+                    <div className="flex items-end gap-4 pb-1">
+                      <label className="flex items-center gap-1.5 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={newDependent.is_disabled}
+                          onChange={(e) => setNewDependent({ ...newDependent, is_disabled: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        Disabled
+                      </label>
+                      <label className="flex items-center gap-1.5 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={newDependent.is_studying}
+                          onChange={(e) => setNewDependent({ ...newDependent, is_studying: e.target.checked })}
+                          className="h-4 w-4 rounded border-gray-300"
+                        />
+                        Studying
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        if (!newDependent.name || !employee?.id) return;
+                        addDependent.mutate({
+                          employee_id: employee.id,
+                          relationship: newDependent.relationship,
+                          name: newDependent.name,
+                          date_of_birth: newDependent.date_of_birth || null,
+                          is_disabled: newDependent.is_disabled,
+                          is_studying: newDependent.is_studying,
+                        });
+                        setNewDependent({ relationship: 'child', name: '', date_of_birth: '', is_disabled: false, is_studying: false });
+                        setShowAddDependent(false);
+                      }}
+                      disabled={!newDependent.name || addDependent.isPending}
+                    >
+                      {addDependent.isPending ? 'Adding...' : 'Add'}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => setShowAddDependent(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

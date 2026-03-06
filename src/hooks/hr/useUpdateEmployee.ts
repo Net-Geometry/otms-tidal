@@ -10,6 +10,7 @@ interface UpdateEmployeeData {
   ic_no?: string | null;
   phone_no?: string | null;
   email?: string;
+  personal_email?: string | null;
   company_id?: string | null;
   department_id?: string | null;
   position_id?: string | null;
@@ -25,6 +26,8 @@ interface UpdateEmployeeData {
   state?: string | null;
   status?: string;
   epf_category?: string | null;
+  marital_status?: string | null;
+  pcb_category?: string | null;
   is_ot_eligible?: boolean;
   require_ot_attachment?: boolean;
   roles?: AppRole[];
@@ -41,16 +44,17 @@ export function useUpdateEmployee() {
 
       // Whitelist of valid profiles table columns
       const allowedColumns = [
-        'full_name', 'employee_id', 'ic_no', 'phone_no', 'email',
+        'full_name', 'employee_id', 'ic_no', 'phone_no', 'email', 'personal_email',
         'company_id', 'department_id', 'position_id', 'position', 'basic_salary',
         'ot_base', 'epf_category', 'employment_type',
         'designation', 'supervisor_id', 'joining_date', 'date_of_birth', 'work_location',
-        'state', 'status', 'is_ot_eligible', 'require_ot_attachment'
+        'state', 'status', 'is_ot_eligible', 'require_ot_attachment',
+        'marital_status', 'pcb_category'
       ];
 
       // Nullable fields that should convert empty strings to null
       const nullableFields = [
-        'ic_no', 'phone_no', 'company_id', 'department_id',
+        'ic_no', 'phone_no', 'personal_email', 'company_id', 'department_id',
         'employment_type', 'position', 'supervisor_id',
         'joining_date', 'date_of_birth', 'work_location', 'state', 'position_id',
         'ot_base'
