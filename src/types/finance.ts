@@ -133,6 +133,17 @@ export interface PettyCashSettings {
   updated_at?: string;
 }
 
+export interface PettyCashTransactionLine {
+  id: string;
+  txn_id: string;
+  account_id: string;
+  description: string;
+  amount: number;
+  sort_order: number;
+  created_at: string;
+  account?: Pick<ChartOfAccount, 'id' | 'account_code' | 'account_name'>;
+}
+
 export interface PettyCashTransaction {
   id: string;
   txn_number: string;
@@ -188,17 +199,6 @@ export interface PettyCashTransaction {
     employee_id: string;
     full_name: string;
   } | null;
-}
-
-export interface PettyCashTransactionLine {
-  id: string;
-  txn_id: string;
-  account_id: string;
-  description: string;
-  amount: number;
-  sort_order: number;
-  created_at: string;
-  account?: Pick<ChartOfAccount, 'id' | 'account_code' | 'account_name'>;
 }
 
 export type ProjectStatus = 'active' | 'completed' | 'on_hold' | 'cancelled';
