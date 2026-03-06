@@ -9,7 +9,7 @@ export type AttendanceRecordStatus =
 
 export type AttendanceImportStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'partial';
 
-export type AttendanceSource = 'import' | 'manual';
+export type AttendanceSource = 'import' | 'manual' | 'clock_in';
 
 export interface AttendanceSettings {
   id: number;
@@ -71,6 +71,7 @@ export interface AttendanceRecord {
   source: AttendanceSource;
   import_id: string | null;
   notes: string | null;
+  attachment_urls: string[] | null;
   created_by: string | null;
   created_at?: string;
   updated_at?: string;
