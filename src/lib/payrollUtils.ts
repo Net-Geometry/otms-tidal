@@ -12,6 +12,8 @@ export interface EmployeeProfile {
   is_director: boolean;
   director_fee: number;
   epf_category: string;
+  marital_status: string;
+  pcb_category: number;
   company_id: string;
   joining_date: string | null;
   deleted_at: string | null;
@@ -291,6 +293,8 @@ export function calculateEmployee(
       calculated_at: new Date().toISOString(),
       epf_category: profile.epf_category || 'below_60',
       epf_rate: `${(employerEpfRate * 100).toFixed(2)}% / ${employeeEpfRateRaw.toFixed(2)}%`,
+      employer_epf_pct: round2(employerEpfRate * 100),
+      employee_epf_pct: round2(employeeEpfRateRaw),
       pcb_amount: pcbAmount,
       socso_scheme: settings.socso_scheme,
       age_at_payroll: employeeAge,
@@ -306,6 +310,61 @@ export function calculateEmployee(
 }
 
 /**
+ * Populates claims_amount on payroll_items from fully-approved claims for the given pay period.
+ * Sums all claims with a final-approved status for each employee in the period month/year.
+ */
+export async function populateClaimsForRun(
+  payrollRunId: string,
+  month: number,
+  year: number
+): Promise<void> {
+  const db = supabase as any;
+
+  // Get employee IDs in this payroll run
+  const { data: items, error: itemsErr } = await db
+    .from('payroll_items')
+    .select('id, employee_id')
+    .eq('payroll_run_id', payrollRunId);
+
+  if (itemsErr) throw itemsErr;
+  if (!items || items.length === 0) return;
+
+  const employeeIds = (items as any[]).map((i) => i.employee_id);
+
+  // Date range for claims: full calendar month
+  const periodStart = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const periodEnd = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  // Fetch all fully-approved claims for these employees in this period
+  const approvedStatuses = ['finance_approved', 'director_approved', 'gm_approved', 'head_finance_approved'];
+  const { data: claims, error: claimsErr } = await db
+    .from('claims')
+    .select('employee_id, amount')
+    .in('employee_id', employeeIds)
+    .in('status', approvedStatuses)
+    .gte('claim_date', periodStart)
+    .lte('claim_date', periodEnd);
+
+  if (claimsErr) throw claimsErr;
+
+  // Aggregate claims by employee
+  const claimsByEmployee: Record<string, number> = {};
+  for (const c of (claims || []) as any[]) {
+    claimsByEmployee[c.employee_id] = (claimsByEmployee[c.employee_id] || 0) + Number(c.amount || 0);
+  }
+
+  // Update each payroll item with its claims_amount
+  for (const item of items as any[]) {
+    const claimsAmount = round2(claimsByEmployee[item.employee_id] || 0);
+    await db
+      .from('payroll_items')
+      .update({ claims_amount: claimsAmount })
+      .eq('id', item.id);
+  }
+}
+
+/**
  * Fetches all payroll_items for a run, aggregates totals, and updates the payroll_runs row.
  */
 export async function recalculateRunTotals(payrollRunId: string): Promise<void> {
@@ -313,7 +372,7 @@ export async function recalculateRunTotals(payrollRunId: string): Promise<void> 
 
   const { data: items, error: fetchError } = await db
     .from('payroll_items')
-    .select('gross_salary, net_salary, employer_epf, employee_epf, employer_socso, employee_socso, employer_eis, employee_eis, employer_hrdc, pcb_amount, total_allowances, total_deductions, director_fee')
+    .select('gross_salary, net_salary, employer_epf, employee_epf, employer_socso, employee_socso, employer_eis, employee_eis, employer_hrdc, pcb_amount, total_allowances, total_deductions, director_fee, claims_amount, ot_amount')
     .eq('payroll_run_id', payrollRunId);
 
   if (fetchError) throw fetchError;

@@ -33,6 +33,7 @@ function makeSettings(overrides: Partial<PayrollSettings> = {}): PayrollSettings
     hrdc_enabled: true,
     working_days_per_month: 26,
     payroll_cutoff_day: 25,
+    show_allowance_on_payslip: false,
     ...overrides,
   };
 }
@@ -46,6 +47,8 @@ function makeProfile(overrides: Partial<EmployeeProfile> = {}): EmployeeProfile 
     is_director: false,
     director_fee: 0,
     epf_category: 'below_60',
+    marital_status: 'single',
+    pcb_category: 1,
     company_id: 'company-001',
     joining_date: null,
     deleted_at: null,
@@ -449,6 +452,8 @@ describe('calculateEmployee', () => {
     expect(result.calculation_notes.socso_scheme).toBe('both');
     expect(result.calculation_notes.pro_rated).toBe(false);
     expect(result.calculation_notes.calculated_at).toBeDefined();
+    expect(result.calculation_notes.employer_epf_pct).toBe(13);
+    expect(result.calculation_notes.employee_epf_pct).toBe(11);
   });
 });
 

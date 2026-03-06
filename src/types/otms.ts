@@ -1,5 +1,10 @@
 // Management role re-enabled - Full approval chain: Supervisor → HR → Management
-export type AppRole = 'employee' | 'supervisor' | 'hr' | 'finance' | 'management' | 'director' | 'gm' | 'head_finance' | 'admin';
+export type AppRole =
+  | 'employee' | 'supervisor' | 'hr'
+  | 'finance' // Legacy — kept for backward compatibility, hidden from role selector
+  | 'finance_admin' | 'account_assistant'
+  | 'assistant_manager' | 'manager' | 'dmd' | 'account_exec'
+  | 'sgm' | 'management' | 'director' | 'gm' | 'head_finance' | 'admin';
 
 // Clean minimal OT status enum - 9 statuses for clearer Route A/B separation
 export type OTStatus =
@@ -107,6 +112,7 @@ export interface Profile {
   employee_id: string;
   full_name: string;
   email: string;
+  personal_email: string | null;
   ic_no: string | null;
   phone_no: string | null;
   company_id: string | null;
@@ -126,6 +132,10 @@ export interface Profile {
   date_of_birth: string | null;
   /** EPF category: 'below_60' or 'above_60' - determines employee EPF contribution rate */
   epf_category: string | null;
+  /** Marital status for PCB calculation */
+  marital_status: 'single' | 'married' | 'divorced' | 'widowed';
+  /** PCB category: 1 (single), 2 (married spouse not working), 3 (married spouse working) */
+  pcb_category: 1 | 2 | 3;
   /** Foreign key to company_locations.id - UUID of the employee's work location */
   work_location: string | null;
   /** Malaysian state code (e.g., WPKL, KUL, JHR) - auto-synced from work_location */
