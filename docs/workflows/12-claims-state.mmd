@@ -1,0 +1,53 @@
+%% ============================================================
+%% Claims — State Diagram
+%% ============================================================
+
+stateDiagram-v2
+    direction LR
+
+    [*] --> pending_supervisor : employee submits\n(has supervisor)
+    [*] --> pending_hr : employee submits\n(no SV / SV is privileged role)
+    [*] --> pending_hr : director submits\n(bypass supervisor)
+
+    pending_supervisor --> supervisor_approved : supervisor approves
+    pending_supervisor --> rejected : supervisor rejects
+
+    supervisor_approved --> pending_finance : hr approves\n(HR always forwards to Finance)
+    supervisor_approved --> rejected : hr rejects
+
+    pending_hr --> pending_finance : hr approves\n(HR always forwards to Finance)
+    pending_hr --> rejected : hr rejects
+
+    pending_finance --> finance_approved : finance approves directly
+    pending_finance --> pending_director : finance forwards to Director
+    pending_finance --> pending_gm : finance forwards to GM
+    pending_finance --> pending_head_finance : finance forwards to Head Finance
+    pending_finance --> rejected : finance rejects
+
+    pending_director --> director_approved : director approves
+    pending_director --> rejected : director rejects
+
+    pending_gm --> gm_approved : gm approves
+    pending_gm --> rejected : gm rejects
+
+    pending_head_finance --> head_finance_approved : head finance approves
+    pending_head_finance --> rejected : head finance rejects
+
+    pending_supervisor --> cancelled : employee cancels
+    pending_hr --> cancelled : employee cancels
+
+    rejected --> [*]
+    cancelled --> [*]
+    finance_approved --> [*]
+    director_approved --> [*]
+    gm_approved --> [*]
+    head_finance_approved --> [*]
+
+    note right of pending_finance
+        Finance routing based on
+        claim_type.final_approver:
+        'finance' → approve directly
+        'director' → forward to Director
+        'gm' → forward to GM
+        'head_finance' → forward to Head Finance
+    end note

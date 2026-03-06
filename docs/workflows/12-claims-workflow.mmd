@@ -1,0 +1,67 @@
+%% ============================================================
+%% Claims Workflow
+%% ============================================================
+
+%% --- FLOWCHART (PM-friendly) ---
+
+flowchart TD
+    A(["`Employee submits
+    claim`"]) --> B{"`System validates:
+    amount, date, duplicates,
+    soft limit warning,
+    submission cutoff cycle`"}
+
+    B -->|Fail| X(["`Submission blocked`"])
+
+    B -->|Pass| C{"`Does employee have
+    a supervisor?`"}
+
+    C -->|"`No, or SV is
+    HR/Admin/Finance`"| D["`Status: Pending HR
+    HR notified`"]
+    C -->|"`Employee is
+    a director`"| D
+    C -->|Yes| E["`Status: Pending Supervisor
+    Supervisor notified`"]
+
+    E --> F{"`Supervisor reviews`"}
+    F -->|Approve| G["`Supervisor Approved
+    HR notified`"]
+    F -->|Reject| R(["`Rejected
+    Employee notified`"])
+
+    G --> H{"`HR reviews`"}
+    D --> H
+
+    H -->|Approve| I["`Pending Finance
+    *HR always forwards to Finance*`"]
+    H -->|Reject| R
+
+    I --> J{"`Finance reviews`"}
+    J -->|Reject| R
+    J -->|Approve directly| K(["`Finance Approved`"])
+    J -->|Forward to Director| L1[Pending Director]
+    J -->|Forward to GM| L2[Pending GM]
+    J -->|Forward to Head Finance| L3["`Pending
+    Head Finance`"]
+
+    L1 --> M1{Director reviews}
+    M1 -->|Approve| N1([Director Approved])
+    M1 -->|Reject| R
+
+    L2 --> M2{GM reviews}
+    M2 -->|Approve| N2([GM Approved])
+    M2 -->|Reject| R
+
+    L3 --> M3{"`Head Finance
+    reviews`"}
+    M3 -->|Approve| N3(["`Head Finance
+    Approved`"])
+    M3 -->|Reject| R
+
+    style K fill:#22c55e,color:#fff
+    style N1 fill:#22c55e,color:#fff
+    style N2 fill:#22c55e,color:#fff
+    style N3 fill:#22c55e,color:#fff
+    style R fill:#ef4444,color:#fff
+    style X fill:#f59e0b,color:#fff
