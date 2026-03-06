@@ -72,56 +72,70 @@ export function getAgeAtDate(dob: string, referenceDate: string): number {
 }
 
 /**
- * Simplified monthly PCB (MTD) lookup table based on LHDN Schedule.
- * Assumes single person (Category 1) with no additional deductions.
- * Each entry: [upperBound, pcbAmount]. Sorted ascending by upperBound.
- * Gross income up to the upperBound maps to the corresponding pcbAmount.
+ * LHDN 2026 PCB (MTD) calculation with full marginal tax rate system.
+ * Supports Categories 1 (single/divorced), 2 (married, spouse not working),
+ * and 3 (married, both working — taxed same as Category 1).
  */
-export const PCB_MONTHLY_TABLE: [number, number][] = [
-  [2500, 0],
-  [3000, 13],
-  [3500, 43],
-  [4000, 73],
-  [4500, 108],
-  [5000, 153],
-  [5500, 198],
-  [6000, 248],
-  [6500, 303],
-  [7000, 358],
-  [7500, 423],
-  [8000, 498],
-  [8500, 573],
-  [9000, 658],
-  [9500, 743],
-  [10000, 838],
-  [11000, 1023],
-  [12000, 1218],
-  [13000, 1433],
-  [14000, 1648],
-  [15000, 1893],
-  [16000, 2143],
-  [17000, 2393],
-  [18000, 2643],
-  [19000, 2893],
-  [20000, 3143],
-  [25000, 4393],
-  [30000, 5643],
-  [35000, 6893],
-  [40000, 8293],
-  [45000, 9793],
-  [50000, 11293],
-  [60000, 14293],
-  [70000, 17293],
-  [80000, 20293],
-  [100000, 26293],
-  [Infinity, 26293], // cap at highest bracket
+
+export interface PcbDeductions {
+  epfMonthly: number;
+  socsoEisMonthly: number;
+}
+
+/** LHDN 2026 marginal tax brackets: [upperLimit, rate] */
+const TAX_BRACKETS: [number, number][] = [
+  [5000, 0],
+  [20000, 0.01],
+  [35000, 0.03],
+  [50000, 0.06],
+  [70000, 0.11],
+  [100000, 0.19],
+  [400000, 0.25],
+  [600000, 0.26],
+  [2000000, 0.28],
+  [Infinity, 0.30],
 ];
 
-export function lookupPcb(monthlyGross: number): number {
-  for (const [upperBound, pcb] of PCB_MONTHLY_TABLE) {
-    if (monthlyGross <= upperBound) return pcb;
+export function calculatePcb(
+  monthlyGross: number,
+  category: number,
+  qualifyingChildren: number,
+  deductions: PcbDeductions
+): number {
+  const annualGross = monthlyGross * 12;
+
+  // Reliefs
+  const individualRelief = 9000;
+  const epfRelief = Math.min(deductions.epfMonthly * 12, 4000);
+  const socsoEisRelief = Math.min(deductions.socsoEisMonthly * 12, 350);
+  const spouseRelief = category === 2 ? 4000 : 0;
+  const childRelief = qualifyingChildren * 2000;
+
+  const totalRelief = individualRelief + epfRelief + socsoEisRelief + spouseRelief + childRelief;
+  const chargeableIncome = Math.max(0, annualGross - totalRelief);
+
+  // Compute tax using marginal rate brackets
+  let tax = 0;
+  let previousLimit = 0;
+  for (const [upperLimit, rate] of TAX_BRACKETS) {
+    if (chargeableIncome <= previousLimit) break;
+    const taxableInBracket = Math.min(chargeableIncome, upperLimit) - previousLimit;
+    tax += taxableInBracket * rate;
+    previousLimit = upperLimit;
   }
-  return 0;
+
+  // Rebate for chargeable income <= RM35,000
+  if (chargeableIncome <= 35000) {
+    const rebate = category === 2 ? 800 : 400;
+    tax = Math.max(0, tax - rebate);
+  }
+
+  return round2(tax / 12);
+}
+
+/** Backward-compatible wrapper — Category 1, no dependents, no deductions */
+export function lookupPcb(monthlyGross: number): number {
+  return calculatePcb(monthlyGross, 1, 0, { epfMonthly: 0, socsoEisMonthly: 0 });
 }
 
 export function lookupSocso(
@@ -251,8 +265,16 @@ export function calculateEmployee(
   const isDirector = profile.is_director || false;
   const directorFee = isDirector ? Number(profile.director_fee) || 0 : 0;
 
-  // PCB/MTD lookup (simplified monthly schedule)
-  const pcbAmount = lookupPcb(grossSalary);
+  // PCB/MTD — full LHDN 2026 calculation with reliefs
+  const pcbAmount = calculatePcb(
+    grossSalary,
+    profile.pcb_category || 1,
+    0, // qualifyingChildren placeholder — wired in Task 8
+    {
+      epfMonthly: employeeEpf,
+      socsoEisMonthly: employeeSocso + employeeEis,
+    }
+  );
 
   // Total deductions (employee portion)
   const totalDeductions = round2(

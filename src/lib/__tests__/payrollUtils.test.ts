@@ -1,17 +1,17 @@
 /**
  * Unit Tests: payrollUtils pure functions
- * Tests for round2, lookupPcb, lookupSocso, and calculateEmployee
+ * Tests for round2, calculatePcb, lookupPcb, lookupSocso, and calculateEmployee
  */
 
 import { describe, it, expect } from 'vitest';
 import type { PayrollSettings, SocsoContributionRow } from '@/types/payroll';
 import {
   round2,
+  calculatePcb,
   lookupPcb,
   lookupSocso,
   calculateEmployee,
   getAgeAtDate,
-  PCB_MONTHLY_TABLE,
   type EmployeeProfile,
 } from '@/lib/payrollUtils';
 
@@ -155,43 +155,108 @@ describe('round2', () => {
 });
 
 // ---------------------------------------------------------------------------
-// lookupPcb
+// calculatePcb (LHDN 2026 full calculation)
 // ---------------------------------------------------------------------------
 
-describe('lookupPcb', () => {
-  it('returns 0 for salary at or below 2500', () => {
-    expect(lookupPcb(0)).toBe(0);
-    expect(lookupPcb(2000)).toBe(0);
-    expect(lookupPcb(2500)).toBe(0);
+describe('calculatePcb', () => {
+  const noDed = { epfMonthly: 0, socsoEisMonthly: 0 };
+
+  describe('Category 1 — single, no dependents', () => {
+    it('returns 0 for zero gross', () => {
+      expect(calculatePcb(0, 1, 0, noDed)).toBe(0);
+    });
+
+    it('returns 0 for low income where rebate zeroes out tax', () => {
+      // 3000/mo -> annual 36000, relief 9000, chargeable 27000 -> tax < 400 rebate
+      expect(calculatePcb(3000, 1, 0, noDed)).toBe(0);
+    });
+
+    it('calculates correctly for RM5,000/mo (no deductions)', () => {
+      expect(calculatePcb(5000, 1, 0, noDed)).toBe(134.17);
+    });
+
+    it('calculates correctly for RM10,000/mo (no deductions)', () => {
+      expect(calculatePcb(10000, 1, 0, noDed)).toBe(1012.5);
+    });
+
+    it('calculates correctly for high income RM50,000/mo', () => {
+      expect(calculatePcb(50000, 1, 0, noDed)).toBe(11171.67);
+    });
+
+    it('calculates correctly for very high income RM200,000/mo', () => {
+      expect(calculatePcb(200000, 1, 0, noDed)).toBe(53808.33);
+    });
   });
 
-  it('returns correct PCB for the 3000 bracket', () => {
-    expect(lookupPcb(2501)).toBe(13);
-    expect(lookupPcb(3000)).toBe(13);
+  describe('Category 1 with EPF/SOCSO/EIS deductions', () => {
+    it('reduces tax via reliefs for standard employee at RM5,000', () => {
+      // epf=550, socso+eis=28.5
+      const result = calculatePcb(5000, 1, 0, { epfMonthly: 550, socsoEisMonthly: 28.5 });
+      expect(result).toBe(108.29);
+    });
   });
 
-  it('returns correct PCB for mid-range salary (5000)', () => {
-    expect(lookupPcb(5000)).toBe(153);
+  describe('Category 2 — married, spouse not working', () => {
+    it('applies spouse relief of RM4,000', () => {
+      const result = calculatePcb(5000, 2, 0, { epfMonthly: 550, socsoEisMonthly: 28.5 });
+      expect(result).toBe(88.29);
+    });
+
+    it('applies RM800 rebate (double) for low chargeable income', () => {
+      // Low enough that rebate zeroes out tax
+      expect(calculatePcb(2000, 2, 0, { epfMonthly: 220, socsoEisMonthly: 15 })).toBe(0);
+    });
   });
 
-  it('returns correct PCB for 10000 bracket', () => {
-    expect(lookupPcb(10000)).toBe(838);
+  describe('Category 3 — married, both working (same as Category 1)', () => {
+    it('produces same result as Category 1', () => {
+      const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
+      const cat1 = calculatePcb(5000, 1, 0, ded);
+      const cat3 = calculatePcb(5000, 3, 0, ded);
+      expect(cat3).toBe(cat1);
+    });
   });
 
-  it('returns correct PCB for high salary (50000)', () => {
-    expect(lookupPcb(50000)).toBe(11293);
+  describe('with qualifying children', () => {
+    it('reduces tax by RM2,000 relief per child', () => {
+      const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
+      const noKids = calculatePcb(5000, 1, 0, ded);
+      const twoKids = calculatePcb(5000, 1, 2, ded);
+      expect(twoKids).toBe(88.29);
+      expect(twoKids).toBeLessThan(noKids);
+    });
+
+    it('Cat 2 with 3 children gets further reduction', () => {
+      const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
+      const result = calculatePcb(5000, 2, 3, ded);
+      expect(result).toBe(58.29);
+    });
   });
 
-  it('returns capped PCB for very high salary', () => {
-    expect(lookupPcb(200000)).toBe(26293);
-    expect(lookupPcb(1000000)).toBe(26293);
+  describe('rebate rules', () => {
+    it('applies RM400 rebate for Cat 1 when chargeable <= 35,000', () => {
+      // Very low income, tax fully offset by rebate
+      expect(calculatePcb(1000, 1, 0, { epfMonthly: 110, socsoEisMonthly: 10 })).toBe(0);
+    });
+
+    it('does not apply rebate when chargeable > 35,000', () => {
+      // RM5000 no deductions: chargeable=51000 -> no rebate
+      expect(calculatePcb(5000, 1, 0, noDed)).toBe(134.17);
+    });
   });
 
-  it('handles boundary values correctly', () => {
-    // Just above 3000 should hit the 3500 bracket
-    expect(lookupPcb(3001)).toBe(43);
-    // Exactly 3500 should still be in the 3500 bracket
-    expect(lookupPcb(3500)).toBe(43);
+  describe('lookupPcb backward-compat wrapper', () => {
+    it('delegates to calculatePcb with Cat 1, no deps, no deductions', () => {
+      expect(lookupPcb(5000)).toBe(calculatePcb(5000, 1, 0, noDed));
+      expect(lookupPcb(0)).toBe(0);
+    });
+  });
+
+  describe('high income, no rebate', () => {
+    it('computes correct PCB for RM30,000/mo with deductions', () => {
+      const result = calculatePcb(30000, 1, 0, { epfMonthly: 3300, socsoEisMonthly: 40 });
+      expect(result).toBe(5921.88);
+    });
   });
 });
 
@@ -278,15 +343,15 @@ describe('calculateEmployee', () => {
     // HRDC: 5000 * 1% = 50
     expect(result.employer_hrdc).toBe(50);
 
-    // PCB: lookupPcb(5000) = 153
-    expect(result.pcb_amount).toBe(153);
+    // PCB: calculatePcb(5000, 1, 0, {epf:550, socsoEis:28.5}) = 108.29
+    expect(result.pcb_amount).toBe(108.29);
 
     // Total deductions: employee_epf + employee_socso + employee_eis + pcb
-    // 550 + 18.5 + 10 + 153 = 731.5
-    expect(result.total_deductions).toBe(731.5);
+    // 550 + 18.5 + 10 + 108.29 = 686.79
+    expect(result.total_deductions).toBe(686.79);
 
-    // Net salary: 5000 - 731.5 = 4268.5
-    expect(result.net_salary).toBe(4268.5);
+    // Net salary: 5000 - 686.79 = 4313.21
+    expect(result.net_salary).toBe(4313.21);
 
     // Not a director
     expect(result.is_director).toBe(false);
@@ -363,9 +428,8 @@ describe('calculateEmployee', () => {
     expect(result.employer_eis).toBe(round2(5000 * 0.002));
     expect(result.employee_eis).toBe(round2(5000 * 0.002));
 
-    // PCB for 8000
-    expect(result.pcb_amount).toBe(lookupPcb(8000));
-    expect(result.pcb_amount).toBe(498);
+    // PCB for 8000 with deductions: epf=880*2=1040 => 880, socso+eis=34.75
+    expect(result.pcb_amount).toBe(508.63);
   });
 
   it('uses above_60 EPF rate when epf_category is above_60', () => {
