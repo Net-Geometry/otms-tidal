@@ -268,13 +268,6 @@ export interface PayrollItem {
   employer_hrdc: number;
 
   pcb_amount: number;
-  cp38_amount: number;
-  zakat_amount: number;
-
-  sports_club: number;
-  staff_loan: number;
-  rental_deduction: number;
-  other_deductions: number;
 
   total_allowances: number;
   total_deductions: number;

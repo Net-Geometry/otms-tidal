@@ -5,7 +5,8 @@ import { PageLayout } from '@/components/ui/page-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Calculator, Info, UserPlus } from 'lucide-react';
+import { ArrowLeft, Calculator, Download, Info, UserPlus } from 'lucide-react';
+import { exportToCSV } from '@/lib/exportUtils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PayrollMemoView } from '@/components/payroll/PayrollMemoView';
 import { PayrollItemsTable } from '@/components/payroll/PayrollItemsTable';
@@ -15,8 +16,9 @@ import { PayrollApprovalActions } from '@/components/payroll/PayrollApprovalActi
 import { usePayrollRun } from '@/hooks/payroll/usePayrollRun';
 import { usePayrollCalculation } from '@/hooks/payroll/usePayrollCalculation';
 import { usePayrollApproval } from '@/hooks/payroll/usePayrollApproval';
-import { usePayrollSettings, useAllowanceTypes, useSocsoTable } from '@/hooks/payroll/usePayrollSettings';
+import { usePayrollSettings, useAllowanceTypes, useDeductionTypes, useSocsoTable } from '@/hooks/payroll/usePayrollSettings';
 import { useActiveRole } from '@/hooks/useActiveRole';
+import { isFinanceRole } from '@/lib/financeRoles';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +39,7 @@ export default function PayrollRunDetail() {
   const { run, items, isLoading, refetch } = usePayrollRun(runId);
   const { settings } = usePayrollSettings();
   const { data: allowanceTypes } = useAllowanceTypes();
+  const { data: deductionTypes = [] } = useDeductionTypes();
   const { data: socsoTable } = useSocsoTable();
   const {
     calculatePayroll, isCalculating,
@@ -47,7 +50,7 @@ export default function PayrollRunDetail() {
 
   const approvalRole: PayrollApprovalRole =
     activeRole === 'management' ? 'management' :
-    activeRole === 'finance' ? 'finance' : 'hr';
+    isFinanceRole(activeRole) ? 'finance' : 'hr';
 
   const approval = usePayrollApproval({ role: approvalRole });
 
@@ -131,6 +134,51 @@ export default function PayrollRunDetail() {
   const isDraft = run.status === 'draft';
   const hasMemo = !!(run as any).memo_id;
 
+  const handleExportCSV = () => {
+    if (!items.length) return;
+    const headers = [
+      { key: 'net_salary', label: 'Net Salary' },
+      { key: 'employee_name', label: 'Employee' },
+      { key: 'employee_id_code', label: 'Employee ID' },
+      { key: 'department', label: 'Department' },
+      { key: 'basic_salary', label: 'Basic Salary' },
+      { key: 'gross_salary', label: 'Gross Salary' },
+      { key: 'employee_epf', label: 'EPF (EE)' },
+      { key: 'employer_epf', label: 'EPF (ER)' },
+      { key: 'employee_socso', label: 'SOCSO (EE)' },
+      { key: 'employer_socso', label: 'SOCSO (ER)' },
+      { key: 'employee_eis', label: 'EIS (EE)' },
+      { key: 'employer_eis', label: 'EIS (ER)' },
+      { key: 'pcb_amount', label: 'PCB' },
+      { key: 'total_deductions', label: 'Total Deductions' },
+      { key: 'total_allowances', label: 'Total Allowances' },
+    ];
+    const data = items.map((item) => ({
+      net_salary: Number(item.net_salary || 0).toFixed(2),
+      employee_name: item.profiles?.full_name || item.employee_id,
+      employee_id_code: item.profiles?.employee_id || '',
+      department: item.profiles?.departments?.name || '',
+      basic_salary: Number(item.basic_salary || 0).toFixed(2),
+      gross_salary: Number(item.gross_salary || 0).toFixed(2),
+      employee_epf: Number(item.employee_epf || 0).toFixed(2),
+      employer_epf: Number(item.employer_epf || 0).toFixed(2),
+      employee_socso: Number(item.employee_socso || 0).toFixed(2),
+      employer_socso: Number(item.employer_socso || 0).toFixed(2),
+      employee_eis: Number(item.employee_eis || 0).toFixed(2),
+      employer_eis: Number(item.employer_eis || 0).toFixed(2),
+      pcb_amount: Number(item.pcb_amount || 0).toFixed(2),
+      total_deductions: Number(item.total_deductions || 0).toFixed(2),
+      total_allowances: Number(item.total_allowances || 0).toFixed(2),
+    }));
+    const companyName = run.companies?.name || 'Payroll';
+    const filename = `${companyName}_Payroll_${run.pay_period_month}_${run.pay_period_year}`;
+    exportToCSV(data, filename, headers, {
+      reportName: `Payroll - ${companyName}`,
+      period: `${run.pay_period_month}/${run.pay_period_year}`,
+      generatedDate: new Date().toLocaleDateString(),
+    });
+  };
+
   return (
     <AppLayout>
       <PageLayout
@@ -143,6 +191,12 @@ export default function PayrollRunDetail() {
           </Button>
 
           <div className="flex items-center gap-2">
+            {items.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            )}
             {isDraft && !hasMemo && (
               <>
                 <Button variant="outline" onClick={() => setShowAddEmployee(true)}>
@@ -206,6 +260,7 @@ export default function PayrollRunDetail() {
           }}
           isSaving={isUpdatingItem}
           allowanceTypes={allowanceTypes || []}
+          deductionTypes={deductionTypes}
           readOnly={!isDraft || hasMemo}
         />
 

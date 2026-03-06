@@ -437,12 +437,6 @@ describe('calculateEmployee', () => {
     expect(result.unpaid_leave_days).toBe(0);
     expect(result.unpaid_leave_deduction).toBe(0);
     expect(result.claims_amount).toBe(0);
-    expect(result.cp38_amount).toBe(0);
-    expect(result.zakat_amount).toBe(0);
-    expect(result.sports_club).toBe(0);
-    expect(result.staff_loan).toBe(0);
-    expect(result.rental_deduction).toBe(0);
-    expect(result.other_deductions).toBe(0);
   });
 
   it('includes calculation_notes with metadata', () => {

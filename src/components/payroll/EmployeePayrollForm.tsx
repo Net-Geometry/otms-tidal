@@ -17,6 +17,7 @@ import { AlertTriangle } from 'lucide-react';
 import type {
   PayrollItem,
   AllowanceType,
+  DeductionType,
   EmployeePayrollFormInput,
 } from '@/types/payroll';
 import { formatCurrency } from '@/lib/otCalculations';
@@ -29,6 +30,7 @@ interface EmployeePayrollFormProps {
   onSave: (input: EmployeePayrollFormInput) => Promise<void>;
   isSaving: boolean;
   allowanceTypes: AllowanceType[];
+  deductionTypes: DeductionType[];
   readOnly?: boolean;
 }
 
@@ -39,6 +41,7 @@ export function EmployeePayrollForm({
   onSave,
   isSaving,
   allowanceTypes,
+  deductionTypes,
   readOnly = false,
 }: EmployeePayrollFormProps) {
   // Overtime & Leave
@@ -54,12 +57,8 @@ export function EmployeePayrollForm({
   const [eisEnabled, setEisEnabled] = useState(true);
   const [pcbEnabled, setPcbEnabled] = useState(true);
 
-  // Other deductions
-  const [cp38, setCp38] = useState('0');
-  const [zakat, setZakat] = useState('0');
-  const [sportsClub, setSportsClub] = useState('0');
-  const [staffLoan, setStaffLoan] = useState('0');
-  const [rental, setRental] = useState('0');
+  // Other deductions (dynamic)
+  const [deductions, setDeductions] = useState<Record<string, string>>({});
 
   // Initialize state from item
   useEffect(() => {
@@ -81,12 +80,12 @@ export function EmployeePayrollForm({
       setEisEnabled(!notes.eis_disabled);
       setPcbEnabled(!notes.pcb_disabled);
 
-      // Other deductions
-      setCp38(String(item.cp38_amount || 0));
-      setZakat(String(item.zakat_amount || 0));
-      setSportsClub(String(item.sports_club || 0));
-      setStaffLoan(String(item.staff_loan || 0));
-      setRental(String(item.rental_deduction || 0));
+      // Deductions from junction table
+      const deductionMap: Record<string, string> = {};
+      for (const d of item.payroll_item_deductions || []) {
+        deductionMap[d.deduction_type_id] = String(d.amount || 0);
+      }
+      setDeductions(deductionMap);
     }
   }, [item]);
 
@@ -111,12 +110,10 @@ export function EmployeePayrollForm({
     const empSocso = socsoEnabled ? Number(item.employee_socso) : 0;
     const empEis = eisEnabled ? Number(item.employee_eis) : 0;
     const pcb = pcbEnabled ? Number(item.pcb_amount) : 0;
-    const manualDed =
-      (Number(cp38) || 0) +
-      (Number(zakat) || 0) +
-      (Number(sportsClub) || 0) +
-      (Number(staffLoan) || 0) +
-      (Number(rental) || 0);
+    const manualDed = Object.values(deductions).reduce(
+      (sum, v) => sum + (Number(v) || 0),
+      0
+    );
 
     const totalDeductions = round2(
       empEpf + empSocso + empEis + pcb + manualDed
@@ -147,11 +144,7 @@ export function EmployeePayrollForm({
     otAmount,
     unpaidDays,
     allowances,
-    cp38,
-    zakat,
-    sportsClub,
-    staffLoan,
-    rental,
+    deductions,
     epfEnabled,
     socsoEnabled,
     eisEnabled,
@@ -165,11 +158,6 @@ export function EmployeePayrollForm({
 
     const numOt = Number(otAmount) || 0;
     const numUnpaidDays = Number(unpaidDays) || 0;
-    const numCp38 = Number(cp38) || 0;
-    const numZakat = Number(zakat) || 0;
-    const numSports = Number(sportsClub) || 0;
-    const numLoan = Number(staffLoan) || 0;
-    const numRental = Number(rental) || 0;
 
     await onSave({
       itemId: item.id,
@@ -182,12 +170,6 @@ export function EmployeePayrollForm({
         total_allowances: round2(summary.totalAllowancesSum),
         total_deductions: summary.totalDeductions,
         net_salary: summary.netPay,
-        cp38_amount: numCp38,
-        zakat_amount: numZakat,
-        sports_club: numSports,
-        staff_loan: numLoan,
-        rental_deduction: numRental,
-        // When statutory toggle is off, save 0 for both employee and employer
         employee_epf: epfEnabled ? Number(item.employee_epf) : 0,
         employer_epf: epfEnabled ? Number(item.employer_epf) : 0,
         employee_socso: socsoEnabled ? Number(item.employee_socso) : 0,
@@ -207,6 +189,10 @@ export function EmployeePayrollForm({
       allowances: allowanceTypes.map((at) => ({
         allowance_type_id: at.id,
         amount: Number(allowances[at.id] || 0),
+      })),
+      deductions: deductionTypes.map((dt) => ({
+        deduction_type_id: dt.id,
+        amount: Number(deductions[dt.id] || 0),
       })),
     });
 
@@ -417,65 +403,33 @@ export function EmployeePayrollForm({
 
           <Separator />
 
-          {/* Section 5: Other Deductions (editable) */}
+          {/* Section 5: Other Deductions (dynamic) */}
           <div className="space-y-3">
             <h4 className="text-sm font-semibold">Other Deductions</h4>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">CP38 (RM)</Label>
-                <Input
-                  type="number"
-                  value={cp38}
-                  onChange={(e) => setCp38(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  disabled={readOnly}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Zakat (RM)</Label>
-                <Input
-                  type="number"
-                  value={zakat}
-                  onChange={(e) => setZakat(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  disabled={readOnly}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Sports Club (RM)</Label>
-                <Input
-                  type="number"
-                  value={sportsClub}
-                  onChange={(e) => setSportsClub(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  disabled={readOnly}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Staff Loan (RM)</Label>
-                <Input
-                  type="number"
-                  value={staffLoan}
-                  onChange={(e) => setStaffLoan(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  disabled={readOnly}
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Rental (RM)</Label>
-                <Input
-                  type="number"
-                  value={rental}
-                  onChange={(e) => setRental(e.target.value)}
-                  min="0"
-                  step="0.01"
-                  disabled={readOnly}
-                />
-              </div>
+              {deductionTypes.map((dt) => (
+                <div key={dt.id} className="space-y-1">
+                  <Label className="text-xs">{dt.name} (RM)</Label>
+                  <Input
+                    type="number"
+                    value={deductions[dt.id] || '0'}
+                    onChange={(e) =>
+                      setDeductions((prev) => ({
+                        ...prev,
+                        [dt.id]: e.target.value,
+                      }))
+                    }
+                    min="0"
+                    step="0.01"
+                    disabled={readOnly}
+                  />
+                </div>
+              ))}
+              {deductionTypes.length === 0 && (
+                <p className="text-sm text-muted-foreground col-span-2">
+                  No deduction types configured.
+                </p>
+              )}
             </div>
           </div>
 

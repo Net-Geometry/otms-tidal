@@ -49,9 +49,43 @@ export function EmployeePayslipCard({ item, onDownload }: EmployeePayslipCardPro
             <span>{formatCurrency(Number(item.employee_epf))}</span>
           </div>
           <div>
+            <span className="text-muted-foreground">EPF (ER):</span>{' '}
+            <span>{formatCurrency(Number(item.employer_epf))}</span>
+          </div>
+          <div>
             <span className="text-muted-foreground">SOCSO (EE):</span>{' '}
             <span>{formatCurrency(Number(item.employee_socso))}</span>
           </div>
+          <div>
+            <span className="text-muted-foreground">SOCSO (ER):</span>{' '}
+            <span>{formatCurrency(Number(item.employer_socso))}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">EIS (EE):</span>{' '}
+            <span>{formatCurrency(Number(item.employee_eis))}</span>
+          </div>
+          <div>
+            <span className="text-muted-foreground">EIS (ER):</span>{' '}
+            <span>{formatCurrency(Number(item.employer_eis))}</span>
+          </div>
+          {Number(item.employer_hrdc) > 0 && (
+            <div>
+              <span className="text-muted-foreground">HRDC:</span>{' '}
+              <span>{formatCurrency(Number(item.employer_hrdc))}</span>
+            </div>
+          )}
+          {item.payroll_item_deductions && item.payroll_item_deductions.length > 0 && (
+            <>
+              {item.payroll_item_deductions.map((d) => (
+                d.amount > 0 && (
+                  <div key={d.id}>
+                    <span className="text-muted-foreground">{d.deduction_type?.name || 'Deduction'}:</span>{' '}
+                    <span>{formatCurrency(Number(d.amount))}</span>
+                  </div>
+                )
+              ))}
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

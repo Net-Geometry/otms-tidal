@@ -268,16 +268,12 @@ export interface FullPayslipData {
     employer_eis: number;
     employer_hrdc: number;
     pcb_amount: number;
-    cp38_amount: number;
-    zakat_amount: number;
-    sports_club: number;
-    staff_loan: number;
-    rental_deduction: number;
     unpaid_leave_deduction: number;
     total_allowances: number;
     total_deductions: number;
     net_salary: number;
     payroll_item_allowances?: { amount: number; allowance_type?: { name: string } }[];
+    payroll_item_deductions?: { amount: number; deduction_type?: { name: string } }[];
   };
 }
 
@@ -391,11 +387,13 @@ export async function generateFullPayslipPDF(data: FullPayslipData): Promise<voi
   if (data.item.employee_socso > 0) deductions.push(['Employee SOCSO', data.item.employee_socso]);
   if (data.item.employee_eis > 0) deductions.push(['Employee EIS', data.item.employee_eis]);
   if (data.item.pcb_amount > 0) deductions.push(['PCB / MTD', data.item.pcb_amount]);
-  if (data.item.cp38_amount > 0) deductions.push(['CP38', data.item.cp38_amount]);
-  if (data.item.zakat_amount > 0) deductions.push(['Zakat', data.item.zakat_amount]);
-  if (data.item.sports_club > 0) deductions.push(['Sports Club', data.item.sports_club]);
-  if (data.item.staff_loan > 0) deductions.push(['Staff Loan', data.item.staff_loan]);
-  if (data.item.rental_deduction > 0) deductions.push(['Rental', data.item.rental_deduction]);
+  // Dynamic deductions from junction table
+  for (const d of data.item.payroll_item_deductions || []) {
+    if (d.amount > 0) {
+      const label = d.deduction_type?.name || 'Other';
+      deductions.push([label, d.amount]);
+    }
+  }
   if (data.item.unpaid_leave_deduction > 0) deductions.push(['Unpaid Leave', data.item.unpaid_leave_deduction]);
 
   const totalDed = deductions.reduce((s, [, v]) => s + v, 0);

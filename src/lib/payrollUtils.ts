@@ -44,12 +44,6 @@ export interface CalculatedItem {
   employer_eis: number;
   employer_hrdc: number;
   pcb_amount: number;
-  cp38_amount: number;
-  zakat_amount: number;
-  sports_club: number;
-  staff_loan: number;
-  rental_deduction: number;
-  other_deductions: number;
   total_allowances: number;
   total_deductions: number;
   net_salary: number;
@@ -286,12 +280,6 @@ export function calculateEmployee(
     employer_eis: employerEis,
     employer_hrdc: employerHrdc,
     pcb_amount: pcbAmount,
-    cp38_amount: 0,
-    zakat_amount: 0,
-    sports_club: 0,
-    staff_loan: 0,
-    rental_deduction: 0,
-    other_deductions: 0,
     total_allowances: 0,
     total_deductions: totalDeductions,
     net_salary: netSalary,
