@@ -57,12 +57,12 @@ export function useClaimSubmit() {
       const user = authData.user;
 
       if (!input.claim_type_id) throw new Error('Claim type is required');
-      if (!input.claim_date) throw new Error('Claim date is required');
+      if (!input.claim_date) throw new Error('Receipt date is required');
       if (input.amount == null || Number.isNaN(Number(input.amount))) throw new Error('Amount is required');
       if (Number(input.amount) <= 0) throw new Error('Amount must be greater than 0');
 
       const claimDate = parseISO(input.claim_date);
-      if (Number.isNaN(claimDate.getTime())) throw new Error('Invalid claim date');
+      if (Number.isNaN(claimDate.getTime())) throw new Error('Invalid receipt date');
 
       const claimType = await fetchClaimType(input.claim_type_id);
       const limitWarning = buildLimitWarning({
@@ -74,7 +74,7 @@ export function useClaimSubmit() {
       // Fetch profile for supervisor
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('supervisor_id')
+        .select('supervisor_id, is_director')
         .eq('id', user.id)
         .single();
       if (profileError) throw profileError;
@@ -99,7 +99,11 @@ export function useClaimSubmit() {
       let supervisorId: string | null = profile?.supervisor_id || null;
       let initialStatus: any = 'pending_supervisor';
 
-      if (!supervisorId) {
+      // Director bypass: skip supervisor, go directly to pending_hr
+      if (profile?.is_director) {
+        initialStatus = 'pending_hr';
+        supervisorId = null;
+      } else if (!supervisorId) {
         initialStatus = 'pending_hr';
       } else {
         // If supervisor is a privileged role, skip supervisor stage
