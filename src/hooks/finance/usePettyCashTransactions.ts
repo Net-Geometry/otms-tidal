@@ -5,7 +5,6 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { PettyCashStatus, PettyCashTransaction, PettyCashTxnType } from '@/types/finance';
-import { canTransitionPettyCash } from '@/types/finance';
 import { createGLPosting } from '@/hooks/finance/useGeneralLedger';
 
 interface PettyCashTxnFilters {
@@ -14,14 +13,15 @@ interface PettyCashTxnFilters {
   month?: number;
   year?: number;
   search?: string;
+  fundAccountId?: string;
 }
 
 interface CreatePettyCashTxnInput {
   txn_type: PettyCashTxnType;
   txn_date: string;
-  amount: number;
   description: string;
-  account_id: string;
+  fund_account_id: string;
+  lines: Array<{ account_id: string; description: string; amount: number }>;
   project_id?: string | null;
   receipt_urls?: string[];
   payee?: string | null;
@@ -34,17 +34,6 @@ function toSignedAmount(txnType: string, amount: number) {
   return -Number(amount || 0);
 }
 
-async function isFinanceOrAdmin(db: any, userId: string): Promise<boolean> {
-  const { data, error } = await db
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId)
-    .in('role', ['finance', 'admin'])
-    .limit(1);
-
-  if (error) throw error;
-  return !!data?.length;
-}
 
 async function getCurrentApprovedBalance(db: any): Promise<number> {
   const { data, error } = await db
@@ -83,13 +72,17 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
   const { toast } = useToast();
 
   const query = useQuery({
-    queryKey: ['petty-cash-transactions', filters.status, filters.txnType, filters.month, filters.year, filters.search],
+    queryKey: ['petty-cash-transactions', filters.status, filters.txnType, filters.month, filters.year, filters.search, filters.fundAccountId],
     queryFn: async () => {
       let q = db
         .from('petty_cash_transactions')
         .select(`
           *,
           account:chart_of_accounts(id, account_code, account_name),
+          fund_account:chart_of_accounts!fund_account_id(id, account_code, account_name),
+          lines:petty_cash_transaction_lines(id, txn_id, account_id, description, amount, sort_order,
+            account:chart_of_accounts!account_id(id, account_code, account_name)
+          ),
           project:projects(id, project_code, project_name),
           requester:profiles!petty_cash_transactions_requested_by_fkey(id, employee_id, full_name),
           approver:profiles!petty_cash_transactions_approved_by_fkey(id, employee_id, full_name),
@@ -100,6 +93,8 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
 
       if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters.txnType && filters.txnType !== 'all') q = q.eq('txn_type', filters.txnType);
+
+      if (filters.fundAccountId) q = q.eq('fund_account_id', filters.fundAccountId);
 
       if (filters.month && filters.year) {
         const start = `${filters.year}-${String(filters.month).padStart(2, '0')}-01`;
@@ -135,36 +130,21 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
       if (!authData?.user) throw new Error('Not authenticated');
 
       if (!input.txn_date) throw new Error('Transaction date is required');
-      if (!input.account_id) throw new Error('Account is required');
+      if (!input.fund_account_id) throw new Error('Fund account is required');
       if (!input.description?.trim()) throw new Error('Description is required');
-      if (Number(input.amount) <= 0) throw new Error('Amount must be greater than 0');
+      if (!input.lines?.length) throw new Error('At least one line item is required');
+
+      const amount = input.lines.reduce((sum, l) => sum + Number(l.amount || 0), 0);
+      if (amount <= 0) throw new Error('Total amount must be greater than 0');
 
       const userId = authData.user.id;
-      const financeUser = await isFinanceOrAdmin(db, userId);
-
-      const { data: settings, error: settingsError } = await db
-        .from('petty_cash_settings')
-        .select('approval_threshold')
-        .eq('id', 1)
-        .single();
-      if (settingsError) throw settingsError;
-
-      const threshold = Number(settings?.approval_threshold || 0);
-      const amount = Number(input.amount || 0);
-      const autoApproveTopUp = input.txn_type === 'top_up' && financeUser;
-      const autoApproveSmallExpense = input.txn_type === 'expenditure' && amount < threshold;
-      const shouldAutoApprove = autoApproveTopUp || autoApproveSmallExpense;
 
       const txnNumber = await generateTxnNumber(db, input.txn_date);
       const now = new Date().toISOString();
       const currentBalance = await getCurrentApprovedBalance(db);
+      const runningBalance = currentBalance + toSignedAmount(input.txn_type, amount);
 
-      const status: PettyCashStatus = shouldAutoApprove ? 'approved' : 'pending';
-      const runningBalance = shouldAutoApprove
-        ? currentBalance + toSignedAmount(input.txn_type, amount)
-        : currentBalance;
-
-      const { error } = await db
+      const { data: txn, error } = await db
         .from('petty_cash_transactions')
         .insert({
           txn_number: txnNumber,
@@ -172,21 +152,34 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
           txn_date: input.txn_date,
           amount,
           description: input.description.trim(),
-          account_id: input.account_id,
+          account_id: input.lines[0].account_id,
+          fund_account_id: input.fund_account_id,
           project_id: input.project_id || null,
           receipt_urls: input.receipt_urls || [],
           payee: input.payee || null,
           department: input.department || null,
           tax_amount: Number(input.tax_amount || 0),
-          status,
+          status: 'approved' as PettyCashStatus,
           requested_by: userId,
-          approved_by: shouldAutoApprove ? userId : null,
-          approved_at: shouldAutoApprove ? now : null,
-          approval_remarks: shouldAutoApprove ? 'Auto-approved by rule' : null,
+          approved_by: userId,
+          approved_at: now,
+          approval_remarks: 'Auto-approved',
           running_balance: runningBalance,
-        });
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
+
+      const lineRows = input.lines.map((l, i) => ({
+        txn_id: txn.id,
+        account_id: l.account_id,
+        description: l.description,
+        amount: l.amount,
+        sort_order: i,
+      }));
+      const { error: lineError } = await db.from('petty_cash_transaction_lines').insert(lineRows);
+      if (lineError) throw lineError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['petty-cash-transactions'] });
@@ -198,87 +191,7 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
     },
   });
 
-  const approveMutation = useMutation({
-    mutationFn: async (input: { txnId: string; approve: boolean; remarks?: string }) => {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!authData?.user) throw new Error('Not authenticated');
-      const userId = authData.user.id;
-
-      const financeUser = await isFinanceOrAdmin(db, userId);
-      if (!financeUser) throw new Error('Only finance/admin can approve petty cash transactions');
-
-      const { data: current, error: fetchError } = await db
-        .from('petty_cash_transactions')
-        .select('id, txn_type, amount, status, requested_by')
-        .eq('id', input.txnId)
-        .single();
-      if (fetchError) throw fetchError;
-
-      if (!current) throw new Error('Transaction not found');
-      const targetStatus = input.approve ? 'approved' : 'rejected';
-      if (!canTransitionPettyCash(current.status, targetStatus, 'finance')) {
-        throw new Error('Only pending transactions can be approved/rejected');
-      }
-
-      const now = new Date().toISOString();
-
-      if (!input.approve) {
-        const { error } = await db
-          .from('petty_cash_transactions')
-          .update({
-            status: 'rejected',
-            rejected_by: userId,
-            rejected_at: now,
-            rejection_remarks: input.remarks || null,
-          })
-          .eq('id', input.txnId);
-
-        if (error) throw error;
-        return;
-      }
-
-      const { data: settings, error: settingsError } = await db
-        .from('petty_cash_settings')
-        .select('approval_threshold')
-        .eq('id', 1)
-        .single();
-      if (settingsError) throw settingsError;
-
-      const threshold = Number(settings?.approval_threshold || 0);
-      if (
-        current.txn_type === 'expenditure' &&
-        Number(current.amount || 0) >= threshold &&
-        current.requested_by === userId
-      ) {
-        throw new Error('Large expenditures require approval from another finance user');
-      }
-
-      const currentBalance = await getCurrentApprovedBalance(db);
-      const runningBalance = currentBalance + toSignedAmount(current.txn_type, Number(current.amount || 0));
-
-      const { error } = await db
-        .from('petty_cash_transactions')
-        .update({
-          status: 'approved',
-          approved_by: userId,
-          approved_at: now,
-          approval_remarks: input.remarks || null,
-          running_balance: runningBalance,
-        })
-        .eq('id', input.txnId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['petty-cash-transactions'] });
-      queryClient.invalidateQueries({ queryKey: ['petty-cash-balance'] });
-      toast({ title: 'Updated', description: 'Petty cash transaction updated' });
-    },
-    onError: (error: Error) => {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    },
-  });
+  /* --- approval mutations removed (all txns are auto-approved on create) --- */
 
   const postMutation = useMutation({
     mutationFn: async (input: { txnId: string; reference?: string; remarks?: string }) => {
@@ -288,7 +201,7 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
 
       const { data: current, error: fetchError } = await db
         .from('petty_cash_transactions')
-        .select('id, txn_number, txn_type, txn_date, amount, description, account_id, status, is_posted')
+        .select('id, txn_number, txn_type, txn_date, amount, description, account_id, fund_account_id, status, is_posted')
         .eq('id', input.txnId)
         .single();
       if (fetchError) throw fetchError;
@@ -298,23 +211,51 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
         throw new Error('Only approved and unposted transactions can be posted');
       }
 
-      const { data: glAccounts, error: glAccountsError } = await db
-        .from('chart_of_accounts')
-        .select('id, system_tag')
-        .in('system_tag', ['petty_cash', 'cash_bank'])
-        .eq('is_active', true);
-      if (glAccountsError) throw glAccountsError;
-
-      const pettyCashAccountId = (glAccounts || []).find((row: any) => row.system_tag === 'petty_cash')?.id;
-      if (!pettyCashAccountId) {
-        throw new Error('Missing chart of account mapping for petty_cash');
-      }
-
-      const cashBankAccountId = (glAccounts || []).find((row: any) => row.system_tag === 'cash_bank')?.id;
+      const fundAccountId = current.fund_account_id;
+      if (!fundAccountId) throw new Error('Transaction is missing fund_account_id');
 
       const amount = Number(current.amount || 0);
-      if (amount <= 0) {
-        throw new Error('Invalid petty cash amount');
+      if (amount <= 0) throw new Error('Invalid petty cash amount');
+
+      let glLines: Array<{ account_id: string; description: string; debit_amount: number; credit_amount: number }>;
+
+      if (current.txn_type === 'top_up') {
+        // DR fund_account, CR cash_bank
+        const { data: cashBankRow, error: cbErr } = await db
+          .from('chart_of_accounts')
+          .select('id')
+          .eq('system_tag', 'cash_bank')
+          .eq('is_active', true)
+          .limit(1)
+          .single();
+        if (cbErr) throw cbErr;
+
+        glLines = [
+          { account_id: fundAccountId, description: current.description, debit_amount: amount, credit_amount: 0 },
+          { account_id: cashBankRow.id, description: current.description, debit_amount: 0, credit_amount: amount },
+        ];
+      } else {
+        // expenditure: DR each line's account_id, CR fund_account_id
+        const { data: txnLines, error: linesErr } = await db
+          .from('petty_cash_transaction_lines')
+          .select('account_id, description, amount')
+          .eq('txn_id', current.id)
+          .order('sort_order', { ascending: true });
+        if (linesErr) throw linesErr;
+
+        const debitLines = (txnLines || []).map((l: any) => ({
+          account_id: l.account_id,
+          description: l.description,
+          debit_amount: Number(l.amount || 0),
+          credit_amount: 0,
+        }));
+
+        const totalDebit = debitLines.reduce((s: number, l: any) => s + l.debit_amount, 0);
+
+        glLines = [
+          ...debitLines,
+          { account_id: fundAccountId, description: current.description, debit_amount: 0, credit_amount: totalDebit },
+        ];
       }
 
       const posting = await createGLPosting({
@@ -323,35 +264,7 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
         entry_date: current.txn_date,
         description: `Petty cash ${current.txn_type === 'top_up' ? 'top-up' : 'expenditure'} ${current.txn_number}`,
         prefix: 'PCV',
-        lines: current.txn_type === 'top_up'
-          ? [
-              {
-                account_id: pettyCashAccountId,
-                description: current.description,
-                debit_amount: amount,
-                credit_amount: 0,
-              },
-              {
-                account_id: cashBankAccountId || pettyCashAccountId,
-                description: current.description,
-                debit_amount: 0,
-                credit_amount: amount,
-              },
-            ]
-          : [
-              {
-                account_id: current.account_id,
-                description: current.description,
-                debit_amount: amount,
-                credit_amount: 0,
-              },
-              {
-                account_id: pettyCashAccountId,
-                description: current.description,
-                debit_amount: 0,
-                credit_amount: amount,
-              },
-            ],
+        lines: glLines,
       });
 
       const now = new Date().toISOString();
@@ -381,10 +294,8 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
     ...query,
     transactions: query.data || [],
     createTransaction: createMutation.mutateAsync,
-    approveTransaction: approveMutation.mutateAsync,
     postTransaction: postMutation.mutateAsync,
     isCreating: createMutation.isPending,
-    isApproving: approveMutation.isPending,
     isPosting: postMutation.isPending,
     currentMonthLabel: format(new Date(), 'MMMM yyyy'),
   };

@@ -6,17 +6,20 @@ function toSignedAmount(txnType: string, amount: number) {
   return -Number(amount || 0);
 }
 
-export function usePettyCashBalance() {
+export function usePettyCashBalance(fundAccountId?: string) {
   const db = supabase as any;
 
   return useQuery({
-    queryKey: ['petty-cash-balance'],
+    queryKey: ['petty-cash-balance', fundAccountId],
     queryFn: async () => {
+      let txnQuery = db
+        .from('petty_cash_transactions')
+        .select('txn_type, amount')
+        .eq('status', 'approved');
+      if (fundAccountId) txnQuery = txnQuery.eq('fund_account_id', fundAccountId);
+
       const [{ data: txns, error: txnError }, { data: settings, error: settingsError }] = await Promise.all([
-        db
-          .from('petty_cash_transactions')
-          .select('txn_type, amount')
-          .eq('status', 'approved'),
+        txnQuery,
         db
           .from('petty_cash_settings')
           .select('float_amount')
