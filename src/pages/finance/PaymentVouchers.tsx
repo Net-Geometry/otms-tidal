@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useBankAccounts, useSuppliers } from '@/hooks/finance/useFinanceFoundation';
@@ -41,17 +42,20 @@ import {
   useApInvoices,
   useApprovePV,
   useCreatePaymentVoucher,
+  useMarkPVPaid,
   usePaymentVouchers,
   usePostPV,
   useSubmitPV,
   useUpdatePaymentVoucher,
 } from '@/hooks/finance/useAccountsPayable';
+import { useActiveRole } from '@/hooks/useActiveRole';
 import {
   AP_PAYMENT_METHOD_LABELS,
   AP_PV_STATUS_LABELS,
   type ApPaymentMethod,
   type ApPvStatus,
   type PaymentVoucher,
+  type PvPostToType,
 } from '@/types/finance';
 
 interface PvLineRow {
@@ -121,6 +125,12 @@ export default function PaymentVouchers() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  const [selectedPvIds, setSelectedPvIds] = useState<string[]>([]);
+  const { activeRole } = useActiveRole();
+
+  const isFinanceAdmin = activeRole === 'finance_admin' || activeRole === 'admin';
+  const isAccountExec = activeRole === 'account_exec';
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVoucher, setEditingVoucher] = useState<PaymentVoucher | null>(null);
   const [detailVoucher, setDetailVoucher] = useState<PaymentVoucher | null>(null);
@@ -148,6 +158,7 @@ export default function PaymentVouchers() {
   const submitPV = useSubmitPV();
   const approvePV = useApprovePV();
   const postPV = usePostPV();
+  const { markPaid, isMarkingPaid } = useMarkPVPaid();
 
   useEffect(() => {
     if (!companies.length) return;
@@ -396,6 +407,7 @@ export default function PaymentVouchers() {
                 value={statusFilter}
                 onValueChange={(value) => {
                   setStatusFilter(value as 'all' | ApPvStatus);
+                  setSelectedPvIds([]);
                   setPage(1);
                 }}
               >
@@ -449,6 +461,24 @@ export default function PaymentVouchers() {
             <CardTitle className="text-base">Payment Voucher Register</CardTitle>
           </CardHeader>
           <CardContent>
+            {isFinanceAdmin && selectedPvIds.length > 0 && (
+              <div className="flex items-center gap-2 p-3 mb-4 bg-muted rounded-lg">
+                <span className="text-sm font-medium">{selectedPvIds.length} selected</span>
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    await markPaid({ pvIds: selectedPvIds });
+                    setSelectedPvIds([]);
+                  }}
+                  disabled={isMarkingPaid}
+                >
+                  {isMarkingPaid ? 'Processing...' : 'Mark as Paid'}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedPvIds([])}>
+                  Clear
+                </Button>
+              </div>
+            )}
             {!rows.length && !vouchers.isLoading ? (
               <div className="py-10 text-center text-sm text-muted-foreground">No payment vouchers found.</div>
             ) : (
@@ -456,6 +486,25 @@ export default function PaymentVouchers() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      {isFinanceAdmin && (
+                        <TableHead className="w-[50px]">
+                          <Checkbox
+                            checked={
+                              rows.filter((r) => r.status === 'approved').length > 0 &&
+                              rows.filter((r) => r.status === 'approved').every((r) => selectedPvIds.includes(r.id))
+                            }
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                const approvedIds = rows.filter((r) => r.status === 'approved').map((r) => r.id);
+                                setSelectedPvIds((prev) => [...new Set([...prev, ...approvedIds])]);
+                              } else {
+                                const approvedIds = new Set(rows.filter((r) => r.status === 'approved').map((r) => r.id));
+                                setSelectedPvIds((prev) => prev.filter((id) => !approvedIds.has(id)));
+                              }
+                            }}
+                          />
+                        </TableHead>
+                      )}
                       <TableHead>PV No</TableHead>
                       <TableHead>Pay To</TableHead>
                       <TableHead>Pay For</TableHead>
@@ -469,6 +518,22 @@ export default function PaymentVouchers() {
                   <TableBody>
                     {rows.map((voucher) => (
                       <TableRow key={voucher.id}>
+                        {isFinanceAdmin && (
+                          <TableCell>
+                            {voucher.status === 'approved' ? (
+                              <Checkbox
+                                checked={selectedPvIds.includes(voucher.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedPvIds((prev) => [...prev, voucher.id]);
+                                  } else {
+                                    setSelectedPvIds((prev) => prev.filter((id) => id !== voucher.id));
+                                  }
+                                }}
+                              />
+                            ) : null}
+                          </TableCell>
+                        )}
                         <TableCell className="font-medium">{voucher.pv_number || 'Draft'}</TableCell>
                         <TableCell>{voucher.pay_to || voucher.supplier?.supplier_name || '-'}</TableCell>
                         <TableCell className="max-w-[200px] truncate">{voucher.pay_for || '-'}</TableCell>
@@ -507,15 +572,37 @@ export default function PaymentVouchers() {
                                 Approve
                               </Button>
                             )}
-                            {voucher.status === 'approved' && (
+                            {voucher.status === 'approved' && isFinanceAdmin && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => postPV.postPV({ pvId: voucher.id })}
-                                disabled={postPV.isPosting}
+                                onClick={async () => {
+                                  await markPaid({ pvIds: [voucher.id] });
+                                }}
+                                disabled={isMarkingPaid}
                               >
-                                Post to GL
+                                Mark Paid
                               </Button>
+                            )}
+                            {voucher.status === 'paid' && isAccountExec && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="outline" disabled={postPV.isPosting}>
+                                    Post to...
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                  <DropdownMenuItem onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'cashbook' })}>
+                                    Cashbook
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'ap_payment' })}>
+                                    AP Payment
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'ap_credit_note' })}>
+                                    AP Credit Note
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                             <Button variant="ghost" size="sm" onClick={() => setDetailVoucher(voucher)}>
                               <Eye className="mr-2 h-4 w-4" />
