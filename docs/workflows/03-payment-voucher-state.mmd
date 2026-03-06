@@ -1,0 +1,24 @@
+%% ============================================================
+%% Payment Voucher (PV) — State Diagram (Updated 2026-03-06)
+%% Added PAID status + Post-to type
+%% ============================================================
+
+stateDiagram-v2
+    direction LR
+
+    [*] --> Draft : finance_admin creates PV\n(supplier/payee, bank account, AP allocation)
+
+    Draft --> Draft : finance_admin edits
+    Draft --> Pending : finance_admin submits\n(auto-generates PV number)
+    Draft --> Cancelled : finance_admin cancels
+
+    Pending --> Approved : DOA-matched approver approves
+    Pending --> Rejected : DOA-matched approver rejects
+
+    Approved --> Paid : finance_admin marks paid\n(bulk or individual)
+
+    Paid --> Posted : account_exec posts\n(selects: Cashbook / AP Payment / AP Credit Note)\n(GL entries created, AP invoices updated)
+
+    Rejected --> [*]
+    Cancelled --> [*]
+    Posted --> [*]

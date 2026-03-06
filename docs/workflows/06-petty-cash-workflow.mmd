@@ -1,0 +1,31 @@
+%% ============================================================
+%% Petty Cash Transaction Workflow (Updated 2026-03-06)
+%% Multi-fund, line items, no in-system approval
+%% ============================================================
+
+%% --- FLOWCHART (PM-friendly) ---
+
+flowchart TD
+    A(["`Finance user creates
+    petty cash transaction
+    (pre-approved offline)`"]) --> B{"`What type
+    of transaction?`"}
+
+    B -->|Top-up| C["`Select petty cash fund
+    Enter amount`"]
+    B -->|Expenditure| D["`Select petty cash fund
+    Add line items
+    (each with COA account)`"]
+
+    C --> E["`Approved
+    (auto, pre-approved offline)`"]
+    D --> E
+
+    E --> F["`Account Executive
+    posts to GL`"]
+    F --> G(["`Posted
+    GL entries created
+    Running balance updated`"])
+
+    style E fill:#22c55e,color:#fff
+    style G fill:#3b82f6,color:#fff

@@ -1,0 +1,57 @@
+%% ============================================================
+%% Payment Voucher (PV) Workflow (Updated 2026-03-06)
+%% Added PAID status + Post-to dropdown
+%% ============================================================
+
+%% --- FLOWCHART (PM-friendly) ---
+
+flowchart TD
+    A(["`Finance Admin
+    creates Payment Voucher`"]) --> B["`Select supplier/payee,
+    bank account,
+    allocate to AP invoices`"]
+    B --> C{"`Save as draft
+    or submit?`"}
+    C -->|Save| D["`Draft
+    can edit anytime`"]
+    C -->|Submit| E["`System generates
+    PV number`"]
+    D --> C
+    D -->|Cancel| X1([Cancelled])
+
+    E --> F{"`DOA Matrix
+    checks amount`"}
+    F -->|Low| G1["`Route to
+    Assistant Manager`"]
+    F -->|Mid| G2["`Route to
+    Manager`"]
+    F -->|High| G3["`Route to
+    DMD`"]
+
+    G1 --> H{"`Approver
+    decision`"}
+    G2 --> H
+    G3 --> H
+
+    H -->|Reject| J([Rejected])
+    H -->|Approve| I[Approved]
+
+    I --> K{"`Finance Admin
+    marks as Paid
+    (bulk or individual)`"}
+    K --> L[Paid]
+
+    L --> M{"`Account Executive
+    selects Post To`"}
+    M -->|Cashbook| N(["`Posted to Cashbook
+    GL entries created`"])
+    M -->|AP Payment| O(["`Posted as AP Payment
+    GL entries created`"])
+    M -->|AP Credit Note| P(["`Posted as AP Credit Note
+    GL entries created`"])
+
+    style N fill:#3b82f6,color:#fff
+    style O fill:#3b82f6,color:#fff
+    style P fill:#3b82f6,color:#fff
+    style J fill:#ef4444,color:#fff
+    style X1 fill:#6b7280,color:#fff
