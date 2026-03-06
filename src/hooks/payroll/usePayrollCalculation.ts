@@ -11,6 +11,8 @@ import {
   type CalculatedItem,
   calculateEmployee,
   recalculateRunTotals,
+  populateClaimsForRun,
+  getAgeAtDate,
 } from '@/lib/payrollUtils';
 
 export function usePayrollCalculation() {
@@ -31,13 +33,38 @@ export function usePayrollCalculation() {
       // Fetch employees for this company
       const { data: employees, error: empError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('company_id', input.companyId)
         .is('deleted_at', null);
 
       if (empError) throw empError;
       if (!employees || employees.length === 0) {
         throw new Error('No employees found for this company');
+      }
+
+      const employeeIds = (employees as EmployeeProfile[]).map((e) => e.id);
+
+      // Fetch dependents for qualifying children count
+      const { data: allDependents } = await db
+        .from('employee_dependents')
+        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying')
+        .in('employee_id', employeeIds);
+
+      const periodEnd = new Date(input.year, input.month, 0);
+      const periodEndStr = `${input.year}-${String(input.month).padStart(2, '0')}-${String(periodEnd.getDate()).padStart(2, '0')}`;
+
+      function countQualifyingChildren(empId: string, endDateStr: string): number {
+        const deps = (allDependents || []).filter(
+          (d: any) => d.employee_id === empId && d.relationship === 'child'
+        );
+        return deps.filter((d: any) => {
+          if (!d.date_of_birth) return true;
+          const age = getAgeAtDate(d.date_of_birth, endDateStr);
+          if (age < 18) return true;
+          if (age < 25 && d.is_studying) return true;
+          if (d.is_disabled) return true;
+          return false;
+        }).length;
       }
 
       // Delete existing items for this run (recalculate)
@@ -47,9 +74,10 @@ export function usePayrollCalculation() {
         .eq('payroll_run_id', input.payrollRunId);
 
       // Calculate for each employee
-      const items: CalculatedItem[] = (employees as EmployeeProfile[]).map((emp) =>
-        calculateEmployee(emp, input.settings, input.socsoTable, input.month, input.year)
-      );
+      const items: CalculatedItem[] = (employees as EmployeeProfile[]).map((emp) => {
+        const childCount = countQualifyingChildren(emp.id, periodEndStr);
+        return calculateEmployee(emp, input.settings, input.socsoTable, input.month, input.year, childCount);
+      });
 
       // Insert all items
       const insertData = items.map((item) => ({
@@ -62,6 +90,9 @@ export function usePayrollCalculation() {
         .insert(insertData);
 
       if (insertError) throw insertError;
+
+      // Populate claims from approved claims for the period
+      await populateClaimsForRun(input.payrollRunId, input.month, input.year);
 
       // Update run totals
       await recalculateRunTotals(input.payrollRunId);
@@ -175,18 +206,37 @@ export function usePayrollCalculation() {
 
       const { data: profile, error: profileError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('id', input.employeeId)
         .single();
 
       if (profileError) throw profileError;
+
+      // Fetch dependents for this employee
+      const { data: empDependents } = await db
+        .from('employee_dependents')
+        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying')
+        .eq('employee_id', input.employeeId);
+
+      const periodEnd = new Date(input.year, input.month, 0);
+      const periodEndStr = `${input.year}-${String(input.month).padStart(2, '0')}-${String(periodEnd.getDate()).padStart(2, '0')}`;
+      const childDeps = (empDependents || []).filter((d: any) => d.relationship === 'child');
+      const childCount = childDeps.filter((d: any) => {
+        if (!d.date_of_birth) return true;
+        const age = getAgeAtDate(d.date_of_birth, periodEndStr);
+        if (age < 18) return true;
+        if (age < 25 && d.is_studying) return true;
+        if (d.is_disabled) return true;
+        return false;
+      }).length;
 
       const calculated = calculateEmployee(
         profile as EmployeeProfile,
         input.settings,
         input.socsoTable,
         input.month,
-        input.year
+        input.year,
+        childCount
       );
 
       // Delete existing item for this employee in this run
@@ -239,18 +289,37 @@ export function usePayrollCalculation() {
 
       const { data: profile, error: profileError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('id', input.employeeId)
         .single();
 
       if (profileError) throw profileError;
+
+      // Fetch dependents for this employee
+      const { data: addEmpDependents } = await db
+        .from('employee_dependents')
+        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying')
+        .eq('employee_id', input.employeeId);
+
+      const addPeriodEnd = new Date(input.year, input.month, 0);
+      const addPeriodEndStr = `${input.year}-${String(input.month).padStart(2, '0')}-${String(addPeriodEnd.getDate()).padStart(2, '0')}`;
+      const addChildDeps = (addEmpDependents || []).filter((d: any) => d.relationship === 'child');
+      const addChildCount = addChildDeps.filter((d: any) => {
+        if (!d.date_of_birth) return true;
+        const age = getAgeAtDate(d.date_of_birth, addPeriodEndStr);
+        if (age < 18) return true;
+        if (age < 25 && d.is_studying) return true;
+        if (d.is_disabled) return true;
+        return false;
+      }).length;
 
       const calculated = calculateEmployee(
         profile as EmployeeProfile,
         input.settings,
         input.socsoTable,
         input.month,
-        input.year
+        input.year,
+        addChildCount
       );
 
       const { data: newItem, error: insertError } = await db

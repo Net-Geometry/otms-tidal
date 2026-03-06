@@ -164,7 +164,8 @@ export function calculateEmployee(
   settings: PayrollSettings,
   socsoTable: SocsoContributionRow[],
   month: number,
-  year: number
+  year: number,
+  qualifyingChildren: number = 0
 ): CalculatedItem {
   const workingDays = settings.working_days_per_month;
   const basicSalary = Number(profile.basic_salary) || 0;
@@ -269,7 +270,7 @@ export function calculateEmployee(
   const pcbAmount = calculatePcb(
     grossSalary,
     profile.pcb_category || 1,
-    0, // qualifyingChildren placeholder — wired in Task 8
+    qualifyingChildren,
     {
       epfMonthly: employeeEpf,
       socsoEisMonthly: employeeSocso + employeeEis,
