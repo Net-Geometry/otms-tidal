@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { Profile, AppRole } from '@/types/otms';
+import { AppRole } from '@/types/otms';
 
 interface UpdateEmployeeData {
   id: string;
@@ -27,7 +27,7 @@ interface UpdateEmployeeData {
   status?: string;
   epf_category?: string | null;
   marital_status?: string | null;
-  pcb_category?: string | null;
+  pcb_category?: number | null;
   is_ot_eligible?: boolean;
   require_ot_attachment?: boolean;
   roles?: AppRole[];

@@ -475,9 +475,9 @@ export function EmployeeDetailsSheet({
                   onValueChange={(value) => {
                     const updates: any = { marital_status: value };
                     if (value === 'married') {
-                      updates.pcb_category = '2';
+                      updates.pcb_category = 2;
                     } else {
-                      updates.pcb_category = '1';
+                      updates.pcb_category = 1;
                     }
                     setFormData({ ...formData, ...updates });
                   }}
@@ -504,9 +504,9 @@ export function EmployeeDetailsSheet({
               <Label htmlFor="pcb_category">PCB Category</Label>
               {isEditing ? (
                 <Select
-                  value={formData.pcb_category || '1'}
+                  value={String(formData.pcb_category || 1)}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, pcb_category: value })
+                    setFormData({ ...formData, pcb_category: Number(value) as 1 | 2 | 3 })
                   }
                 >
                   <SelectTrigger id="pcb_category">
