@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { ClaimType } from '@/types/claims';
+import { isSubmissionOpen, getClaimCyclePeriod } from '@/lib/submissionCycles';
 
 /**
  * Send push notification for claim status change (non-blocking).
@@ -94,6 +95,13 @@ export function useClaimSubmit() {
       if (dupError) throw dupError;
       if (dup && dup.length > 0) {
         throw new Error('Possible duplicate claim detected for the same date/type/amount');
+      }
+
+      // Check submission cutoff cycle
+      const today = format(new Date(), 'yyyy-MM-dd');
+      if (!isSubmissionOpen(input.claim_date, today)) {
+        const cycle = getClaimCyclePeriod(input.claim_date);
+        throw new Error(`Submission period for this claim date has closed. The cycle ended on ${cycle.end}.`);
       }
 
       let supervisorId: string | null = profile?.supervisor_id || null;

@@ -12,10 +12,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 
 import { FileUpload } from '@/components/ot/FileUpload';
 import type { ClaimType } from '@/types/claims';
+import { getClaimCyclePeriod } from '@/lib/submissionCycles';
 
 const schema = z.object({
   claim_type_id: z.string().min(1, 'Claim type is required'),
-  claim_date: z.string().min(1, 'Claim date is required'),
+  claim_date: z.string().min(1, 'Receipt date is required'),
   amount: z.coerce.number().positive('Amount must be greater than 0'),
   purpose: z.string().max(500).nullable().optional(),
   receipt_urls: z.array(z.string().url('Invalid file URL')).default([]),
@@ -51,6 +52,12 @@ export function ClaimSubmitForm({
 
   const watched = form.watch();
   const selectedType = watched.claim_type_id ? claimTypeById.get(watched.claim_type_id) : undefined;
+
+  const cycleHint = useMemo(() => {
+    if (!watched.claim_date) return null;
+    const cycle = getClaimCyclePeriod(watched.claim_date);
+    return `Submit by ${cycle.end} for this claim period`;
+  }, [watched.claim_date]);
 
   const limitHint = useMemo(() => {
     if (!selectedType) return null;
@@ -110,10 +117,11 @@ export function ClaimSubmitForm({
                 name="claim_date"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Claim Date *</FormLabel>
+                    <FormLabel>Receipt Date *</FormLabel>
                     <FormControl>
                       <Input type="date" value={field.value} onChange={field.onChange} disabled={isSubmitting} />
                     </FormControl>
+                    {cycleHint && <div className="text-xs text-muted-foreground">{cycleHint}</div>}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -153,28 +161,30 @@ export function ClaimSubmitForm({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="receipt_urls"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Receipts</FormLabel>
-                  <FormControl>
-                    <FileUpload
-                      bucket="claim-attachments"
-                      onUploadComplete={(urls) => field.onChange(urls)}
-                      onRemove={(index) => {
-                        const cur = field.value || [];
-                        field.onChange(cur.filter((_, i) => i !== index));
-                      }}
-                      currentFiles={field.value || []}
-                      maxFiles={5}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {(selectedType?.requires_attachment !== false) && (
+              <FormField
+                control={form.control}
+                name="receipt_urls"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Receipts</FormLabel>
+                    <FormControl>
+                      <FileUpload
+                        bucket="claim-attachments"
+                        onUploadComplete={(urls) => field.onChange(urls)}
+                        onRemove={(index) => {
+                          const cur = field.value || [];
+                          field.onChange(cur.filter((_, i) => i !== index));
+                        }}
+                        currentFiles={field.value || []}
+                        maxFiles={5}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="flex justify-end gap-2">
               <Button type="submit" disabled={!!isSubmitting}>
