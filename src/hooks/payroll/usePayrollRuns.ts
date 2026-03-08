@@ -1,25 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { PayrollRun, PayrollRunStatus, CreatePayrollRunInput } from '@/types/payroll';
+import type { PayrollRun, PayrollRunStatus } from '@/types/payroll';
+import type { CreatePayrollRunInput } from '@/types/payroll';
 
-export type PayrollRunsFilter = 'draft' | 'pending' | 'approved' | 'posted' | 'rejected' | 'all';
+export type PayrollRunsFilter = 'draft' | 'finalized' | 'cancelled' | 'all';
 
 function getStatusList(filter: PayrollRunsFilter): PayrollRunStatus[] | null {
   if (filter === 'all') return null;
   if (filter === 'draft') return ['draft'];
-  if (filter === 'pending') {
-    return ['pending_hr_review', 'hr_approved', 'pending_director', 'director_approved', 'pending_finance'];
-  }
-  if (filter === 'approved') return ['finance_approved'];
-  if (filter === 'posted') return ['posted'];
-  return ['rejected', 'cancelled'];
-}
-
-function generateRunNumber(month: number, year: number): string {
-  const m = String(month).padStart(2, '0');
-  const seq = '001';
-  return `PR-${year}-${m}-${seq}`;
+  if (filter === 'finalized') return ['finalized'];
+  return ['cancelled'];
 }
 
 export function usePayrollRuns(options?: { filter?: PayrollRunsFilter }) {
@@ -128,11 +119,42 @@ export function usePayrollRuns(options?: { filter?: PayrollRunsFilter }) {
     },
   });
 
+  const finalizeMutation = useMutation({
+    mutationFn: async (runId: string) => {
+      const db = supabase as any;
+      const { data: current, error: fetchErr } = await db
+        .from('payroll_runs')
+        .select('status, memo_id')
+        .eq('id', runId)
+        .single();
+      if (fetchErr) throw fetchErr;
+      if (current?.status !== 'draft') {
+        throw new Error('Only draft payroll runs can be finalized');
+      }
+
+      const { error } = await db
+        .from('payroll_runs')
+        .update({ status: 'finalized' })
+        .eq('id', runId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payroll-runs'] });
+      queryClient.invalidateQueries({ queryKey: ['payroll-run'] });
+      toast({ title: 'Finalized', description: 'Payroll run finalized and ready for memo consolidation' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
   return {
     ...query,
     createPayrollRun: createMutation.mutateAsync,
     cancelPayrollRun: cancelMutation.mutateAsync,
+    finalizePayrollRun: finalizeMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isCancelling: cancelMutation.isPending,
+    isFinalizing: finalizeMutation.isPending,
   };
 }

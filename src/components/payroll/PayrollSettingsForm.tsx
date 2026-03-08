@@ -33,6 +33,7 @@ export function PayrollSettingsForm() {
         hrdc_enabled: settings.hrdc_enabled,
         working_days_per_month: settings.working_days_per_month,
         payroll_cutoff_day: settings.payroll_cutoff_day,
+        show_allowance_on_payslip: settings.show_allowance_on_payslip,
       });
     }
   }, [settings]);
@@ -183,6 +184,20 @@ export function PayrollSettingsForm() {
               />
             </div>
           </div>
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="text-sm font-semibold">Payslip</h4>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={form.show_allowance_on_payslip ?? false}
+              onCheckedChange={(v) => set('show_allowance_on_payslip', v)}
+            />
+            <Label className="text-xs">Show allowance on payslip</Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            When disabled, allowances are excluded from the payslip PDF but still included in net pay.
+          </p>
         </div>
 
         <div className="flex justify-end">

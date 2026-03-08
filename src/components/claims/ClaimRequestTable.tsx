@@ -155,7 +155,8 @@ export function ClaimRequestTable({
               <TableHead>Ticket</TableHead>
               {role !== 'employee' && <TableHead>Employee</TableHead>}
               <TableHead>Type</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead>Receipt Date</TableHead>
+              <TableHead>Submitted</TableHead>
               <TableHead className="text-right">Amount (RM)</TableHead>
               <TableHead>Status</TableHead>
               {showActions && <TableHead className="text-right">Actions</TableHead>}
@@ -183,6 +184,7 @@ export function ClaimRequestTable({
                   {role !== 'employee' && <TableCell>{employeeName}</TableCell>}
                   <TableCell>{typeName}</TableCell>
                   <TableCell>{r.claim_date ? format(new Date(r.claim_date), 'dd MMM yyyy') : '—'}</TableCell>
+                  <TableCell>{r.created_at ? format(new Date(r.created_at), 'dd MMM yyyy') : '—'}</TableCell>
                   <TableCell className="text-right">{Number(r.amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

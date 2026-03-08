@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { AccountType, ChartOfAccount, CoaAccountSubtype, CoaSpecialType } from '@/types/finance';
 import { useAuth } from '@/hooks/useAuth';
+import { hasAnyFinanceRole } from '@/lib/financeRoles';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 
 export interface ChartOfAccountsFilters {
@@ -216,7 +217,7 @@ export function useCanEditCOA(): { canEdit: boolean; isLoading: boolean } {
 
   if (isLoading || !profile || !companies) return { canEdit: false, isLoading: true };
 
-  const isFinanceOrAdmin = roles.includes('finance') || roles.includes('admin');
+  const isFinanceOrAdmin = hasAnyFinanceRole(roles) || roles.includes('admin');
   const userCompany = companies.find((c) => c.id === profile.company_id);
   const isParentCompany = !!userCompany && userCompany.parent_company_id === null;
   const hasSubsidiaries = companies.some((c) => c.parent_company_id === userCompany?.id);

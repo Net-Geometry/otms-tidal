@@ -28,6 +28,7 @@ const formSchema = z.object({
   final_approver_user_id: z.string().uuid().nullable().optional(),
   limit_amount: z.coerce.number().nullable().optional(),
   limit_period: z.string().max(30).nullable().optional(),
+  requires_attachment: z.coerce.boolean().default(true),
   is_active: z.coerce.boolean().default(true),
   sort_order: z.coerce.number().default(0),
 });
@@ -66,6 +67,7 @@ export function ClaimTypeSetup() {
       final_approver_user_id: e?.final_approver_user_id ?? null,
       limit_amount: e?.limit_amount ?? null,
       limit_period: e?.limit_period ?? null,
+      requires_attachment: e?.requires_attachment ?? true,
       is_active: e?.is_active ?? true,
       sort_order: Number(e?.sort_order || 0),
     };
@@ -89,6 +91,7 @@ export function ClaimTypeSetup() {
         final_approver_user_id: needsUser ? (values.final_approver_user_id || null) : null,
         limit_amount: values.limit_amount == null ? null : Number(values.limit_amount),
         limit_period: values.limit_period || null,
+        requires_attachment: values.requires_attachment,
         is_active: values.is_active,
         sort_order: values.sort_order,
       };
@@ -383,19 +386,35 @@ export function ClaimTypeSetup() {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="is_active"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center gap-2 rounded-md border p-3">
-                      <Checkbox checked={!!field.value} onCheckedChange={field.onChange} />
-                      <div className="text-sm font-medium">Active</div>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="requires_attachment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center gap-2 rounded-md border p-3">
+                        <Checkbox checked={!!field.value} onCheckedChange={field.onChange} />
+                        <div className="text-sm font-medium">Requires Attachment</div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="is_active"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center gap-2 rounded-md border p-3">
+                        <Checkbox checked={!!field.value} onCheckedChange={field.onChange} />
+                        <div className="text-sm font-medium">Active</div>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saveMutation.isPending}>

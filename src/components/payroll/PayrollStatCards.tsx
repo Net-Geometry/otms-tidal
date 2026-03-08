@@ -10,9 +10,7 @@ interface PayrollStatCardsProps {
 
 export function PayrollStatCards({ runs, isLoading }: PayrollStatCardsProps) {
   const totalGross = runs.reduce((sum, r) => sum + Number(r.total_gross_salary || 0), 0);
-  const pendingCount = runs.filter((r) =>
-    ['pending_hr_review', 'hr_approved', 'pending_director', 'director_approved', 'pending_finance'].includes(r.status)
-  ).length;
+  const finalizedCount = runs.filter((r) => r.status === 'finalized').length;
   const totalEpf = runs.reduce((sum, r) => sum + Number(r.total_employer_epf || 0) + Number(r.total_employee_epf || 0), 0);
   const totalSocso = runs.reduce((sum, r) => sum + Number(r.total_employer_socso || 0) + Number(r.total_employee_socso || 0), 0);
 
@@ -25,9 +23,9 @@ export function PayrollStatCards({ runs, isLoading }: PayrollStatCardsProps) {
         icon={Wallet}
       />
       <DashboardCard
-        title="Pending Runs"
-        value={isLoading ? '-' : String(pendingCount)}
-        subtitle="Awaiting approval"
+        title="Finalized Runs"
+        value={isLoading ? '-' : String(finalizedCount)}
+        subtitle="Ready for memo"
         icon={FileText}
       />
       <DashboardCard

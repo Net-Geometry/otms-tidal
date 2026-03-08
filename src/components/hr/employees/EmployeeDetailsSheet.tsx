@@ -70,6 +70,8 @@ export function EmployeeDetailsSheet({
     date_of_birth: '',
     is_disabled: false,
     is_studying: false,
+    education_status: 'none' as 'none' | 'full_time_local' | 'degree_local_overseas',
+    has_own_income: false,
   });
 
   const { hasRole } = useAuth();
@@ -995,8 +997,12 @@ export function EmployeeDetailsSheet({
                         {dep.date_of_birth && (
                           <span className="text-muted-foreground text-xs">DOB: {dep.date_of_birth}</span>
                         )}
-                        {dep.is_disabled && <Badge variant="secondary" className="text-xs">Disabled</Badge>}
+                        {dep.is_disabled && <Badge variant="secondary" className="text-xs">Disabled (OKU)</Badge>}
                         {dep.is_studying && <Badge variant="secondary" className="text-xs">Studying</Badge>}
+                        {dep.education_status === 'full_time_local' && <Badge variant="secondary" className="text-xs">Full-time Local</Badge>}
+                        {dep.education_status === 'degree_local_overseas' && <Badge variant="secondary" className="text-xs">Degree</Badge>}
+                        {dep.relationship === 'spouse' && dep.has_own_income && <Badge variant="outline" className="text-xs">Has Income</Badge>}
+                        {dep.relationship === 'spouse' && !dep.has_own_income && <Badge variant="secondary" className="text-xs">No Income</Badge>}
                       </div>
                       {isEditing && (
                         <Button
@@ -1060,6 +1066,39 @@ export function EmployeeDetailsSheet({
                         onChange={(e) => setNewDependent({ ...newDependent, date_of_birth: e.target.value })}
                       />
                     </div>
+                    {newDependent.relationship === 'child' && (
+                      <div className="grid gap-1">
+                        <Label className="text-xs">Education Status</Label>
+                        <Select
+                          value={newDependent.education_status}
+                          onValueChange={(value: 'none' | 'full_time_local' | 'degree_local_overseas') =>
+                            setNewDependent({ ...newDependent, education_status: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None / Below 18</SelectItem>
+                            <SelectItem value="full_time_local">Full-time Local (18+)</SelectItem>
+                            <SelectItem value="degree_local_overseas">Degree Local/Overseas (18+)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {newDependent.relationship === 'spouse' && (
+                      <div className="flex items-end pb-1">
+                        <label className="flex items-center gap-1.5 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={newDependent.has_own_income}
+                            onChange={(e) => setNewDependent({ ...newDependent, has_own_income: e.target.checked })}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          Spouse has own income
+                        </label>
+                      </div>
+                    )}
                     <div className="flex items-end gap-4 pb-1">
                       <label className="flex items-center gap-1.5 text-sm">
                         <input
@@ -1068,17 +1107,19 @@ export function EmployeeDetailsSheet({
                           onChange={(e) => setNewDependent({ ...newDependent, is_disabled: e.target.checked })}
                           className="h-4 w-4 rounded border-gray-300"
                         />
-                        Disabled
+                        Disabled (OKU)
                       </label>
-                      <label className="flex items-center gap-1.5 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={newDependent.is_studying}
-                          onChange={(e) => setNewDependent({ ...newDependent, is_studying: e.target.checked })}
-                          className="h-4 w-4 rounded border-gray-300"
-                        />
-                        Studying
-                      </label>
+                      {newDependent.relationship === 'child' && (
+                        <label className="flex items-center gap-1.5 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={newDependent.is_studying}
+                            onChange={(e) => setNewDependent({ ...newDependent, is_studying: e.target.checked })}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          Studying
+                        </label>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -1093,8 +1134,10 @@ export function EmployeeDetailsSheet({
                           date_of_birth: newDependent.date_of_birth || null,
                           is_disabled: newDependent.is_disabled,
                           is_studying: newDependent.is_studying,
+                          education_status: newDependent.education_status,
+                          has_own_income: newDependent.has_own_income,
                         });
-                        setNewDependent({ relationship: 'child', name: '', date_of_birth: '', is_disabled: false, is_studying: false });
+                        setNewDependent({ relationship: 'child', name: '', date_of_birth: '', is_disabled: false, is_studying: false, education_status: 'none', has_own_income: false });
                         setShowAddDependent(false);
                       }}
                       disabled={!newDependent.name || addDependent.isPending}

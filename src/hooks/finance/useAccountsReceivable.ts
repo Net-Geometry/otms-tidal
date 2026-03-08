@@ -542,7 +542,6 @@ export function usePostArInvoice() {
 export interface OfficialReceiptFilters {
   companyId?: string;
   status?: ArReceiptStatus | 'all';
-  customerId?: string;
   search?: string;
   page?: number;
   pageSize?: number;
@@ -556,7 +555,7 @@ export interface OfficialReceiptAllocationInput {
 export interface UpsertOfficialReceiptInput {
   id?: string;
   company_id?: string | null;
-  customer_id: string;
+  received_from: string;
   bank_account_id: string;
   receipt_date: string;
   payment_method?: ArPaymentMethod;
@@ -576,7 +575,6 @@ export function useOfficialReceipts(filters: OfficialReceiptFilters = {}) {
       'official-receipts',
       filters.companyId || profile?.company_id || 'none',
       filters.status || 'all',
-      filters.customerId || 'all',
       filters.search || '',
       page,
       pageSize,
@@ -612,12 +610,11 @@ export function useOfficialReceipts(filters: OfficialReceiptFilters = {}) {
         .order('created_at', { ascending: false });
 
       if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
-      if (filters.customerId && filters.customerId !== 'all') q = q.eq('customer_id', filters.customerId);
 
       const search = (filters.search || '').trim();
       if (search) {
         q = q.or(
-          `receipt_number.ilike.%${search}%,reference_no.ilike.%${search}%,remarks.ilike.%${search}%`,
+          `receipt_number.ilike.%${search}%,reference_no.ilike.%${search}%,received_from.ilike.%${search}%,remarks.ilike.%${search}%`,
         );
       }
 
@@ -644,7 +641,7 @@ export function useOfficialReceipts(filters: OfficialReceiptFilters = {}) {
 
 async function upsertOfficialReceipt(db: any, input: UpsertOfficialReceiptInput): Promise<{ id: string }> {
   const companyId = await resolveCompanyId(db, input.company_id);
-  if (!input.customer_id) throw new Error('Customer is required');
+  if (!input.received_from?.trim()) throw new Error('Received From is required');
   if (!input.bank_account_id) throw new Error('Bank account is required');
   if (!input.receipt_date) throw new Error('Receipt date is required');
 
@@ -676,7 +673,8 @@ async function upsertOfficialReceipt(db: any, input: UpsertOfficialReceiptInput)
 
   const payload = {
     company_id: companyId,
-    customer_id: input.customer_id,
+    received_from: input.received_from.trim(),
+    customer_id: null,
     bank_account_id: input.bank_account_id,
     receipt_date: input.receipt_date,
     payment_method: (input.payment_method || 'online_transfer') as ArPaymentMethod,

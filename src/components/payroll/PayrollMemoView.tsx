@@ -65,57 +65,11 @@ export function PayrollMemoView({ run }: PayrollMemoViewProps) {
           </>
         )}
 
-        {(run.hr_approved_at || run.director_approved_at || run.finance_approved_at) && (
-          <>
-            <Separator />
-            <div className="text-sm space-y-2">
-              <p className="font-semibold">Approval Trail</p>
-              {run.hr_approved_at && (
-                <p className="text-muted-foreground">
-                  HR approved on {new Date(run.hr_approved_at).toLocaleDateString()}
-                  {run.hr_remarks && ` — "${run.hr_remarks}"`}
-                </p>
-              )}
-              {run.director_approved_at && (
-                <p className="text-muted-foreground">
-                  Director approved on {new Date(run.director_approved_at).toLocaleDateString()}
-                  {run.director_remarks && ` — "${run.director_remarks}"`}
-                </p>
-              )}
-              {run.finance_approved_at && (
-                <p className="text-muted-foreground">
-                  Finance approved on {new Date(run.finance_approved_at).toLocaleDateString()}
-                  {run.finance_remarks && ` — "${run.finance_remarks}"`}
-                </p>
-              )}
-            </div>
-          </>
-        )}
-
-        {run.rejected_at && (
+        {run.memo_id && (
           <>
             <Separator />
             <div className="text-sm">
-              <p className="text-destructive font-medium">
-                Rejected at {run.rejection_stage} stage on {new Date(run.rejected_at).toLocaleDateString()}
-              </p>
-              {run.rejection_remarks && (
-                <p className="text-muted-foreground mt-1">Reason: {run.rejection_remarks}</p>
-              )}
-            </div>
-          </>
-        )}
-
-        {run.is_posted && run.posted_at && (
-          <>
-            <Separator />
-            <div className="text-sm">
-              <p className="text-green-600 font-medium">
-                Posted on {new Date(run.posted_at).toLocaleDateString()}
-              </p>
-              {run.posting_reference && (
-                <p className="text-muted-foreground">Ref: {run.posting_reference}</p>
-              )}
+              <p className="text-muted-foreground">Part of consolidated memo. Approval managed via memo.</p>
             </div>
           </>
         )}

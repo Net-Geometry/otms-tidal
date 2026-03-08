@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronRight, Save, Send } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Button } from '@/components/ui/button';
@@ -11,25 +12,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFooter,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Save, Send } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useCompanies } from '@/hooks/hr/useCompanies';
+import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
 import {
   useOpeningBalances,
-  usePostableAccounts,
   useSaveOpeningBalances,
   usePostOpeningBalances,
 } from '@/hooks/finance/useOpeningBalance';
-import { ACCOUNT_TYPE_LABELS, type AccountType } from '@/types/finance';
+import { ACCOUNT_TYPE_LABELS, type AccountType, type ChartOfAccount } from '@/types/finance';
 
 function formatMoney(amount: number) {
   return new Intl.NumberFormat('en-MY', {
@@ -43,6 +35,93 @@ function formatMoney(amount: number) {
 const currentYear = new Date().getFullYear();
 const FISCAL_YEARS = [currentYear - 1, currentYear, currentYear + 1];
 
+function levelIndent(level: number) {
+  if (level <= 0) return 'pl-0';
+  if (level === 1) return 'pl-6';
+  if (level === 2) return 'pl-12';
+  if (level === 3) return 'pl-18';
+  return 'pl-24';
+}
+
+interface TreeNodeProps {
+  node: ChartOfAccount;
+  expanded: Record<string, boolean>;
+  onToggle: (id: string) => void;
+  balances: Record<string, { debit: string; credit: string }>;
+  onChangeDebit: (accountId: string, value: string) => void;
+  onChangeCredit: (accountId: string, value: string) => void;
+}
+
+function TreeNode({ node, expanded, onToggle, balances, onChangeDebit, onChangeCredit }: TreeNodeProps) {
+  const hasChildren = !!node.children?.length;
+  const isOpen = !!expanded[node.id];
+  const row = balances[node.id] || { debit: '', credit: '' };
+
+  return (
+    <>
+      <div className={`flex items-center gap-2 border-b py-1.5 ${levelIndent(node.level)}`}>
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          {hasChildren ? (
+            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => onToggle(node.id)}>
+              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </Button>
+          ) : (
+            <div className="h-7 w-7 shrink-0" />
+          )}
+
+          <span className="font-mono text-xs text-muted-foreground shrink-0">{node.account_code}</span>
+          <span className={`truncate ${node.is_postable ? 'text-sm' : 'text-sm font-semibold'}`}>
+            {node.account_name}
+          </span>
+          {!node.is_active && <Badge variant="secondary" className="text-[10px]">Inactive</Badge>}
+          {node.is_postable && (
+            <Badge variant="outline" className="text-[10px] shrink-0">
+              {ACCOUNT_TYPE_LABELS[node.account_type as AccountType] || node.account_type}
+            </Badge>
+          )}
+        </div>
+
+        {node.is_postable ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              className="text-right w-[140px] h-8"
+              value={row.debit}
+              onChange={(e) => onChangeDebit(node.id, e.target.value)}
+              placeholder="Debit"
+            />
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              className="text-right w-[140px] h-8"
+              value={row.credit}
+              onChange={(e) => onChangeCredit(node.id, e.target.value)}
+              placeholder="Credit"
+            />
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 shrink-0 w-[296px]" />
+        )}
+      </div>
+
+      {hasChildren && isOpen && node.children?.map((child) => (
+        <TreeNode
+          key={child.id}
+          node={child}
+          expanded={expanded}
+          onToggle={onToggle}
+          balances={balances}
+          onChangeDebit={onChangeDebit}
+          onChangeCredit={onChangeCredit}
+        />
+      ))}
+    </>
+  );
+}
+
 export default function OpeningBalance() {
   const { profile } = useAuth();
   const companies = useCompanies();
@@ -50,6 +129,7 @@ export default function OpeningBalance() {
   const [companyId, setCompanyId] = useState('');
   const [fiscalYear, setFiscalYear] = useState(currentYear);
   const [balances, setBalances] = useState<Record<string, { debit: string; credit: string }>>({});
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   // Default company from profile
   useEffect(() => {
@@ -58,18 +138,34 @@ export default function OpeningBalance() {
     }
   }, [profile?.company_id, companyId]);
 
-  const postableAccounts = usePostableAccounts(companyId);
+  const { tree, accounts, isLoading: coaLoading } = useChartOfAccounts({ activity: 'active' });
   const openingBalances = useOpeningBalances(companyId, fiscalYear);
   const { saveOpeningBalances, isSaving } = useSaveOpeningBalances();
   const { postOpeningBalances, isPosting } = usePostOpeningBalances();
 
-  // When opening balances load or accounts change, pre-fill the state
+  // Expand root nodes by default
   useEffect(() => {
-    if (!postableAccounts.data) return;
+    if (tree.length > 0) {
+      setExpanded((prev) => {
+        const initial: Record<string, boolean> = {};
+        for (const root of tree) initial[root.id] = true;
+        return { ...initial, ...prev };
+      });
+    }
+  }, [tree]);
+
+  // Build postable account IDs set for balance tracking
+  const postableIds = useMemo(() => {
+    return new Set(accounts.filter((a) => a.is_postable && a.is_active).map((a) => a.id));
+  }, [accounts]);
+
+  // When opening balances load, pre-fill the state
+  useEffect(() => {
+    if (postableIds.size === 0) return;
 
     const initial: Record<string, { debit: string; credit: string }> = {};
-    for (const account of postableAccounts.data) {
-      initial[account.id] = { debit: '', credit: '' };
+    for (const id of postableIds) {
+      initial[id] = { debit: '', credit: '' };
     }
 
     // Overlay existing balances
@@ -85,7 +181,7 @@ export default function OpeningBalance() {
     }
 
     setBalances(initial);
-  }, [postableAccounts.data, openingBalances.data]);
+  }, [postableIds, openingBalances.data]);
 
   const totals = useMemo(() => {
     let debit = 0;
@@ -126,6 +222,10 @@ export default function OpeningBalance() {
     }));
   };
 
+  const onToggle = (id: string) => {
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const onSave = async () => {
     const entries = Object.entries(balances)
       .filter(([, v]) => Number(v.debit || 0) > 0 || Number(v.credit || 0) > 0)
@@ -146,7 +246,7 @@ export default function OpeningBalance() {
     await postOpeningBalances({ companyId, fiscalYear });
   };
 
-  const accounts = postableAccounts.data || [];
+  const isLoadingData = coaLoading || openingBalances.isLoading;
 
   return (
     <AppLayout>
@@ -206,100 +306,58 @@ export default function OpeningBalance() {
           </CardContent>
         </Card>
 
-        {/* Opening Balances Table */}
+        {/* Opening Balances Tree */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Account Balances</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">Account Balances</CardTitle>
+              <div className="flex items-center gap-4 text-sm">
+                <span>
+                  Total Debit: <strong>{formatMoney(totals.debit)}</strong>
+                </span>
+                <span>
+                  Total Credit: <strong>{formatMoney(totals.credit)}</strong>
+                </span>
+                <span className={isBalanced ? 'text-green-600' : 'text-destructive'}>
+                  Diff: <strong>{formatMoney(totals.difference)}</strong>
+                  {isBalanced ? ' (Balanced)' : ' (Unbalanced)'}
+                </span>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {!companyId ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 Select a company to view accounts.
               </div>
-            ) : postableAccounts.isLoading || openingBalances.isLoading ? (
+            ) : isLoadingData ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
                 Loading accounts...
               </div>
-            ) : accounts.length === 0 ? (
+            ) : tree.length === 0 ? (
               <div className="py-8 text-center text-sm text-muted-foreground">
-                No postable accounts found. Set up your Chart of Accounts first.
+                No accounts found. Set up your Chart of Accounts first.
               </div>
             ) : (
               <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[140px]">Account Code</TableHead>
-                      <TableHead>Account Name</TableHead>
-                      <TableHead className="w-[120px]">Type</TableHead>
-                      <TableHead className="w-[160px] text-right">Debit (MYR)</TableHead>
-                      <TableHead className="w-[160px] text-right">Credit (MYR)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {accounts.map((account) => {
-                      const row = balances[account.id] || { debit: '', credit: '' };
-                      return (
-                        <TableRow key={account.id}>
-                          <TableCell className="font-mono text-sm">{account.account_code}</TableCell>
-                          <TableCell>{account.account_name}</TableCell>
-                          <TableCell>
-                            {ACCOUNT_TYPE_LABELS[account.account_type as AccountType] || account.account_type}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="text-right"
-                              value={row.debit}
-                              onChange={(e) => onChangeDebit(account.id, e.target.value)}
-                              placeholder="0.00"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              className="text-right"
-                              value={row.credit}
-                              onChange={(e) => onChangeCredit(account.id, e.target.value)}
-                              placeholder="0.00"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                  <TableFooter>
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-right font-semibold">
-                        Totals
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {formatMoney(totals.debit)}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {formatMoney(totals.credit)}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-right font-semibold">
-                        Difference
-                      </TableCell>
-                      <TableCell
-                        colSpan={2}
-                        className={`text-right font-semibold ${
-                          !isBalanced ? 'text-destructive' : 'text-green-600'
-                        }`}
-                      >
-                        {formatMoney(totals.difference)}
-                        {isBalanced ? ' (Balanced)' : ' (Unbalanced)'}
-                      </TableCell>
-                    </TableRow>
-                  </TableFooter>
-                </Table>
+                {/* Column headers */}
+                <div className="flex items-center gap-2 border-b py-2 px-2 bg-muted/50 text-xs font-medium text-muted-foreground">
+                  <div className="flex-1">Account</div>
+                  <div className="w-[140px] text-right">Debit (MYR)</div>
+                  <div className="w-[140px] text-right">Credit (MYR)</div>
+                  <div className="w-4" />
+                </div>
+                {tree.map((node) => (
+                  <TreeNode
+                    key={node.id}
+                    node={node}
+                    expanded={expanded}
+                    onToggle={onToggle}
+                    balances={balances}
+                    onChangeDebit={onChangeDebit}
+                    onChangeCredit={onChangeCredit}
+                  />
+                ))}
               </div>
             )}
           </CardContent>

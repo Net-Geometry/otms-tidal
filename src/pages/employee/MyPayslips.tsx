@@ -11,6 +11,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmployeePayslipCard } from '@/components/payroll/EmployeePayslipCard';
 import { useEmployeePayslips } from '@/hooks/payroll/useEmployeePayslips';
+import { usePayrollSettings } from '@/hooks/payroll/usePayrollSettings';
 import { generateFullPayslipPDF } from '@/lib/payslipPdfGenerator';
 import type { PayrollItem } from '@/types/payroll';
 
@@ -20,6 +21,7 @@ export default function MyPayslips() {
   const years = Array.from({ length: 3 }, (_, i) => currentYear - 2 + i);
 
   const { data: payslips, isLoading } = useEmployeePayslips({ year: Number(year) });
+  const { settings } = usePayrollSettings();
 
   const handleDownload = async (item: PayrollItem & { payroll_run?: any }) => {
     const run = item.payroll_run;
@@ -41,6 +43,7 @@ export default function MyPayslips() {
         bankAccountNo: profile.bank_account_no || '',
       },
       period: `${run.pay_period_month}/${run.pay_period_year}`,
+      showAllowance: settings?.show_allowance_on_payslip ?? false,
       item,
     });
   };

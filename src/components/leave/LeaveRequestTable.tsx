@@ -83,6 +83,7 @@ export function LeaveRequestTable({
   };
 
   const canBatch = !!enableBatch && role !== 'employee' && !!onApprove && !!onReject;
+  const canSelectAll = canBatch && role !== 'supervisor';
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
@@ -97,13 +98,21 @@ export function LeaveRequestTable({
       {canBatch && pendingIds.length > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-md border p-3 bg-muted/30">
           <div className="flex items-center gap-2">
-            <Checkbox
-              checked={selectedIds.length > 0 && selectedIds.length === pendingIds.length}
-              onCheckedChange={(v) => selectAllPending(!!v)}
-            />
-            <div className="text-sm">
-              Select all pending ({pendingIds.length})
-            </div>
+            {canSelectAll ? (
+              <>
+                <Checkbox
+                  checked={selectedIds.length > 0 && selectedIds.length === pendingIds.length}
+                  onCheckedChange={(v) => selectAllPending(!!v)}
+                />
+                <div className="text-sm">
+                  Select all pending ({pendingIds.length})
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                {selectedIds.length} of {pendingIds.length} selected
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <LeaveApprovalActions

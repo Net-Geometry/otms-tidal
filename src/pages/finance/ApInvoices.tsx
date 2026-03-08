@@ -108,7 +108,7 @@ function makeInitialForm(companyId: string): InvoiceFormState {
     supplier_invoice_no: '',
     prf_id: '',
     invoice_date: today,
-    due_date: today,
+    due_date: '',
     currency: 'MYR',
     withholding_tax: '0',
     remarks: '',
@@ -287,8 +287,8 @@ export default function ApInvoices() {
       return;
     }
 
-    if (!form.invoice_date || !form.due_date) {
-      toast({ title: 'Invoice and due date are required', variant: 'destructive' });
+    if (!form.invoice_date) {
+      toast({ title: 'Invoice date is required', variant: 'destructive' });
       return;
     }
 
@@ -304,7 +304,7 @@ export default function ApInvoices() {
       supplier_invoice_no: form.supplier_invoice_no.trim() || null,
       prf_id: form.prf_id || null,
       invoice_date: form.invoice_date,
-      due_date: form.due_date,
+      due_date: form.due_date || null,
       currency: form.currency.trim().toUpperCase() || 'MYR',
       withholding_tax: Number(form.withholding_tax || 0),
       remarks: form.remarks.trim() || null,
@@ -430,6 +430,7 @@ export default function ApInvoices() {
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Payment</TableHead>
+                      <TableHead className="text-right">Outstanding</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -439,7 +440,7 @@ export default function ApInvoices() {
                         <TableCell className="font-medium">{invoice.invoice_number || 'Draft'}</TableCell>
                         <TableCell>{invoice.supplier?.supplier_name || '-'}</TableCell>
                         <TableCell>{format(new Date(invoice.invoice_date), 'dd MMM yyyy')}</TableCell>
-                        <TableCell>{format(new Date(invoice.due_date), 'dd MMM yyyy')}</TableCell>
+                        <TableCell>{invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy') : '-'}</TableCell>
                         <TableCell className="text-right">{formatMoney(invoice.total_amount)}</TableCell>
                         <TableCell>
                           <Badge
@@ -450,6 +451,9 @@ export default function ApInvoices() {
                         </TableCell>
                         <TableCell>
                           {formatMoney(invoice.paid_amount)} / {formatMoney(invoice.total_amount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatMoney(Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0))}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-2">
@@ -597,7 +601,7 @@ export default function ApInvoices() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Due Date</Label>
+                  <Label>Due Date (optional)</Label>
                   <Input
                     type="date"
                     value={form.due_date}
@@ -826,7 +830,7 @@ export default function ApInvoices() {
                   <p><span className="text-muted-foreground">Invoice No:</span> {detailInvoice.invoice_number || 'Draft'}</p>
                   <p><span className="text-muted-foreground">Supplier:</span> {detailInvoice.supplier?.supplier_name || '-'}</p>
                   <p><span className="text-muted-foreground">Invoice Date:</span> {format(new Date(detailInvoice.invoice_date), 'dd MMM yyyy')}</p>
-                  <p><span className="text-muted-foreground">Due Date:</span> {format(new Date(detailInvoice.due_date), 'dd MMM yyyy')}</p>
+                  <p><span className="text-muted-foreground">Due Date:</span> {detailInvoice.due_date ? format(new Date(detailInvoice.due_date), 'dd MMM yyyy') : '-'}</p>
                   <p><span className="text-muted-foreground">Status:</span> {AP_INVOICE_STATUS_LABELS[detailInvoice.status]}</p>
                   <p><span className="text-muted-foreground">Paid:</span> {formatMoney(detailInvoice.paid_amount)}</p>
                 </div>

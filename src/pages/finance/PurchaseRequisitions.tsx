@@ -38,14 +38,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
-import { useProjects } from '@/hooks/finance/useProjects';
 import {
   useApprovePRF,
   useCancelPRF,
+  useCheckPRF,
   useCreatePRF,
   usePurchaseRequisitions,
+  useRejectPRF,
+  useResubmitPRF,
   useSubmitPRF,
   useUpdatePRF,
+  useVerifyPRF,
 } from '@/hooks/finance/useAccountsPayable';
 import {
   AP_PRF_STATUS_LABELS,
@@ -54,6 +57,7 @@ import {
   type PrfType,
   type PurchaseRequisition,
 } from '@/types/finance';
+import { useActiveRole } from '@/hooks/useActiveRole';
 
 interface PrfItemFormState {
   id: string;
@@ -142,7 +146,6 @@ export default function PurchaseRequisitions() {
   const { toast } = useToast();
   const { data: companies = [] } = useCompanies();
   const chart = useChartOfAccounts({ accountType: 'expense', activity: 'active', search: '' });
-  const projects = useProjects();
 
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ApPrfStatus>('all');
@@ -162,11 +165,39 @@ export default function PurchaseRequisitions() {
     pageSize: 12,
   });
 
+  const { activeRole } = useActiveRole();
   const createPRF = useCreatePRF();
   const updatePRF = useUpdatePRF();
   const submitPRF = useSubmitPRF();
+  const verifyPRF = useVerifyPRF();
+  const checkPRF = useCheckPRF();
   const approvePRF = useApprovePRF();
+  const rejectPRF = useRejectPRF();
+  const resubmitPRF = useResubmitPRF();
   const cancelPRF = useCancelPRF();
+
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingPrfId, setRejectingPrfId] = useState<string | null>(null);
+  const [rejectRemarks, setRejectRemarks] = useState('');
+
+  const isAdmin = activeRole === 'finance_admin';
+  const isManagement = activeRole === 'management';
+  const isAsstMgr = activeRole === 'assistant_manager';
+  const isDmd = activeRole === 'dmd';
+
+  const openRejectDialog = (prfId: string) => {
+    setRejectingPrfId(prfId);
+    setRejectRemarks('');
+    setRejectDialogOpen(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectingPrfId) return;
+    await rejectPRF.rejectPRF({ prfId: rejectingPrfId, remarks: rejectRemarks });
+    setRejectDialogOpen(false);
+    setRejectingPrfId(null);
+    setRejectRemarks('');
+  };
 
   const postingAccounts = useMemo(
     () => chart.accounts.filter((account) => account.is_active && account.is_postable),
@@ -413,18 +444,28 @@ export default function PurchaseRequisitions() {
                         <TableCell>{prf.payable_to || '-'}</TableCell>
                         <TableCell className="text-right">{formatMoney(prf.total_amount)}</TableCell>
                         <TableCell>
-                          <Badge variant={prf.status === 'approved' ? 'default' : 'secondary'}>
+                          <Badge
+                            variant={prf.status === 'approved' ? 'default' : prf.status === 'rejected' ? 'destructive' : 'secondary'}
+                            className={
+                              prf.status === 'prepared' ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' :
+                              prf.status === 'verified' ? 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200' :
+                              prf.status === 'checked' ? 'bg-purple-100 text-purple-800 hover:bg-purple-200' :
+                              prf.status === 'cancelled' ? 'bg-gray-100 text-gray-800 hover:bg-gray-200' :
+                              undefined
+                            }
+                          >
                             {AP_PRF_STATUS_LABELS[prf.status]}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-2">
-                            {prf.status === 'draft' && (
+                            {/* Draft: Edit, Submit, Cancel (admin) */}
+                            {prf.status === 'draft' && isAdmin && (
                               <Button variant="outline" size="sm" onClick={() => openEditDialog(prf)}>
                                 Edit
                               </Button>
                             )}
-                            {prf.status === 'draft' && (
+                            {prf.status === 'draft' && isAdmin && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -434,17 +475,7 @@ export default function PurchaseRequisitions() {
                                 Submit
                               </Button>
                             )}
-                            {prf.status === 'pending' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => approvePRF.approvePRF({ prfId: prf.id })}
-                                disabled={approvePRF.isApproving}
-                              >
-                                Approve
-                              </Button>
-                            )}
-                            {(prf.status === 'draft' || prf.status === 'pending') && (
+                            {prf.status === 'draft' && isAdmin && (
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -454,6 +485,87 @@ export default function PurchaseRequisitions() {
                                 Cancel
                               </Button>
                             )}
+
+                            {/* Prepared: Verify, Reject (management) */}
+                            {prf.status === 'prepared' && isManagement && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => verifyPRF.verifyPRF({ prfId: prf.id })}
+                                disabled={verifyPRF.isVerifying}
+                              >
+                                Verify
+                              </Button>
+                            )}
+                            {prf.status === 'prepared' && isManagement && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openRejectDialog(prf.id)}
+                              >
+                                Reject
+                              </Button>
+                            )}
+
+                            {/* Verified: Check, Reject (assistant_manager) */}
+                            {prf.status === 'verified' && isAsstMgr && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => checkPRF.checkPRF({ prfId: prf.id })}
+                                disabled={checkPRF.isChecking}
+                              >
+                                Check
+                              </Button>
+                            )}
+                            {prf.status === 'verified' && isAsstMgr && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openRejectDialog(prf.id)}
+                              >
+                                Reject
+                              </Button>
+                            )}
+
+                            {/* Checked: Approve, Reject (dmd) */}
+                            {prf.status === 'checked' && isDmd && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => approvePRF.approvePRF({ prfId: prf.id })}
+                                disabled={approvePRF.isApproving}
+                              >
+                                Approve
+                              </Button>
+                            )}
+                            {prf.status === 'checked' && isDmd && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openRejectDialog(prf.id)}
+                              >
+                                Reject
+                              </Button>
+                            )}
+
+                            {/* Rejected: Edit, Resubmit (admin) */}
+                            {prf.status === 'rejected' && isAdmin && (
+                              <Button variant="outline" size="sm" onClick={() => openEditDialog(prf)}>
+                                Edit
+                              </Button>
+                            )}
+                            {prf.status === 'rejected' && isAdmin && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => resubmitPRF.resubmitPRF({ prfId: prf.id })}
+                                disabled={resubmitPRF.isResubmitting}
+                              >
+                                Resubmit
+                              </Button>
+                            )}
+
                             <Button variant="ghost" size="sm" onClick={() => setDetailPrf(prf)}>
                               <Eye className="mr-2 h-4 w-4" />
                               View
@@ -958,8 +1070,69 @@ export default function PurchaseRequisitions() {
                     <p>{detailPrf.accounts_dept_remarks}</p>
                   </div>
                 )}
+
+                {/* Approval Trail */}
+                <Separator />
+                <div className="space-y-2 text-sm">
+                  <p className="font-semibold">Approval Trail</p>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    {detailPrf.submitted_at && (
+                      <p><span className="text-muted-foreground">Submitted:</span> {format(new Date(detailPrf.submitted_at), 'dd MMM yyyy HH:mm')}</p>
+                    )}
+                    {detailPrf.verified_at && (
+                      <p><span className="text-muted-foreground">Verified by:</span> {detailPrf.verified_by_profile?.full_name || '-'} on {format(new Date(detailPrf.verified_at), 'dd MMM yyyy HH:mm')}</p>
+                    )}
+                    {detailPrf.checked_at && (
+                      <p><span className="text-muted-foreground">Checked by:</span> {detailPrf.checked_by_profile?.full_name || '-'} on {format(new Date(detailPrf.checked_at), 'dd MMM yyyy HH:mm')}</p>
+                    )}
+                    {detailPrf.approved_at && (
+                      <p><span className="text-muted-foreground">Approved:</span> {format(new Date(detailPrf.approved_at), 'dd MMM yyyy HH:mm')}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Rejection Info */}
+                {detailPrf.status === 'rejected' && detailPrf.rejection_remarks && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                    <p className="font-semibold text-destructive">Rejected</p>
+                    <p><span className="text-muted-foreground">Rejected by:</span> {detailPrf.rejected_by_profile?.full_name || '-'}{detailPrf.rejected_at ? ` on ${format(new Date(detailPrf.rejected_at), 'dd MMM yyyy HH:mm')}` : ''}</p>
+                    <p><span className="text-muted-foreground">Stage:</span> {detailPrf.rejection_stage || '-'}</p>
+                    <p><span className="text-muted-foreground">Remarks:</span> {detailPrf.rejection_remarks}</p>
+                  </div>
+                )}
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* ── Reject Dialog ── */}
+        <Dialog open={rejectDialogOpen} onOpenChange={(open) => { if (!open) { setRejectDialogOpen(false); setRejectingPrfId(null); } }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reject PRF</DialogTitle>
+              <DialogDescription>Provide remarks for rejection.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Label>Rejection Remarks</Label>
+              <Textarea
+                rows={4}
+                value={rejectRemarks}
+                onChange={(e) => setRejectRemarks(e.target.value)}
+                placeholder="Enter reason for rejection"
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setRejectDialogOpen(false); setRejectingPrfId(null); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={confirmReject}
+                disabled={rejectPRF.isRejecting || !rejectRemarks.trim()}
+              >
+                {rejectPRF.isRejecting ? 'Rejecting...' : 'Reject'}
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </PageLayout>

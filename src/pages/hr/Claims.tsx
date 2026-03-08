@@ -6,7 +6,9 @@ import { Card } from '@/components/ui/card';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { CheckCircle, ClipboardList, DollarSign, Receipt, Search, Settings2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle, ClipboardList, DollarSign, Download, Receipt, Search, Settings2 } from 'lucide-react';
+import { exportToCSV } from '@/lib/exportUtils';
 import { ClaimRequestTable } from '@/components/claims/ClaimRequestTable';
 import { ClaimTypeSetup } from '@/components/claims/ClaimTypeSetup';
 import { useClaimApproval, type ClaimApprovalTab } from '@/hooks/claims/useClaimApproval';
@@ -106,14 +108,46 @@ export default function Claims() {
                 </TabsList>
 
                 <TabsContent value={tab} className="mt-6 space-y-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Search by ticket, employee, or type..."
-                      className="pl-9"
-                    />
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search by ticket, employee, or type..."
+                        className="pl-9"
+                      />
+                    </div>
+                    {filtered.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const headers = [
+                            { key: 'ticket_number', label: 'Ticket' },
+                            { key: 'employee_name', label: 'Employee' },
+                            { key: 'claim_type', label: 'Type' },
+                            { key: 'claim_date', label: 'Date' },
+                            { key: 'amount', label: 'Amount (RM)' },
+                            { key: 'status', label: 'Status' },
+                            { key: 'purpose', label: 'Purpose' },
+                          ];
+                          const data = filtered.map((r) => ({
+                            ticket_number: r.ticket_number,
+                            employee_name: r.profiles?.full_name || r.employee_id,
+                            claim_type: r.claim_type?.name || '',
+                            claim_date: r.claim_date,
+                            amount: Number(r.amount || 0).toFixed(2),
+                            status: r.status,
+                            purpose: r.purpose || '',
+                          }));
+                          exportToCSV(data, `Claims_${tab}_${new Date().toISOString().slice(0, 10)}`, headers);
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Export CSV
+                      </Button>
+                    )}
                   </div>
 
                   <ClaimRequestTable

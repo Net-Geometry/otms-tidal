@@ -186,6 +186,39 @@ export function useLeaveSubmit() {
 
       if (balanceError) throw balanceError;
 
+      // Block UPL if Annual Leave still has remaining balance
+      if (leaveType.code === 'unpaid') {
+        const { data: alType } = await db
+          .from('leave_types')
+          .select('id')
+          .eq('code', 'annual')
+          .single();
+
+        if (alType) {
+          const { data: alBalance } = await db
+            .from('leave_balances')
+            .select('entitled_days, used_days, carried_forward, adjustment')
+            .eq('employee_id', user.id)
+            .eq('leave_type_id', alType.id)
+            .eq('year', year)
+            .maybeSingle();
+
+          if (alBalance) {
+            const alRemaining =
+              Number(alBalance.entitled_days || 0) +
+              Number(alBalance.carried_forward || 0) +
+              Number(alBalance.adjustment || 0) -
+              Number(alBalance.used_days || 0);
+
+            if (alRemaining > 0) {
+              throw new Error(
+                `Cannot apply for Unpaid Leave while you still have ${alRemaining.toFixed(1)} day(s) of Annual Leave remaining. Please use your Annual Leave first.`
+              );
+            }
+          }
+        }
+      }
+
       const isUnlimitedType = ['unpaid', 'replacement', 'emergency', 'half_day'].includes(leaveType.code);
       if (!isUnlimitedType) {
         if (!balanceRow) {

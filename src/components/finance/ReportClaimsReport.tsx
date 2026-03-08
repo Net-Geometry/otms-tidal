@@ -130,7 +130,7 @@ export function ReportClaimsReport() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Ticket</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Receipt Date</TableHead>
                   <TableHead>Employee</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Status</TableHead>

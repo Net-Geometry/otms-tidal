@@ -211,7 +211,7 @@ export function ClaimDetailsSheet({
               <div className="font-semibold">{formatCurrency(Number(request.amount || 0))}</div>
             </div>
             <div className="rounded-md border p-3">
-              <div className="text-muted-foreground">Claim Date</div>
+              <div className="text-muted-foreground">Receipt Date</div>
               <div className="font-semibold">{format(new Date(request.claim_date), 'dd MMM yyyy')}</div>
             </div>
             <div className="rounded-md border p-3">

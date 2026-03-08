@@ -47,7 +47,12 @@ import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useDoaRules } from '@/hooks/finance/useFinanceFoundation';
 import { FINANCE_DOA_DOCUMENT_LABELS, type DoaRule, type FinanceDoaDocumentType } from '@/types/finance';
 
-const approverRoles = ['supervisor', 'hr', 'management', 'finance', 'admin'] as const;
+const approverRoles = [
+  'supervisor', 'hr', 'management',
+  'finance', 'finance_admin', 'account_assistant',
+  'assistant_manager', 'manager', 'dmd', 'account_exec', 'sgm',
+  'admin',
+] as const;
 
 const schema = z.object({
   company_id: z.string().min(1, 'Company is required'),

@@ -21,10 +21,8 @@ const MONTHS = [
 ];
 
 function statusVariant(status: PayrollRunStatus) {
-  if (status === 'finance_approved' || status === 'posted') return 'default';
-  if (status === 'rejected') return 'destructive';
-  if (status === 'cancelled') return 'secondary';
-  if (status === 'hr_approved' || status === 'director_approved') return 'default';
+  if (status === 'finalized') return 'default';
+  if (status === 'cancelled') return 'destructive';
   return 'outline';
 }
 

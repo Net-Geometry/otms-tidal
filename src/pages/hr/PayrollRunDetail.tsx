@@ -5,20 +5,21 @@ import { PageLayout } from '@/components/ui/page-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Calculator, Download, Info, UserPlus } from 'lucide-react';
-import { exportToCSV } from '@/lib/exportUtils';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Calculator, Download, FileText, Info, UserPlus, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
+import { exportToCSV, downloadTxtFile } from '@/lib/exportUtils';
+import { generateSocsoEisTxt, generateEpfTxt } from '@/lib/statutoryTxtGenerator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PayrollMemoView } from '@/components/payroll/PayrollMemoView';
 import { PayrollItemsTable } from '@/components/payroll/PayrollItemsTable';
 import { EmployeePayrollForm } from '@/components/payroll/EmployeePayrollForm';
 import { AddEmployeeDialog } from '@/components/payroll/AddEmployeeDialog';
-import { PayrollApprovalActions } from '@/components/payroll/PayrollApprovalActions';
 import { usePayrollRun } from '@/hooks/payroll/usePayrollRun';
+import { usePayrollRuns } from '@/hooks/payroll/usePayrollRuns';
 import { usePayrollCalculation } from '@/hooks/payroll/usePayrollCalculation';
-import { usePayrollApproval } from '@/hooks/payroll/usePayrollApproval';
 import { usePayrollSettings, useAllowanceTypes, useDeductionTypes, useSocsoTable } from '@/hooks/payroll/usePayrollSettings';
-import { useActiveRole } from '@/hooks/useActiveRole';
-import { isFinanceRole } from '@/lib/financeRoles';
+import { PAYROLL_STATUS_LABELS } from '@/types/payroll';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,12 +30,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import type { PayrollItem, PayrollApprovalRole } from '@/types/payroll';
+import type { PayrollItem } from '@/types/payroll';
 
 export default function PayrollRunDetail() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
-  const { activeRole } = useActiveRole();
 
   const { run, items, isLoading, refetch } = usePayrollRun(runId);
   const { settings } = usePayrollSettings();
@@ -47,17 +47,14 @@ export default function PayrollRunDetail() {
     recalculateSingleEmployee, isRecalculatingSingle,
     addEmployeeToRun, isAddingEmployee,
   } = usePayrollCalculation();
-
-  const approvalRole: PayrollApprovalRole =
-    activeRole === 'management' ? 'management' :
-    isFinanceRole(activeRole) ? 'finance' : 'hr';
-
-  const approval = usePayrollApproval({ role: approvalRole });
+  const { finalizePayrollRun, isFinalizing, cancelPayrollRun, isCancelling } = usePayrollRuns();
 
   const [editItem, setEditItem] = useState<PayrollItem | null>(null);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [showRecalcConfirm, setShowRecalcConfirm] = useState(false);
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const handleCalculate = async () => {
     if (!run || !settings || !socsoTable) return;
@@ -107,6 +104,20 @@ export default function PayrollRunDetail() {
     refetch();
   };
 
+  const handleFinalize = async () => {
+    if (!run) return;
+    await finalizePayrollRun(run.id);
+    setShowFinalizeConfirm(false);
+    refetch();
+  };
+
+  const handleCancel = async () => {
+    if (!run) return;
+    await cancelPayrollRun(run.id);
+    setShowCancelConfirm(false);
+    refetch();
+  };
+
   if (isLoading) {
     return (
       <AppLayout>
@@ -132,7 +143,7 @@ export default function PayrollRunDetail() {
   }
 
   const isDraft = run.status === 'draft';
-  const hasMemo = !!(run as any).memo_id;
+  const hasMemo = !!run.memo_id;
 
   const handleExportCSV = () => {
     if (!items.length) return;
@@ -179,6 +190,33 @@ export default function PayrollRunDetail() {
     });
   };
 
+  const handleExportSocso = () => {
+    if (!items.length || !run) return;
+    const companyName = run.companies?.name || 'Company';
+    const txt = generateSocsoEisTxt({
+      employerSocsoNo: run.companies?.socso_employer_no || '',
+      month: run.pay_period_month,
+      year: run.pay_period_year,
+      items,
+    });
+    downloadTxtFile(txt, `${companyName}_SOCSO_EIS_${run.pay_period_month}_${run.pay_period_year}.txt`);
+  };
+
+  const handleExportEpf = () => {
+    if (!items.length || !run) return;
+    const companyName = run.companies?.name || 'Company';
+    const txt = generateEpfTxt({
+      employerEpfNo: run.companies?.epf_employer_no || '',
+      companyName,
+      month: run.pay_period_month,
+      year: run.pay_period_year,
+      items,
+    });
+    downloadTxtFile(txt, `${companyName}_EPF_${run.pay_period_month}_${run.pay_period_year}.txt`);
+  };
+
+  const statusVariant = run.status === 'finalized' ? 'default' : run.status === 'cancelled' ? 'destructive' : 'outline';
+
   return (
     <AppLayout>
       <PageLayout
@@ -186,16 +224,31 @@ export default function PayrollRunDetail() {
         description={`${run.companies?.name || ''} — ${run.pay_period_month}/${run.pay_period_year}`}
       >
         <div className="flex items-center justify-between mb-4">
-          <Button variant="outline" size="sm" onClick={() => navigate('/hr/payroll')}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => navigate('/hr/payroll')}>
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back
+            </Button>
+            <Badge variant={statusVariant as any}>
+              {PAYROLL_STATUS_LABELS[run.status] || run.status}
+            </Badge>
+          </div>
 
           <div className="flex items-center gap-2">
             {items.length > 0 && (
-              <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                <Download className="h-4 w-4 mr-2" />
-                Export CSV
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportSocso}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  SOCSO/EIS TXT
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleExportEpf}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  EPF TXT
+                </Button>
+              </>
             )}
             {isDraft && !hasMemo && (
               <>
@@ -207,25 +260,41 @@ export default function PayrollRunDetail() {
                   <Calculator className="h-4 w-4 mr-2" />
                   {isCalculating ? 'Calculating...' : items.length > 0 ? 'Recalculate All' : 'Calculate Payroll'}
                 </Button>
+                {(!settings || !socsoTable) && (
+                  <Alert variant="destructive" className="flex-1">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      {!settings && !socsoTable
+                        ? 'Payroll settings and SOCSO table are not configured. Please set them up in Payroll Settings before calculating.'
+                        : !settings
+                        ? 'Payroll settings are not configured. Please set them up in Payroll Settings before calculating.'
+                        : 'SOCSO contribution table is missing. Please contact your administrator.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
               </>
             )}
 
-            {hasMemo ? (
+            {isDraft && items.length > 0 && !hasMemo && (
+              <>
+                <Button onClick={() => setShowFinalizeConfirm(true)} disabled={isFinalizing}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {isFinalizing ? 'Finalizing...' : 'Finalize'}
+                </Button>
+                <Button variant="destructive" onClick={() => setShowCancelConfirm(true)} disabled={isCancelling}>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel Run
+                </Button>
+              </>
+            )}
+
+            {hasMemo && (
               <Alert className="flex-1">
                 <Info className="h-4 w-4" />
                 <AlertDescription>
                   This run is part of a consolidated memo. Approval is managed on the Consolidated tab.
                 </AlertDescription>
               </Alert>
-            ) : (
-              <PayrollApprovalActions
-                run={run}
-                role={approvalRole}
-                onApprove={approval.approvePayrollRun}
-                onReject={approval.rejectPayrollRun}
-                isApproving={approval.isApproving}
-                isRejecting={approval.isRejecting}
-              />
             )}
           </div>
         </div>
@@ -234,7 +303,59 @@ export default function PayrollRunDetail() {
 
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="text-base">Employee Breakdown</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">Employee Breakdown</CardTitle>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button className="text-muted-foreground hover:text-foreground transition-colors">
+                    <HelpCircle className="h-4 w-4" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[420px] p-0" align="start">
+                  <div className="px-4 py-3 border-b">
+                    <p className="font-semibold text-sm">Statutory Contribution Rates</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Rates differ based on employee age category</p>
+                  </div>
+                  <div className="p-4">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs text-muted-foreground">
+                          <th className="text-left pb-2 font-medium">Contribution</th>
+                          <th className="text-right pb-2 font-medium">Below 60</th>
+                          <th className="text-right pb-2 font-medium">60 &amp; Above</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        <tr>
+                          <td className="py-1.5 font-medium">EPF (Employee)</td>
+                          <td className="py-1.5 text-right">11%</td>
+                          <td className="py-1.5 text-right text-amber-600 dark:text-amber-400 font-medium">0% (voluntary)</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1.5 font-medium">EPF (Employer)</td>
+                          <td className="py-1.5 text-right">13% / 12%</td>
+                          <td className="py-1.5 text-right text-amber-600 dark:text-amber-400 font-medium">4%</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1.5 font-medium">SOCSO</td>
+                          <td className="py-1.5 text-right">Per table</td>
+                          <td className="py-1.5 text-right text-amber-600 dark:text-amber-400 font-medium">Employment Injury only</td>
+                        </tr>
+                        <tr>
+                          <td className="py-1.5 font-medium">EIS</td>
+                          <td className="py-1.5 text-right">0.2%</td>
+                          <td className="py-1.5 text-right text-amber-600 dark:text-amber-400 font-medium">Not applicable</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <p className="text-[11px] text-muted-foreground mt-3 leading-relaxed">
+                      Employer EPF: 13% for wages ≤ RM5,000, 12% for wages &gt; RM5,000.
+                      Employees aged 60+ are exempt from SOCSO Invalidity and EIS contributions per Malaysian law.
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
           </CardHeader>
           <CardContent>
             <PayrollItemsTable
@@ -287,6 +408,40 @@ export default function PayrollRunDetail() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => { handleCalculate(); setShowRecalcConfirm(false); }}>
                 Recalculate All
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={showFinalizeConfirm} onOpenChange={setShowFinalizeConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Finalize Payroll Run?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will mark the payroll run as finalized. It can then be included in a consolidated memo for approval. You won't be able to edit calculations after finalizing.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleFinalize}>
+                Finalize
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancel Payroll Run?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will cancel the payroll run. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Go Back</AlertDialogCancel>
+              <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Cancel Run
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

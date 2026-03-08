@@ -1,13 +1,6 @@
 export type PayrollRunStatus =
   | 'draft'
-  | 'pending_hr_review'
-  | 'hr_approved'
-  | 'pending_director'
-  | 'director_approved'
-  | 'pending_finance'
-  | 'finance_approved'
-  | 'posted'
-  | 'rejected'
+  | 'finalized'
   | 'cancelled';
 
 export type PayrollApprovalRole = 'hr' | 'management' | 'finance';
@@ -44,46 +37,11 @@ export function canTransitionMemo(from: string, to: string, role: string): boole
   );
 }
 
-export const PAYROLL_STATUS_TRANSITIONS = [
-  // HR submits for review
-  { from: 'draft', to: 'pending_hr_review', role: 'hr' },
-  // HR approves
-  { from: 'pending_hr_review', to: 'hr_approved', role: 'hr' },
-  { from: 'pending_hr_review', to: 'rejected', role: 'hr' },
-  // HR sends to director
-  { from: 'hr_approved', to: 'pending_director', role: 'hr' },
-  // Director approves
-  { from: 'pending_director', to: 'director_approved', role: 'management' },
-  { from: 'pending_director', to: 'rejected', role: 'management' },
-  // Director sends to finance
-  { from: 'director_approved', to: 'pending_finance', role: 'management' },
-  // Finance approves
-  { from: 'pending_finance', to: 'finance_approved', role: 'finance' },
-  { from: 'pending_finance', to: 'rejected', role: 'finance' },
-  // Finance posts
-  { from: 'finance_approved', to: 'posted', role: 'finance' },
-  // Cancel from draft
-  { from: 'draft', to: 'cancelled', role: 'hr' },
-] as const;
-
 export const PAYROLL_STATUS_LABELS: Record<PayrollRunStatus, string> = {
   draft: 'Draft',
-  pending_hr_review: 'Pending HR Review',
-  hr_approved: 'HR Approved',
-  pending_director: 'Pending Director',
-  director_approved: 'Director Approved',
-  pending_finance: 'Pending Finance',
-  finance_approved: 'Finance Approved',
-  posted: 'Posted',
-  rejected: 'Rejected',
+  finalized: 'Finalized',
   cancelled: 'Cancelled',
 };
-
-export function canTransitionPayroll(from: string, to: string, role: string): boolean {
-  return PAYROLL_STATUS_TRANSITIONS.some(
-    (t) => t.from === from && t.to === to && t.role === role
-  );
-}
 
 export interface PayrollSettings {
   id: number;
@@ -98,6 +56,7 @@ export interface PayrollSettings {
   hrdc_enabled: boolean;
   working_days_per_month: number;
   payroll_cutoff_day: number;
+  show_allowance_on_payslip: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -161,35 +120,14 @@ export interface PayrollRun {
   total_director_fee: number;
   employee_count: number;
 
-  hr_id: string | null;
-  hr_approved_at: string | null;
-  hr_remarks: string | null;
-
-  director_id: string | null;
-  director_approved_at: string | null;
-  director_remarks: string | null;
-
-  finance_id: string | null;
-  finance_approved_at: string | null;
-  finance_remarks: string | null;
-
-  rejected_by: string | null;
-  rejected_at: string | null;
-  rejection_remarks: string | null;
-  rejection_stage: string | null;
-
-  is_posted: boolean;
-  posted_at: string | null;
-  posted_by: string | null;
-  posting_reference: string | null;
-  posting_remarks: string | null;
+  memo_id: string | null;
 
   created_by: string | null;
   created_at: string;
   updated_at: string;
 
   // Joined relations
-  companies?: { id: string; name: string };
+  companies?: { id: string; name: string; code?: string; socso_employer_no?: string; epf_employer_no?: string };
   payroll_items?: PayrollItem[];
 }
 
@@ -295,6 +233,7 @@ export interface PayrollItem {
     epf_no?: string;
     socso_no?: string;
     income_tax_no?: string;
+    ic_no?: string;
     bank_name?: string;
     bank_account_no?: string;
   };

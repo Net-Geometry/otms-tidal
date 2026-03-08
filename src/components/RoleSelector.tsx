@@ -21,6 +21,13 @@ const AVAILABLE_ROLES: { value: AppRole; label: string; description: string }[] 
   { value: 'employee', label: 'Employee', description: 'Can submit OT requests' },
   { value: 'supervisor', label: 'Supervisor', description: 'Can verify OT requests' },
   { value: 'hr', label: 'HR Manager', description: 'Can approve OT and manage system' },
+  { value: 'finance_admin', label: 'Finance Admin', description: 'Data entry: create PRF, PV, input claims' },
+  { value: 'account_assistant', label: 'Account Assistant', description: 'PV account assistant, same access as Finance Admin' },
+  { value: 'assistant_manager', label: 'Assistant Manager', description: 'Check/verify PRF and PV' },
+  { value: 'manager', label: 'Manager', description: 'Verify PRF, higher approval' },
+  { value: 'dmd', label: 'Deputy Manager Director', description: 'Final approval for PRF, PV' },
+  { value: 'account_exec', label: 'Account Executive', description: 'Post to cashbook, GL entries' },
+  { value: 'sgm', label: 'Senior General Manager', description: 'Senior general management oversight' },
   { value: 'management', label: 'Management', description: 'Can review OT reports' },
   { value: 'director', label: 'Director', description: 'Final claim approver (Director level)' },
   { value: 'gm', label: 'General Manager', description: 'Final claim approver (GM level)' },
@@ -82,10 +89,18 @@ export function RoleSelector({
   };
 
   const getRoleBadgeColor = (role: AppRole): string => {
-    const colors: Record<AppRole, string> = {
+    const colors: Partial<Record<AppRole, string>> = {
       employee: 'bg-blue-100 text-blue-800',
       supervisor: 'bg-green-100 text-green-800',
       hr: 'bg-purple-100 text-purple-800',
+      finance: 'bg-emerald-100 text-emerald-800',
+      finance_admin: 'bg-emerald-100 text-emerald-800',
+      account_assistant: 'bg-emerald-200 text-emerald-900',
+      assistant_manager: 'bg-cyan-100 text-cyan-800',
+      manager: 'bg-cyan-200 text-cyan-900',
+      dmd: 'bg-sky-100 text-sky-800',
+      account_exec: 'bg-indigo-100 text-indigo-800',
+      sgm: 'bg-amber-200 text-amber-900',
       management: 'bg-orange-100 text-orange-800',
       director: 'bg-amber-100 text-amber-800',
       gm: 'bg-red-100 text-red-800',
@@ -96,6 +111,7 @@ export function RoleSelector({
   };
 
   const getRoleLabel = (role: AppRole): string => {
+    if (role === 'finance') return 'Finance (Legacy)';
     const roleObj = AVAILABLE_ROLES.find((r) => r.value === role);
     return roleObj?.label || role;
   };

@@ -252,6 +252,7 @@ export interface FullPayslipData {
     bankAccountNo: string;
   };
   period: string;
+  showAllowance?: boolean;
   item: {
     basic_salary: number;
     pro_rated_salary: number;
@@ -366,9 +367,11 @@ export async function generateFullPayslipPDF(data: FullPayslipData): Promise<voi
   if (data.item.ot_amount > 0) earnings.push(['Overtime Pay', data.item.ot_amount]);
   if (data.item.is_director && data.item.director_fee > 0) earnings.push(['Director Fee', data.item.director_fee]);
 
-  // Allowances
-  for (const a of data.item.payroll_item_allowances || []) {
-    if (a.amount > 0) earnings.push([a.allowance_type?.name || 'Allowance', a.amount]);
+  // Allowances (only shown if setting enabled)
+  if (data.showAllowance) {
+    for (const a of data.item.payroll_item_allowances || []) {
+      if (a.amount > 0) earnings.push([a.allowance_type?.name || 'Allowance', a.amount]);
+    }
   }
 
   const totalEarnings = earnings.reduce((s, [, v]) => s + v, 0);

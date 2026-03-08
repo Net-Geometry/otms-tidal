@@ -31,7 +31,7 @@ export function useFinanceDashboard() {
         db.from('ar_invoices').select('id, total_amount, paid_amount, due_date, status').in('status', ['posted', 'partially_paid']),
         db.from('bank_accounts').select('id, current_balance').eq('is_active', true),
         db.from('payroll_runs').select('id, total_net_salary, posted_at').eq('is_posted', true),
-        db.from('payroll_runs').select('id', { count: 'exact', head: true }).eq('status', 'pending_finance'),
+        db.from('payroll_runs').select('id', { count: 'exact', head: true }).eq('status', 'finalized'),
         db.from('claims').select('id, amount, posted_at').eq('is_posted', true),
         db.from('claims').select('id', { count: 'exact', head: true }).eq('status', 'pending_finance'),
         db.from('petty_cash_transactions').select('id, txn_type, amount, txn_date, status').eq('status', 'approved'),

@@ -16,6 +16,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { createQueryClient } from "./lib/queryClient";
 import { ContentLoadingSkeleton } from "./components/ContentLoadingSkeleton";
 import { HolidayManagement } from "./components/admin/HolidayManagement";
+import { ALL_FINANCE_ROLES } from "./lib/financeRoles";
+
+const FINANCE_ROUTE_ROLES = [...ALL_FINANCE_ROLES, 'admin'] as const;
 
 // Keep auth routes eager for fast login experience
 import Auth from "./pages/Auth";
@@ -70,6 +73,7 @@ const Leave = lazy(() => import("./pages/hr/Leave"));
 const Attendance = lazy(() => import("./pages/hr/Attendance"));
 const HRClaims = lazy(() => import("./pages/hr/Claims"));
 const PayrollRunDetail = lazy(() => import("./pages/hr/PayrollRunDetail"));
+const OrgChart = lazy(() => import("./pages/hr/OrgChart"));
 
 // Lazy load Finance routes
 const ChartOfAccounts = lazy(() => import("./pages/finance/ChartOfAccounts"));
@@ -128,7 +132,7 @@ const App = () => (
                 <Route path="/admin/dashboard" element={<ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute>} />
                 <Route path="/admin/bulk-import-ot" element={<ProtectedRoute requiredRole="admin"><BulkImportOT /></ProtectedRoute>} />
                 <Route path="/hr/dashboard" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRDashboard /></ProtectedRoute>} />
-                <Route path="/finance/dashboard" element={<ProtectedRoute requiredRole={['finance', 'admin']}><FinanceDashboard /></ProtectedRoute>} />
+                <Route path="/finance/dashboard" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><FinanceDashboard /></ProtectedRoute>} />
                 <Route path="/supervisor/dashboard" element={<ProtectedRoute requiredRole="supervisor"><SupervisorDashboard /></ProtectedRoute>} />
                 <Route path="/employee/dashboard" element={<ProtectedRoute requiredRole="employee"><EmployeeDashboard /></ProtectedRoute>} />
                 <Route path="/management/dashboard" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementDashboard /></ProtectedRoute>} />
@@ -166,38 +170,39 @@ const App = () => (
                 <Route path="/hr/ot-reports" element={<ProtectedRoute requiredRole={['hr', 'admin']}><OTReports /></ProtectedRoute>} />
 
                 {/* HR extension routes */}
-                <Route path="/hr/payroll" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', 'finance']}><Payroll /></ProtectedRoute>} />
-                <Route path="/hr/payroll/:runId" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', 'finance']}><PayrollRunDetail /></ProtectedRoute>} />
+                <Route path="/hr/payroll" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', ...ALL_FINANCE_ROLES]}><Payroll /></ProtectedRoute>} />
+                <Route path="/hr/payroll/:runId" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', ...ALL_FINANCE_ROLES]}><PayrollRunDetail /></ProtectedRoute>} />
                 <Route path="/hr/leave" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Leave /></ProtectedRoute>} />
                 <Route path="/hr/attendance" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Attendance /></ProtectedRoute>} />
                 <Route path="/hr/claims" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRClaims /></ProtectedRoute>} />
+                <Route path="/hr/org-chart" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', 'director', 'gm', 'head_finance']}><OrgChart /></ProtectedRoute>} />
 
                 {/* Finance routes */}
-                <Route path="/finance/chart-of-accounts" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ChartOfAccounts /></ProtectedRoute>} />
-                <Route path="/finance/setup/coa" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ChartOfAccounts /></ProtectedRoute>} />
-                <Route path="/finance/setup/company-profile" element={<ProtectedRoute requiredRole={['finance', 'admin']}><SetupCompanyProfile /></ProtectedRoute>} />
-                <Route path="/finance/setup/doa-matrix" element={<ProtectedRoute requiredRole={['finance', 'admin']}><SetupDoaMatrix /></ProtectedRoute>} />
-                <Route path="/finance/masters/suppliers" element={<ProtectedRoute requiredRole={['finance', 'admin']}><MastersSuppliers /></ProtectedRoute>} />
-                <Route path="/finance/masters/customers" element={<ProtectedRoute requiredRole={['finance', 'admin']}><MastersCustomers /></ProtectedRoute>} />
-                <Route path="/finance/masters/bank-accounts" element={<ProtectedRoute requiredRole={['finance', 'admin']}><MastersBankAccounts /></ProtectedRoute>} />
-                <Route path="/finance/workflow" element={<ProtectedRoute requiredRole={['finance', 'admin']}><Navigate to="/finance/workflow/inbox" replace /></ProtectedRoute>} />
-                <Route path="/finance/workflow/inbox" element={<ProtectedRoute requiredRole={['finance', 'admin']}><WorkflowInbox /></ProtectedRoute>} />
-                <Route path="/finance/gl/journal-entries" element={<ProtectedRoute requiredRole={['finance', 'admin']}><JournalEntries /></ProtectedRoute>} />
-                <Route path="/finance/ap/prf" element={<ProtectedRoute requiredRole={['finance', 'admin']}><PurchaseRequisitions /></ProtectedRoute>} />
-                <Route path="/finance/ap/invoices" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ApInvoices /></ProtectedRoute>} />
-                <Route path="/finance/ap/payment-vouchers" element={<ProtectedRoute requiredRole={['finance', 'admin']}><PaymentVouchers /></ProtectedRoute>} />
-                <Route path="/finance/ar/invoices" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ArInvoices /></ProtectedRoute>} />
-                <Route path="/finance/ar/official-receipts" element={<ProtectedRoute requiredRole={['finance', 'admin']}><OfficialReceipts /></ProtectedRoute>} />
-                <Route path="/finance/ap/notes" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ApDebitCreditNotes /></ProtectedRoute>} />
-                <Route path="/finance/ar/notes" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ArDebitCreditNotes /></ProtectedRoute>} />
-                <Route path="/finance/gl/cashbook" element={<ProtectedRoute requiredRole={['finance', 'admin']}><CashBook /></ProtectedRoute>} />
-                <Route path="/finance/gl/opening-balance" element={<ProtectedRoute requiredRole={['finance', 'admin']}><OpeningBalance /></ProtectedRoute>} />
-                <Route path="/finance/bank/reconciliation" element={<ProtectedRoute requiredRole={['finance', 'admin']}><BankReconciliation /></ProtectedRoute>} />
-                <Route path="/finance/claims" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ClaimsPosting /></ProtectedRoute>} />
-                <Route path="/finance/petty-cash" element={<ProtectedRoute requiredRole={['finance', 'admin']}><PettyCash /></ProtectedRoute>} />
-                {/* <Route path="/finance/project-costing" element={<ProtectedRoute requiredRole={['finance', 'admin']}><ProjectCosting /></ProtectedRoute>} /> */}
-                <Route path="/finance/wages" element={<ProtectedRoute requiredRole={['finance', 'admin']}><Wages /></ProtectedRoute>} />
-                <Route path="/finance/reports" element={<ProtectedRoute requiredRole={['finance', 'admin']}><FinanceReports /></ProtectedRoute>} />
+                <Route path="/finance/chart-of-accounts" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ChartOfAccounts /></ProtectedRoute>} />
+                <Route path="/finance/setup/coa" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ChartOfAccounts /></ProtectedRoute>} />
+                <Route path="/finance/setup/company-profile" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><SetupCompanyProfile /></ProtectedRoute>} />
+                <Route path="/finance/setup/doa-matrix" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><SetupDoaMatrix /></ProtectedRoute>} />
+                <Route path="/finance/masters/suppliers" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><MastersSuppliers /></ProtectedRoute>} />
+                <Route path="/finance/masters/customers" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><MastersCustomers /></ProtectedRoute>} />
+                <Route path="/finance/masters/bank-accounts" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><MastersBankAccounts /></ProtectedRoute>} />
+                <Route path="/finance/workflow" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><Navigate to="/finance/workflow/inbox" replace /></ProtectedRoute>} />
+                <Route path="/finance/workflow/inbox" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><WorkflowInbox /></ProtectedRoute>} />
+                <Route path="/finance/gl/journal-entries" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><JournalEntries /></ProtectedRoute>} />
+                <Route path="/finance/ap/prf" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PurchaseRequisitions /></ProtectedRoute>} />
+                <Route path="/finance/ap/invoices" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ApInvoices /></ProtectedRoute>} />
+                <Route path="/finance/ap/payment-vouchers" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PaymentVouchers /></ProtectedRoute>} />
+                <Route path="/finance/ar/invoices" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ArInvoices /></ProtectedRoute>} />
+                <Route path="/finance/ar/official-receipts" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><OfficialReceipts /></ProtectedRoute>} />
+                <Route path="/finance/ap/notes" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ApDebitCreditNotes /></ProtectedRoute>} />
+                <Route path="/finance/ar/notes" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ArDebitCreditNotes /></ProtectedRoute>} />
+                <Route path="/finance/gl/cashbook" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><CashBook /></ProtectedRoute>} />
+                <Route path="/finance/gl/opening-balance" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><OpeningBalance /></ProtectedRoute>} />
+                <Route path="/finance/bank/reconciliation" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><BankReconciliation /></ProtectedRoute>} />
+                <Route path="/finance/claims" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ClaimsPosting /></ProtectedRoute>} />
+                <Route path="/finance/petty-cash" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PettyCash /></ProtectedRoute>} />
+                {/* <Route path="/finance/project-costing" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ProjectCosting /></ProtectedRoute>} /> */}
+                <Route path="/finance/wages" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><Wages /></ProtectedRoute>} />
+                <Route path="/finance/reports" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><FinanceReports /></ProtectedRoute>} />
 
                 {/* Management routes */}
                 <Route path="/management/approve" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementApproveOT /></ProtectedRoute>} />

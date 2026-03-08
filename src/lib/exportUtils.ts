@@ -56,3 +56,13 @@ export function exportToPDF() {
   // User can save as PDF from the print dialog
   window.print();
 }
+
+export function downloadTxtFile(content: string, filename: string): void {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}

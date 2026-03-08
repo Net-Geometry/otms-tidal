@@ -98,7 +98,7 @@ export async function generateClaimsReportPdf(input: {
 
   autoTable(doc, {
     startY: 30,
-    head: [['Ticket', 'Date', 'Employee', 'Type', 'Status', 'Amount (RM)']],
+    head: [['Ticket', 'Receipt Date', 'Employee', 'Type', 'Status', 'Amount (RM)']],
     body: input.rows.map((row) => [
       row.ticket_number,
       row.claim_date,
@@ -125,82 +125,6 @@ export async function generateClaimsReportPdf(input: {
   });
 
   doc.save(`claims-report-${input.startDate}-to-${input.endDate}.pdf`);
-}
-
-export async function generatePettyCashStatementPdf(input: {
-  periodLabel: string;
-  openingBalance: number;
-  closingBalance: number;
-  rows: Array<{
-    txn_number: string;
-    txn_date: string;
-    description: string;
-    txn_type: string;
-    status: string;
-    amount: number;
-  }>;
-}) {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  createHeader(doc, 'Petty Cash Statement', input.periodLabel);
-
-  doc.setFontSize(10);
-  doc.text(`Opening Balance: RM ${fmt(input.openingBalance)}`, 14, 32);
-  doc.text(`Closing Balance: RM ${fmt(input.closingBalance)}`, 14, 38);
-
-  autoTable(doc, {
-    startY: 44,
-    head: [['Txn #', 'Date', 'Description', 'Type', 'Status', 'Amount (RM)']],
-    body: input.rows.map((row) => [
-      row.txn_number,
-      row.txn_date,
-      row.description,
-      row.txn_type,
-      row.status,
-      fmt(row.amount),
-    ]),
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [217, 119, 6] },
-  });
-
-  doc.save(`petty-cash-statement-${input.periodLabel.replace(/\s+/g, '-').toLowerCase()}.pdf`);
-}
-
-export async function generatePaymentRegisterPdf(input: {
-  startDate: string;
-  endDate: string;
-  rows: Array<{
-    source: string;
-    reference_no: string;
-    posting_reference: string | null;
-    posted_at: string;
-    description: string;
-    amount: number;
-  }>;
-  totalAmount: number;
-}) {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  createHeader(doc, 'Payment Register', `${input.startDate} to ${input.endDate}`);
-
-  autoTable(doc, {
-    startY: 30,
-    head: [['Date', 'Source', 'Reference', 'Posting Ref', 'Description', 'Amount (RM)']],
-    body: [
-      ...input.rows.map((row) => [
-        row.posted_at,
-        row.source,
-        row.reference_no,
-        row.posting_reference || '-',
-        row.description,
-        fmt(row.amount),
-      ]),
-      ['', '', '', '', 'Grand Total', fmt(input.totalAmount)],
-    ],
-    styles: { fontSize: 8 },
-    headStyles: { fillColor: [15, 118, 110] },
-    columnStyles: { 5: { halign: 'right' } },
-  });
-
-  doc.save(`payment-register-${input.startDate}-to-${input.endDate}.pdf`);
 }
 
 // ---------------------------------------------------------------------------

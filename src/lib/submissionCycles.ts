@@ -8,11 +8,6 @@ function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
-/** Format a Date as yyyy-mm-dd */
-function fmt(d: Date): string {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 /** Get last day of a given month (1-indexed month, but we use Date trick) */
 function lastDayOfMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();

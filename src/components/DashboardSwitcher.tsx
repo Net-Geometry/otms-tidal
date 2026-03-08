@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveRole } from '@/hooks/useActiveRole';
 import { AppRole } from '@/types/otms';
+import { hasAnyFinanceRole, getFirstFinanceRole } from '@/lib/financeRoles';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -48,7 +49,11 @@ export function DashboardSwitcher() {
 
   // Get accessible dashboards for user
   const accessibleDashboards = useCallback((): DashboardOption[] => {
-    return DASHBOARD_ROUTES.filter((option) => roles.includes(option.role));
+    return DASHBOARD_ROUTES.filter((option) => {
+      // For the finance dashboard entry, check all finance roles
+      if (option.role === 'finance') return hasAnyFinanceRole(roles);
+      return roles.includes(option.role);
+    });
   }, [roles]);
 
   // Get current dashboard option
@@ -70,7 +75,11 @@ export function DashboardSwitcher() {
   const handleSwitchDashboard = (path: string, role: AppRole) => {
     localStorage.setItem(STORAGE_KEY, path);
     setPreferredDashboard(path);
-    setActiveRole(role); // Set the active role when switching dashboard
+    // When switching to finance dashboard, use user's actual finance_* role
+    const effectiveRole = role === 'finance'
+      ? (getFirstFinanceRole(roles) ?? role)
+      : role;
+    setActiveRole(effectiveRole);
     navigate(path);
   };
 

@@ -63,11 +63,10 @@ export default function Payroll() {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <Tabs value={tab} onValueChange={(v) => setTab(v as PayrollRunsFilter)}>
-                  <TabsList className="grid grid-cols-5 w-auto">
+                  <TabsList className="grid grid-cols-4 w-auto">
                     <TabsTrigger value="draft">Draft</TabsTrigger>
-                    <TabsTrigger value="pending">Pending</TabsTrigger>
-                    <TabsTrigger value="approved">Approved</TabsTrigger>
-                    <TabsTrigger value="rejected">Rejected</TabsTrigger>
+                    <TabsTrigger value="finalized">Finalized</TabsTrigger>
+                    <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
                     <TabsTrigger value="all">All</TabsTrigger>
                   </TabsList>
                 </Tabs>

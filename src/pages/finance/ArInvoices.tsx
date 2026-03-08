@@ -412,6 +412,7 @@ export default function ArInvoices() {
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Collection</TableHead>
+                      <TableHead className="text-right">Outstanding</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -432,6 +433,9 @@ export default function ArInvoices() {
                         </TableCell>
                         <TableCell>
                           {formatMoney(invoice.paid_amount)} / {formatMoney(invoice.total_amount)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatMoney(Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0))}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex flex-wrap justify-end gap-2">

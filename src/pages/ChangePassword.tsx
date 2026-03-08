@@ -24,11 +24,11 @@ export default function ChangePassword() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('status, email')
+        .select('password_change_required')
         .eq('id', user.id)
         .single();
 
-      if (profile?.status === 'active') {
+      if (!profile?.password_change_required) {
         navigate(getDefaultRoute());
       }
     };
@@ -65,7 +65,7 @@ export default function ChangePassword() {
 
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ status: 'active' })
+        .update({ password_change_required: false })
         .eq('id', user!.id);
 
       if (profileError) throw profileError;

@@ -62,9 +62,11 @@ import {
   LogOut,
   Calendar,
   Home,
-  Upload
+  Upload,
+  Network
 } from 'lucide-react';
 import { AppRole } from '@/types/otms';
+import { ALL_FINANCE_ROLES, isFinanceRole } from '@/lib/financeRoles';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -91,8 +93,10 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     financeSetup: false,
     financeCash: false,
     financeGL: false,
-    financeAP: false,
     financeAR: false,
+    financeAP: false,
+    financeCustomer: false,
+    financeSupplier: false,
     financeReports: false,
     reports: false,
     general: true, // open by default
@@ -102,16 +106,18 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
   const getActiveGroup = () => {
     // Role-aware: /hr/payroll is shared across HR, Finance, and Management groups
     if (currentPath.startsWith('/hr/payroll')) {
-      if (activeRole === 'finance') return 'financeManagement';
-      if (['management', 'director', 'gm', 'head_finance'].includes(activeRole || '')) return 'reports';
+      if (isFinanceRole(activeRole)) return 'financeManagement';
+      if (['sgm', 'management', 'director', 'gm', 'head_finance'].includes(activeRole || '')) return 'reports';
       return 'hrManagement';
     }
     if (currentPath === '/finance/dashboard' || currentPath === '/finance/workflow/inbox') return 'financeManagement';
     if (currentPath.startsWith('/finance/setup/') || currentPath.startsWith('/finance/masters/')) return 'financeSetup';
     if (currentPath.startsWith('/finance/petty-cash') || currentPath.startsWith('/finance/gl/cashbook') || currentPath.startsWith('/finance/bank/') || currentPath.startsWith('/finance/gl/opening-balance')) return 'financeCash';
     if (currentPath.startsWith('/finance/gl/') || currentPath.startsWith('/finance/claims') || currentPath.startsWith('/finance/wages')) return 'financeGL';
-    if (currentPath.startsWith('/finance/ap/')) return 'financeAP';
-    if (currentPath.startsWith('/finance/ar/')) return 'financeAR';
+    if (currentPath === '/finance/ap/prf' || currentPath === '/finance/ap/payment-vouchers') return 'financeAR';
+    if (currentPath === '/finance/ar/official-receipts') return 'financeAP';
+    if (currentPath.startsWith('/finance/ar/')) return 'financeCustomer';
+    if (currentPath.startsWith('/finance/ap/')) return 'financeSupplier';
     if (currentPath.startsWith('/finance/reports')) return 'financeReports';
     if (currentPath.includes('/dashboard')) return 'dashboards';
     if (
@@ -143,7 +149,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/hr/dashboard', label: 'HR Dashboard', icon: LayoutDashboard, roles: ['hr', 'admin'] },
         { path: '/supervisor/dashboard', label: 'Supervisor Dashboard', icon: LayoutDashboard, roles: ['supervisor'] },
         { path: '/employee/dashboard', label: 'Employee Dashboard', icon: LayoutDashboard, roles: ['employee'] },
-        { path: '/management/dashboard', label: 'Management Dashboard', icon: LayoutDashboard, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/dashboard', label: 'Management Dashboard', icon: LayoutDashboard, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     otManagement: {
@@ -161,7 +167,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/supervisor/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/supervisor/approve-claims', label: 'Approve Claims', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/hr/approve', label: 'Certify OT', icon: CheckCircle, roles: ['hr', 'admin'] },
-        { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     hrManagement: {
@@ -169,7 +175,8 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/hr/employees', label: 'Employees', icon: Users, roles: ['hr', 'admin'] },
         { path: '/hr/departments', label: 'Departments', icon: Building2, roles: ['hr', 'admin'] },
-        { path: '/hr/payroll', label: 'Payroll', icon: Wallet, roles: ['hr', 'admin', 'management', 'finance'] },
+        { path: '/hr/org-chart', label: 'Org Chart', icon: Network, roles: ['hr', 'admin', 'management', 'director', 'gm', 'head_finance'] },
+        { path: '/hr/payroll', label: 'Payroll', icon: Wallet, roles: ['hr', 'admin', 'management', ...ALL_FINANCE_ROLES] },
         { path: '/hr/leave', label: 'Leave', icon: CalendarOff, roles: ['hr', 'admin'] },
         { path: '/hr/attendance', label: 'Attendance', icon: Clock, roles: ['hr', 'admin'] },
         { path: '/hr/claims', label: 'Claims', icon: Receipt, roles: ['hr', 'admin'] },
@@ -178,78 +185,90 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     financeManagement: {
       label: 'Finance',
       items: [
-        { path: '/finance/dashboard', label: 'Finance Dashboard', icon: LayoutDashboard, roles: ['finance', 'admin'] },
-        { path: '/finance/workflow/inbox', label: 'Approval Inbox', icon: CheckCircle, roles: ['finance', 'admin'] },
-        { path: '/hr/payroll', label: 'Payroll Approval', icon: Wallet, roles: ['finance', 'admin'] },
+        { path: '/finance/dashboard', label: 'Finance Dashboard', icon: LayoutDashboard, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/workflow/inbox', label: 'Approval Inbox', icon: CheckCircle, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/hr/payroll', label: 'Payroll Approval', icon: Wallet, roles: [...ALL_FINANCE_ROLES, 'admin'] },
       ],
     },
     financeSetup: {
       label: 'Finance Setup',
       items: [
-        { path: '/finance/setup/company-profile', label: 'Company Profile', icon: Building2, roles: ['finance', 'admin'] },
-        { path: '/finance/setup/coa', label: 'Chart of Accounts', icon: BookOpen, roles: ['finance', 'admin'] },
-        { path: '/finance/setup/doa-matrix', label: 'DOA Matrix', icon: CheckCircle, roles: ['finance', 'admin'] },
-        { path: '/finance/masters/suppliers', label: 'Suppliers', icon: Users, roles: ['finance', 'admin'] },
-        { path: '/finance/masters/customers', label: 'Customers', icon: Users, roles: ['finance', 'admin'] },
-        { path: '/finance/masters/bank-accounts', label: 'Bank Accounts', icon: Banknote, roles: ['finance', 'admin'] },
+        { path: '/finance/setup/company-profile', label: 'Company Profile', icon: Building2, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/setup/coa', label: 'Chart of Accounts', icon: BookOpen, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/setup/doa-matrix', label: 'DOA Matrix', icon: CheckCircle, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/masters/suppliers', label: 'Suppliers', icon: Users, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/masters/customers', label: 'Customers', icon: Users, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/masters/bank-accounts', label: 'Bank Accounts', icon: Banknote, roles: [...ALL_FINANCE_ROLES, 'admin'] },
       ],
     },
     financeCash: {
       label: 'Cash & Banking',
       items: [
-        { path: '/finance/petty-cash', label: 'Petty Cash', icon: Wallet, roles: ['finance', 'admin'] },
-        { path: '/finance/gl/cashbook', label: 'Cash Book', icon: BookOpen, roles: ['finance', 'admin'] },
-        { path: '/finance/bank/reconciliation', label: 'Bank Reconciliation', icon: CheckCircle, roles: ['finance', 'admin'] },
-        { path: '/finance/gl/opening-balance', label: 'Opening Balance', icon: BookOpen, roles: ['finance', 'admin'] },
+        { path: '/finance/petty-cash', label: 'Petty Cash', icon: Wallet, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/gl/cashbook', label: 'Cash Book', icon: BookOpen, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/bank/reconciliation', label: 'Bank Reconciliation', icon: CheckCircle, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/gl/opening-balance', label: 'Opening Balance', icon: BookOpen, roles: [...ALL_FINANCE_ROLES, 'admin'] },
       ],
     },
     financeGL: {
       label: 'General Ledger',
       items: [
-        { path: '/finance/gl/journal-entries', label: 'Journal Entries', icon: BookOpen, roles: ['finance', 'admin'] },
-        { path: '/finance/claims', label: 'Claims Posting', icon: Receipt, roles: ['finance', 'admin'] },
-        { path: '/finance/wages', label: 'Wages', icon: Banknote, roles: ['finance', 'admin'] },
-        // { path: '/finance/project-costing', label: 'Project Costing', icon: BarChart3, roles: ['finance', 'admin'] },
-      ],
-    },
-    financeAP: {
-      label: 'Accounts Payable',
-      items: [
-        { path: '/finance/ap/prf', label: 'Payment Requisitions', icon: FileText, roles: ['finance', 'admin'] },
-        { path: '/finance/ap/invoices', label: 'AP Invoices', icon: Receipt, roles: ['finance', 'admin'] },
-        { path: '/finance/ap/payment-vouchers', label: 'Payment Vouchers', icon: CreditCard, roles: ['finance', 'admin'] },
-        { path: '/finance/ap/notes', label: 'AP Debit/Credit Notes', icon: FileText, roles: ['finance', 'admin'] },
+        { path: '/finance/gl/journal-entries', label: 'Journal Entries', icon: BookOpen, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/claims', label: 'Claims Posting', icon: Receipt, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/wages', label: 'Wages', icon: Banknote, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        // { path: '/finance/project-costing', label: 'Project Costing', icon: BarChart3, roles: [...ALL_FINANCE_ROLES, 'admin'] },
       ],
     },
     financeAR: {
       label: 'Accounts Receivable',
       items: [
-        { path: '/finance/ar/invoices', label: 'AR Invoices', icon: Receipt, roles: ['finance', 'admin'] },
-        { path: '/finance/ar/official-receipts', label: 'Official Receipts', icon: CreditCard, roles: ['finance', 'admin'] },
-        { path: '/finance/ar/notes', label: 'AR Debit/Credit Notes', icon: FileText, roles: ['finance', 'admin'] },
+        { path: '/finance/ap/prf', label: 'Payment Requisitions', icon: FileText, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/ap/payment-vouchers', label: 'Payment Vouchers', icon: CreditCard, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+      ],
+    },
+    financeAP: {
+      label: 'Accounts Payable',
+      items: [
+        { path: '/finance/ar/official-receipts', label: 'Official Receipts', icon: CreditCard, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+      ],
+    },
+    financeCustomer: {
+      label: 'Customer Master',
+      items: [
+        { path: '/finance/ar/notes', label: 'AR Debit/Credit Notes', icon: FileText, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/ar/invoices', label: 'AR Invoices', icon: Receipt, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/ar/payments', label: 'AR Payment', icon: CreditCard, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+      ],
+    },
+    financeSupplier: {
+      label: 'Supplier Master',
+      items: [
+        { path: '/finance/ap/notes', label: 'AP Debit/Credit Notes', icon: FileText, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/ap/invoices', label: 'AP Invoices', icon: Receipt, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/finance/ap/payments', label: 'AP Payment', icon: CreditCard, roles: [...ALL_FINANCE_ROLES, 'admin'] },
       ],
     },
     financeReports: {
       label: 'Finance Reports',
       items: [
-        { path: '/finance/reports', label: 'Finance Reports', icon: FileText, roles: ['finance', 'admin'] },
+        { path: '/finance/reports', label: 'Finance Reports', icon: FileText, roles: [...ALL_FINANCE_ROLES, 'admin'] },
       ],
     },
     reports: {
       label: 'Reports',
       items: [
         { path: '/hr/ot-reports', label: 'OT Reports', icon: FileText, roles: ['hr', 'admin'] },
-        { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
-        { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
-        { path: '/hr/payroll', label: 'Approve Payroll', icon: Wallet, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
-        { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/hr/payroll', label: 'Approve Payroll', icon: Wallet, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     general: {
       label: 'General',
       items: [
-        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', 'finance', 'supervisor', 'employee', 'management', 'director', 'gm', 'head_finance'] },
-        { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', 'finance', 'supervisor', 'employee', 'management', 'director', 'gm', 'head_finance'] },
+        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', ...ALL_FINANCE_ROLES, 'supervisor', 'employee', 'sgm', 'management', 'director', 'gm', 'head_finance'] },
+        { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', ...ALL_FINANCE_ROLES, 'supervisor', 'employee', 'sgm', 'management', 'director', 'gm', 'head_finance'] },
       ],
     },
   };
@@ -351,10 +370,16 @@ export function AppLayout({ children }: AppLayoutProps) {
       'finance': 'Finance',
       'supervisor': 'Supervisor',
       'employee': 'Employee',
+      'sgm': 'Senior General Manager',
       'management': 'Management',
       'director': 'Director',
       'gm': 'General Manager',
       'head_finance': 'Head of Finance',
+      'account_assistant': 'Account Assistant',
+      'assistant_manager': 'Assistant Manager',
+      'manager': 'Manager',
+      'dmd': 'Deputy Manager Director',
+      'account_exec': 'Account Executive',
       'dashboard': 'Dashboard',
       'approve': 'Approve OT',
       'verify': 'Verify OT',
@@ -394,6 +419,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       // 'project-costing': 'Project Costing',
       'wages': 'Wages',
       'ot-reports': 'OT Reports',
+      'org-chart': 'Organization Chart',
       'report': 'Report',
       'ot': 'OT',
       'submit': 'Submit OT',

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AppRole } from '@/types/otms';
+import { getFirstFinanceRole, FINANCE_SPECIFIC_ROLES } from '@/lib/financeRoles';
 import { useAuth } from './useAuth';
 
 interface ActiveRoleContextType {
@@ -20,7 +21,10 @@ function getPreferredRoleFromPath(roles: AppRole[]): AppRole | null {
   const path = window.location.pathname;
   
   // Map paths to preferred roles
-  if (path.startsWith('/finance/') && roles.includes('finance')) return 'finance';
+  if (path.startsWith('/finance/')) {
+    const finRole = getFirstFinanceRole(roles);
+    if (finRole) return finRole;
+  }
   if (path.startsWith('/hr/') && roles.includes('hr')) return 'hr';
   if (path.startsWith('/supervisor/') && roles.includes('supervisor')) return 'supervisor';
   if (path.startsWith('/management/') && roles.includes('management')) return 'management';
@@ -54,7 +58,12 @@ export function ActiveRoleProvider({ children }: ActiveRoleProviderProps) {
     }
 
     // Fall back to default priority order
-    const roleOrder: AppRole[] = ['admin', 'hr', 'finance', 'management', 'supervisor', 'employee'];
+    const roleOrder: AppRole[] = [
+      'admin', 'hr',
+      ...FINANCE_SPECIFIC_ROLES, 'finance',
+      'sgm', 'management', 'director', 'gm', 'head_finance',
+      'supervisor', 'employee',
+    ];
     const newActiveRole = roleOrder.find((role) => roles.includes(role)) || roles[0] || null;
     setActiveRole(newActiveRole);
   }, [roles, activeRole]);

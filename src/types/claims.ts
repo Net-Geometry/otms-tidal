@@ -27,6 +27,7 @@ export interface ClaimType {
   final_approver_user_id?: string | null;
   limit_amount: number | null;
   limit_period: string | null;
+  requires_attachment: boolean;
   is_active: boolean;
   sort_order?: number;
   created_at?: string;

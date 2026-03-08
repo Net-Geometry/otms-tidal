@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { AppRole, Profile } from '@/types/otms';
+import { hasAnyFinanceRole } from '@/lib/financeRoles';
 import { toast } from 'sonner';
 
 // Query Keys
@@ -100,7 +101,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         .single();
       
       if (error) throw error;
-      return data as Profile;
+      return data as unknown as Profile;
     },
     enabled: !!session?.user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -237,7 +238,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Priority order for role-based routing
     if (roles.includes('admin')) return '/admin/dashboard';
     if (roles.includes('hr')) return '/hr/dashboard';
-    if (roles.includes('finance')) return '/finance/dashboard';
+    if (hasAnyFinanceRole(roles)) return '/finance/dashboard';
+    if (roles.includes('sgm')) return '/management/dashboard';
     if (roles.includes('management')) return '/management/dashboard';
     if (roles.includes('director')) return '/management/dashboard';
     if (roles.includes('gm')) return '/management/dashboard';

@@ -154,6 +154,7 @@ export interface Profile {
   company?: { id: string; name: string; code: string } | null;
   department?: { id: string; name: string; code: string } | null;
   position_obj?: Position | null;
+  password_change_required?: boolean;
   created_at: string;
   updated_at: string;
 }

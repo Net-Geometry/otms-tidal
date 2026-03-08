@@ -86,8 +86,11 @@ export function PayrollItemsTable({
               <TableHead className="text-right">Basic</TableHead>
               <TableHead className="text-right">Gross</TableHead>
               <TableHead className="text-right">EPF (EE)</TableHead>
+              <TableHead className="text-right">EPF (ER)</TableHead>
               <TableHead className="text-right">SOCSO (EE)</TableHead>
+              <TableHead className="text-right">SOCSO (ER)</TableHead>
               <TableHead className="text-right">EIS (EE)</TableHead>
+              <TableHead className="text-right">EIS (ER)</TableHead>
               <TableHead className="text-right">PCB</TableHead>
               <TableHead className="text-right">Deductions</TableHead>
               <TableHead className="text-right">Allowances</TableHead>
@@ -124,8 +127,11 @@ export function PayrollItemsTable({
                   <TableCell className="text-right">{fmt(item.basic_salary)}</TableCell>
                   <TableCell className="text-right">{fmt(item.gross_salary)}</TableCell>
                   <TableCell className="text-right">{fmt(item.employee_epf)}</TableCell>
+                  <TableCell className="text-right">{fmt(item.employer_epf)}</TableCell>
                   <TableCell className="text-right">{fmt(item.employee_socso)}</TableCell>
+                  <TableCell className="text-right">{fmt(item.employer_socso)}</TableCell>
                   <TableCell className="text-right">{fmt(item.employee_eis)}</TableCell>
+                  <TableCell className="text-right">{fmt(item.employer_eis)}</TableCell>
                   <TableCell className="text-right">{fmt(item.pcb_amount)}</TableCell>
                   <TableCell className="text-right">{fmt(item.total_deductions)}</TableCell>
                   <TableCell className="text-right">{fmt(item.total_allowances)}</TableCell>

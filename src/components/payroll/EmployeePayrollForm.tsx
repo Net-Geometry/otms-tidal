@@ -104,9 +104,26 @@ export function EmployeePayrollForm({
       0
     );
 
+    // Calculate EPF-subject allowances total
+    const epfSubjectAllowances = allowanceTypes.reduce((sum, at) => {
+      if (at.is_epf_subject) {
+        return sum + (Number(allowances[at.id] || 0));
+      }
+      return sum;
+    }, 0);
+
     const grossPay = round2(Number(item.pro_rated_salary) + ot - unpaidDeduction);
 
-    const empEpf = epfEnabled ? Number(item.employee_epf) : 0;
+    // Recalculate EPF if there are EPF-subject allowances
+    const notes = item.calculation_notes || {};
+    const employerEpfPct = Number(notes.employer_epf_pct || 0) / 100;
+    const employeeEpfPct = Number(notes.employee_epf_pct || 0) / 100;
+
+    const baseEmpEpf = Number(item.employee_epf);
+    const baseErEpf = Number(item.employer_epf);
+    const empEpf = epfEnabled
+      ? round2(baseEmpEpf + (epfSubjectAllowances * employeeEpfPct))
+      : 0;
     const empSocso = socsoEnabled ? Number(item.employee_socso) : 0;
     const empEis = eisEnabled ? Number(item.employee_eis) : 0;
     const pcb = pcbEnabled ? Number(item.pcb_amount) : 0;
@@ -122,7 +139,9 @@ export function EmployeePayrollForm({
       grossPay + totalAllowancesSum - totalDeductions
     );
 
-    const erEpf = epfEnabled ? Number(item.employer_epf) : 0;
+    const erEpf = epfEnabled
+      ? round2(baseErEpf + (epfSubjectAllowances * employerEpfPct))
+      : 0;
     const erSocso = socsoEnabled ? Number(item.employer_socso) : 0;
     const erEis = eisEnabled ? Number(item.employer_eis) : 0;
     const erHrdc = Number(item.employer_hrdc);
@@ -138,12 +157,15 @@ export function EmployeePayrollForm({
       companyContrib,
       directorFee,
       unpaidDeduction,
+      empEpf,
+      erEpf,
     };
   }, [
     item,
     otAmount,
     unpaidDays,
     allowances,
+    allowanceTypes,
     deductions,
     epfEnabled,
     socsoEnabled,
@@ -170,8 +192,8 @@ export function EmployeePayrollForm({
         total_allowances: round2(summary.totalAllowancesSum),
         total_deductions: summary.totalDeductions,
         net_salary: summary.netPay,
-        employee_epf: epfEnabled ? Number(item.employee_epf) : 0,
-        employer_epf: epfEnabled ? Number(item.employer_epf) : 0,
+        employee_epf: summary.empEpf,
+        employer_epf: summary.erEpf,
         employee_socso: socsoEnabled ? Number(item.employee_socso) : 0,
         employer_socso: socsoEnabled ? Number(item.employer_socso) : 0,
         employee_eis: eisEnabled ? Number(item.employee_eis) : 0,

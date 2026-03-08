@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { PayrollRun, PayrollItem } from '@/types/payroll';
 
@@ -13,7 +13,7 @@ export function usePayrollRun(runId: string | undefined) {
         .from('payroll_runs')
         .select(`
           *,
-          companies:companies!payroll_runs_company_id_fkey(id, name)
+          companies:companies!payroll_runs_company_id_fkey(id, name, code, socso_employer_no, epf_employer_no)
         `)
         .eq('id', runId)
         .single();
@@ -41,6 +41,7 @@ export function usePayrollRun(runId: string | undefined) {
             epf_no,
             socso_no,
             income_tax_no,
+            ic_no,
             bank_name,
             bank_account_no
           ),

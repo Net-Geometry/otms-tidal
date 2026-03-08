@@ -35,7 +35,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useCompanies } from '@/hooks/hr/useCompanies';
-import { useBankAccounts, useCustomers } from '@/hooks/finance/useFinanceFoundation';
+import { useBankAccounts } from '@/hooks/finance/useFinanceFoundation';
 import {
   useApproveOR,
   useArInvoices,
@@ -55,7 +55,7 @@ import {
 
 interface OfficialReceiptFormState {
   company_id: string;
-  customer_id: string;
+  received_from: string;
   bank_account_id: string;
   receipt_date: string;
   payment_method: ArPaymentMethod;
@@ -76,7 +76,7 @@ function formatMoney(value: number) {
 function makeInitialForm(companyId: string): OfficialReceiptFormState {
   return {
     company_id: companyId,
-    customer_id: '',
+    received_from: '',
     bank_account_id: '',
     receipt_date: new Date().toISOString().slice(0, 10),
     payment_method: 'online_transfer',
@@ -89,12 +89,10 @@ function makeInitialForm(companyId: string): OfficialReceiptFormState {
 export default function OfficialReceipts() {
   const { toast } = useToast();
   const { data: companies = [] } = useCompanies();
-  const customers = useCustomers();
   const bankAccounts = useBankAccounts();
 
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ArReceiptStatus>('all');
-  const [customerFilter, setCustomerFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
@@ -106,15 +104,13 @@ export default function OfficialReceipts() {
   const receipts = useOfficialReceipts({
     companyId: companyFilter === 'all' ? undefined : companyFilter,
     status: statusFilter,
-    customerId: customerFilter === 'all' ? undefined : customerFilter,
     search,
     page,
     pageSize: 12,
   });
 
-  const customerInvoices = useArInvoices({
+  const companyInvoices = useArInvoices({
     companyId: form.company_id || undefined,
-    customerId: form.customer_id || undefined,
     status: 'all',
     page: 1,
     pageSize: 200,
@@ -137,7 +133,7 @@ export default function OfficialReceipts() {
   const totalPages = receipts.data?.totalPages || 0;
 
   const outstandingInvoices = useMemo(() => {
-    return (customerInvoices.data?.rows || [])
+    return (companyInvoices.data?.rows || [])
       .filter((invoice) => ['posted', 'partially_paid'].includes(invoice.status))
       .map((invoice) => {
         const outstanding = Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0);
@@ -147,7 +143,7 @@ export default function OfficialReceipts() {
         };
       })
       .filter((invoice) => invoice.outstanding > 0.0001);
-  }, [customerInvoices.data]);
+  }, [companyInvoices.data]);
 
   const outstandingByInvoiceId = useMemo(() => {
     const map = new Map<string, number>();
@@ -160,11 +156,6 @@ export default function OfficialReceipts() {
   const totalAllocated = useMemo(() => {
     return Object.values(form.allocations).reduce((sum, value) => sum + Number(value || 0), 0);
   }, [form.allocations]);
-
-  const filteredCustomers = useMemo(() => {
-    if (!form.company_id) return customers.customers;
-    return customers.customers.filter((customer) => customer.company_id === form.company_id);
-  }, [customers.customers, form.company_id]);
 
   const filteredBankAccounts = useMemo(() => {
     if (!form.company_id) return bankAccounts.bankAccounts;
@@ -190,7 +181,7 @@ export default function OfficialReceipts() {
     setEditingReceipt(receipt);
     setForm({
       company_id: receipt.company_id,
-      customer_id: receipt.customer_id,
+      received_from: receipt.received_from || receipt.customer?.customer_name || '',
       bank_account_id: receipt.bank_account_id,
       receipt_date: receipt.receipt_date,
       payment_method: receipt.payment_method,
@@ -230,8 +221,8 @@ export default function OfficialReceipts() {
       return;
     }
 
-    if (!form.customer_id) {
-      toast({ title: 'Customer is required', variant: 'destructive' });
+    if (!form.received_from.trim()) {
+      toast({ title: 'Received From is required', variant: 'destructive' });
       return;
     }
 
@@ -267,7 +258,7 @@ export default function OfficialReceipts() {
     const payload = {
       id: editingReceipt?.id,
       company_id: form.company_id,
-      customer_id: form.customer_id,
+      received_from: form.received_from.trim(),
       bank_account_id: form.bank_account_id,
       receipt_date: form.receipt_date,
       payment_method: form.payment_method,
@@ -300,7 +291,7 @@ export default function OfficialReceipts() {
       >
         <Card>
           <CardContent className="pt-6">
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-3">
               <Select
                 value={companyFilter}
                 onValueChange={(value) => {
@@ -341,26 +332,6 @@ export default function OfficialReceipts() {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={customerFilter}
-                onValueChange={(value) => {
-                  setCustomerFilter(value);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Customer" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Customers</SelectItem>
-                  {customers.customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.customer_code} - {customer.customer_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
               <Input
                 placeholder="Search receipt number or reference"
                 value={search}
@@ -386,7 +357,7 @@ export default function OfficialReceipts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Receipt No</TableHead>
-                      <TableHead>Customer</TableHead>
+                      <TableHead>Received From</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead className="text-right">Amount</TableHead>
@@ -398,7 +369,7 @@ export default function OfficialReceipts() {
                     {rows.map((receipt) => (
                       <TableRow key={receipt.id}>
                         <TableCell className="font-medium">{receipt.receipt_number || 'Draft'}</TableCell>
-                        <TableCell>{receipt.customer?.customer_name || '-'}</TableCell>
+                        <TableCell>{receipt.received_from || receipt.customer?.customer_name || '-'}</TableCell>
                         <TableCell>{format(new Date(receipt.receipt_date), 'dd MMM yyyy')}</TableCell>
                         <TableCell>{AR_PAYMENT_METHOD_LABELS[receipt.payment_method]}</TableCell>
                         <TableCell className="text-right">{formatMoney(receipt.total_amount)}</TableCell>
@@ -511,23 +482,12 @@ export default function OfficialReceipts() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Customer</Label>
-                  <Select
-                    value={form.customer_id || 'none'}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, customer_id: value === 'none' ? '' : value, allocations: {} }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Select customer</SelectItem>
-                      {filteredCustomers.map((customer) => (
-                        <SelectItem key={customer.id} value={customer.id}>
-                          {customer.customer_code} - {customer.customer_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Received From *</Label>
+                  <Input
+                    value={form.received_from}
+                    onChange={(event) => setForm((prev) => ({ ...prev, received_from: event.target.value }))}
+                    placeholder="Name of payer"
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -605,10 +565,10 @@ export default function OfficialReceipts() {
                   <CardTitle className="text-sm">Outstanding AR Invoices</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {!form.customer_id ? (
-                    <p className="text-sm text-muted-foreground">Select customer to load outstanding invoices.</p>
+                  {!form.company_id ? (
+                    <p className="text-sm text-muted-foreground">Select company to load outstanding invoices.</p>
                   ) : !outstandingInvoices.length ? (
-                    <p className="text-sm text-muted-foreground">No outstanding invoices for this customer.</p>
+                    <p className="text-sm text-muted-foreground">No outstanding invoices for this company.</p>
                   ) : (
                     <div className="rounded-md border">
                       <Table>
@@ -690,7 +650,7 @@ export default function OfficialReceipts() {
               <div className="space-y-4">
                 <div className="grid gap-2 text-sm md:grid-cols-2">
                   <p><span className="text-muted-foreground">Receipt No:</span> {detailReceipt.receipt_number || 'Draft'}</p>
-                  <p><span className="text-muted-foreground">Customer:</span> {detailReceipt.customer?.customer_name || '-'}</p>
+                  <p><span className="text-muted-foreground">Received From:</span> {detailReceipt.received_from || detailReceipt.customer?.customer_name || '-'}</p>
                   <p><span className="text-muted-foreground">Receipt Date:</span> {format(new Date(detailReceipt.receipt_date), 'dd MMM yyyy')}</p>
                   <p><span className="text-muted-foreground">Method:</span> {AR_PAYMENT_METHOD_LABELS[detailReceipt.payment_method]}</p>
                   <p><span className="text-muted-foreground">Status:</span> {AR_RECEIPT_STATUS_LABELS[detailReceipt.status]}</p>
