@@ -107,7 +107,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
     // Role-aware: /hr/payroll is shared across HR, Finance, and Management groups
     if (currentPath.startsWith('/hr/payroll')) {
       if (isFinanceRole(activeRole)) return 'financeManagement';
-      if (['sgm', 'management', 'director', 'gm', 'head_finance'].includes(activeRole || '')) return 'reports';
+      if (['sgm', 'dmd', 'management', 'director', 'gm', 'head_finance'].includes(activeRole || '')) return 'reports';
       return 'hrManagement';
     }
     if (currentPath === '/finance/dashboard' || currentPath === '/finance/workflow/inbox') return 'financeManagement';
@@ -149,7 +149,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/hr/dashboard', label: 'HR Dashboard', icon: LayoutDashboard, roles: ['hr', 'admin'] },
         { path: '/supervisor/dashboard', label: 'Supervisor Dashboard', icon: LayoutDashboard, roles: ['supervisor'] },
         { path: '/employee/dashboard', label: 'Employee Dashboard', icon: LayoutDashboard, roles: ['employee'] },
-        { path: '/management/dashboard', label: 'Management Dashboard', icon: LayoutDashboard, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/dashboard', label: 'Management Dashboard', icon: LayoutDashboard, roles: ['sgm', 'dmd', 'management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     otManagement: {
@@ -167,7 +167,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/supervisor/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/supervisor/approve-claims', label: 'Approve Claims', icon: CheckCircle, roles: ['supervisor', 'admin'] },
         { path: '/hr/approve', label: 'Certify OT', icon: CheckCircle, roles: ['hr', 'admin'] },
-        { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/approve', label: 'Approve OT', icon: CheckCircle, roles: ['sgm', 'dmd', 'management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     hrManagement: {
@@ -175,11 +175,12 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       items: [
         { path: '/hr/employees', label: 'Employees', icon: Users, roles: ['hr', 'admin'] },
         { path: '/hr/departments', label: 'Departments', icon: Building2, roles: ['hr', 'admin'] },
-        { path: '/hr/org-chart', label: 'Org Chart', icon: Network, roles: ['hr', 'admin', 'management', 'director', 'gm', 'head_finance'] },
+        { path: '/hr/org-chart', label: 'Org Chart', icon: Network, roles: ['hr', 'admin', 'sgm', 'dmd', 'management', 'director', 'gm', 'head_finance'] },
         { path: '/hr/payroll', label: 'Payroll', icon: Wallet, roles: ['hr', 'admin', 'management', ...ALL_FINANCE_ROLES] },
         { path: '/hr/leave', label: 'Leave', icon: CalendarOff, roles: ['hr', 'admin'] },
         { path: '/hr/attendance', label: 'Attendance', icon: Clock, roles: ['hr', 'admin'] },
         { path: '/hr/claims', label: 'Claims', icon: Receipt, roles: ['hr', 'admin'] },
+        { path: '/hr/claim-memo', label: 'Claim Memo', icon: FileText, roles: ['hr', 'admin'] },
       ],
     },
     financeManagement: {
@@ -188,6 +189,7 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
         { path: '/finance/dashboard', label: 'Finance Dashboard', icon: LayoutDashboard, roles: [...ALL_FINANCE_ROLES, 'admin'] },
         { path: '/finance/workflow/inbox', label: 'Approval Inbox', icon: CheckCircle, roles: [...ALL_FINANCE_ROLES, 'admin'] },
         { path: '/hr/payroll', label: 'Payroll Approval', icon: Wallet, roles: [...ALL_FINANCE_ROLES, 'admin'] },
+        { path: '/hr/claim-memo', label: 'Claim Memo', icon: FileText, roles: [...ALL_FINANCE_ROLES, 'admin'] },
       ],
     },
     financeSetup: {
@@ -258,17 +260,18 @@ function AppSidebar({ activeRole }: AppSidebarProps) {
       label: 'Reports',
       items: [
         { path: '/hr/ot-reports', label: 'OT Reports', icon: FileText, roles: ['hr', 'admin'] },
-        { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
-        { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
-        { path: '/hr/payroll', label: 'Approve Payroll', icon: Wallet, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
-        { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['sgm', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle, roles: ['sgm', 'dmd', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt, roles: ['sgm', 'dmd', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/hr/payroll', label: 'Approve Payroll', icon: Wallet, roles: ['sgm', 'dmd', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/hr/claim-memo', label: 'Claim Memo', icon: FileText, roles: ['sgm', 'dmd', 'management', 'director', 'gm', 'head_finance', 'admin'] },
+        { path: '/management/report', label: 'Management Report', icon: Eye, roles: ['sgm', 'dmd', 'management', 'director', 'gm', 'head_finance', 'admin'] },
       ],
     },
     general: {
       label: 'General',
       items: [
-        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', ...ALL_FINANCE_ROLES, 'supervisor', 'employee', 'sgm', 'management', 'director', 'gm', 'head_finance'] },
-        { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', ...ALL_FINANCE_ROLES, 'supervisor', 'employee', 'sgm', 'management', 'director', 'gm', 'head_finance'] },
+        { path: getCalendarPath(activeRole), label: 'Calendar', icon: Calendar, roles: ['admin', 'hr', ...ALL_FINANCE_ROLES, 'supervisor', 'employee', 'sgm', 'dmd', 'management', 'director', 'gm', 'head_finance'] },
+        { path: '/settings', label: 'Settings', icon: Settings, roles: ['admin', 'hr', ...ALL_FINANCE_ROLES, 'supervisor', 'employee', 'sgm', 'dmd', 'management', 'director', 'gm', 'head_finance'] },
       ],
     },
   };
@@ -387,6 +390,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       'employees': 'Employees',
       'departments': 'Departments',
       'payroll': 'Payroll',
+      'claim-memo': 'Claim Memo',
       'payslips': 'My Payslips',
       'leave': 'Leave',
       'attendance': 'Attendance',

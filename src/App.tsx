@@ -19,6 +19,7 @@ import { HolidayManagement } from "./components/admin/HolidayManagement";
 import { ALL_FINANCE_ROLES } from "./lib/financeRoles";
 
 const FINANCE_ROUTE_ROLES = [...ALL_FINANCE_ROLES, 'admin'] as const;
+const MANAGEMENT_ROUTE_ROLES = ['management', 'director', 'gm', 'sgm', 'dmd', 'head_finance', 'admin'] as const;
 
 // Keep auth routes eager for fast login experience
 import Auth from "./pages/Auth";
@@ -74,6 +75,7 @@ const Attendance = lazy(() => import("./pages/hr/Attendance"));
 const HRClaims = lazy(() => import("./pages/hr/Claims"));
 const PayrollRunDetail = lazy(() => import("./pages/hr/PayrollRunDetail"));
 const OrgChart = lazy(() => import("./pages/hr/OrgChart"));
+const ClaimMemoPage = lazy(() => import("./pages/hr/ClaimMemo"));
 
 // Lazy load Finance routes
 const ChartOfAccounts = lazy(() => import("./pages/finance/ChartOfAccounts"));
@@ -135,7 +137,7 @@ const App = () => (
                 <Route path="/finance/dashboard" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><FinanceDashboard /></ProtectedRoute>} />
                 <Route path="/supervisor/dashboard" element={<ProtectedRoute requiredRole="supervisor"><SupervisorDashboard /></ProtectedRoute>} />
                 <Route path="/employee/dashboard" element={<ProtectedRoute requiredRole="employee"><EmployeeDashboard /></ProtectedRoute>} />
-                <Route path="/management/dashboard" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementDashboard /></ProtectedRoute>} />
+                <Route path="/management/dashboard" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementDashboard /></ProtectedRoute>} />
                 
                 {/* Fallback dashboard */}
                 <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -175,7 +177,8 @@ const App = () => (
                 <Route path="/hr/leave" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Leave /></ProtectedRoute>} />
                 <Route path="/hr/attendance" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Attendance /></ProtectedRoute>} />
                 <Route path="/hr/claims" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRClaims /></ProtectedRoute>} />
-                <Route path="/hr/org-chart" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', 'director', 'gm', 'head_finance']}><OrgChart /></ProtectedRoute>} />
+                <Route path="/hr/org-chart" element={<ProtectedRoute requiredRole={['hr', ...MANAGEMENT_ROUTE_ROLES]}><OrgChart /></ProtectedRoute>} />
+                <Route path="/hr/claim-memo" element={<ProtectedRoute requiredRole={['hr', ...MANAGEMENT_ROUTE_ROLES, ...ALL_FINANCE_ROLES]}><ClaimMemoPage /></ProtectedRoute>} />
 
                 {/* Finance routes */}
                 <Route path="/finance/chart-of-accounts" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ChartOfAccounts /></ProtectedRoute>} />
@@ -205,10 +208,10 @@ const App = () => (
                 <Route path="/finance/reports" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><FinanceReports /></ProtectedRoute>} />
 
                 {/* Management routes */}
-                <Route path="/management/approve" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementApproveOT /></ProtectedRoute>} />
-                <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementApproveLeave /></ProtectedRoute>} />
-                <Route path="/management/approve-claims" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ManagementApproveClaims /></ProtectedRoute>} />
-                <Route path="/management/report" element={<ProtectedRoute requiredRole={['management', 'director', 'gm', 'head_finance', 'admin']}><ReviewOT /></ProtectedRoute>} />
+                <Route path="/management/approve" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveOT /></ProtectedRoute>} />
+                <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveLeave /></ProtectedRoute>} />
+                <Route path="/management/approve-claims" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveClaims /></ProtectedRoute>} />
+                <Route path="/management/report" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ReviewOT /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />
                 </Routes>

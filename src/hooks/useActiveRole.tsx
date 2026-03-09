@@ -61,7 +61,7 @@ export function ActiveRoleProvider({ children }: ActiveRoleProviderProps) {
     const roleOrder: AppRole[] = [
       'admin', 'hr',
       ...FINANCE_SPECIFIC_ROLES, 'finance',
-      'sgm', 'management', 'director', 'gm', 'head_finance',
+      'sgm', 'dmd', 'management', 'director', 'gm', 'head_finance',
       'supervisor', 'employee',
     ];
     const newActiveRole = roleOrder.find((role) => roles.includes(role)) || roles[0] || null;
