@@ -106,6 +106,7 @@ const ReviewOT = lazy(() => import("./pages/management/ReviewOT"));
 const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
 const ManagementApproveLeave = lazy(() => import("./pages/management/ApproveLeave"));
 const ManagementApproveClaims = lazy(() => import("./pages/management/ApproveClaims"));
+const ManagementApprovePayroll = lazy(() => import("./pages/management/ApprovePayroll"));
 
 const queryClient = createQueryClient();
 
@@ -212,6 +213,7 @@ const App = () => (
                 <Route path="/management/approve" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveOT /></ProtectedRoute>} />
                 <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveLeave /></ProtectedRoute>} />
                 <Route path="/management/approve-claims" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveClaims /></ProtectedRoute>} />
+                <Route path="/management/approve-payroll" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApprovePayroll /></ProtectedRoute>} />
                 <Route path="/management/report" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ReviewOT /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -19,13 +21,14 @@ import {
 } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { FilePlus, Info } from 'lucide-react';
+import { FilePlus, Info, Download } from 'lucide-react';
 import { useClaimMemo, useClaimMemoPreview } from '@/hooks/claims/useClaimMemo';
 import { useActiveRole } from '@/hooks/useActiveRole';
 import { isFinanceRole } from '@/lib/financeRoles';
 import { ClaimMemoApprovalActions } from './ClaimMemoApprovalActions';
 import { ClaimMemoApprovalTrail } from './ClaimMemoApprovalTrail';
 import { formatCurrency } from '@/lib/otCalculations';
+import { generateClaimMemoPDF } from '@/lib/claimMemoPdfGenerator';
 import { CLAIM_MEMO_STATUS_LABELS } from '@/types/claims';
 import type { ClaimMemoApprovalRole, ClaimMemoStatus } from '@/types/claims';
 
@@ -159,6 +162,73 @@ export function ConsolidatedClaimMemo() {
   const previewGrandTotal = previewClaimTotal + previewOTTotal + previewAllowTotal;
   const hasPreviewData = previewClaims.length > 0 || previewOT.length > 0 || previewAllowances.length > 0;
 
+  // Company profile for PDF
+  const { data: companyProfile } = useQuery({
+    queryKey: ['company-profile-memo'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('company_profile').select('*').single();
+      if (error) throw error;
+      return data as { name: string; registration_no: string; address: string; phone: string; logo_url: string | null };
+    },
+    staleTime: 60 * 1000,
+  });
+
+  // Fetch approver names for PDF signatures
+  const approverIds = memo ? [memo.hr_id, memo.director_id, memo.finance_id].filter(Boolean) : [];
+  const { data: approverProfiles } = useQuery({
+    queryKey: ['memo-approver-profiles', ...approverIds],
+    queryFn: async () => {
+      if (approverIds.length === 0) return {};
+      const db = supabase as any;
+      const { data, error } = await db
+        .from('profiles')
+        .select('id, full_name, position_id, positions(name), department_id, departments(name)')
+        .in('id', approverIds);
+      if (error) throw error;
+      const map: Record<string, { full_name: string; position: string; department: string }> = {};
+      for (const p of (data || []) as any[]) {
+        map[p.id] = {
+          full_name: p.full_name,
+          position: p.positions?.name ?? '',
+          department: p.departments?.name ?? '',
+        };
+      }
+      return map;
+    },
+    enabled: approverIds.length > 0,
+    staleTime: 30 * 1000,
+  });
+
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!memo || !companyProfile) return;
+    setIsDownloading(true);
+    try {
+      const hrProfile = memo.hr_id && approverProfiles?.[memo.hr_id];
+      const directorProfile = memo.director_id && approverProfiles?.[memo.director_id];
+      const financeProfile = memo.finance_id && approverProfiles?.[memo.finance_id];
+
+      await generateClaimMemoPDF({
+        company: companyProfile,
+        memo,
+        approvers: {
+          prepared_by: hrProfile
+            ? { name: hrProfile.full_name, title: hrProfile.position, department: hrProfile.department }
+            : null,
+          reviewed_by: directorProfile
+            ? { name: directorProfile.full_name, title: directorProfile.position, department: directorProfile.department }
+            : null,
+          approved_by: financeProfile
+            ? { name: financeProfile.full_name, title: financeProfile.position }
+            : null,
+        },
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -240,6 +310,16 @@ export function ConsolidatedClaimMemo() {
               isPosting={isPosting}
               isDeleting={isDeleting}
             />
+          )}
+          {memo && (
+            <Button
+              variant="outline"
+              onClick={handleDownloadPdf}
+              disabled={isDownloading || !companyProfile}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isDownloading ? 'Generating...' : 'Download PDF'}
+            </Button>
           )}
         </div>
       </CardHeader>

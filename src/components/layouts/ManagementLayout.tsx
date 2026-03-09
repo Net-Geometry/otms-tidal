@@ -74,7 +74,7 @@ function ManagementSidebar({ activeRole }: { activeRole: string | null }) {
         { path: '/management/approve', label: 'Approve OT', icon: CheckCircle },
         { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle },
         { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt },
-        { path: '/hr/payroll', label: 'Approve Payroll', icon: Wallet },
+        { path: '/management/approve-payroll', label: 'Approve Payroll', icon: Wallet },
       ]
     },
     {
