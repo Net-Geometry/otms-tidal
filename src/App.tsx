@@ -19,7 +19,7 @@ import { HolidayManagement } from "./components/admin/HolidayManagement";
 import { ALL_FINANCE_ROLES } from "./lib/financeRoles";
 
 const FINANCE_ROUTE_ROLES = [...ALL_FINANCE_ROLES, 'admin'] as const;
-const MANAGEMENT_ROUTE_ROLES = ['management', 'director', 'gm', 'sgm', 'dmd', 'head_finance', 'admin'] as const;
+const MANAGEMENT_ROUTE_ROLES = ['management', 'director', 'gm', 'sgm', 'admin'] as const;
 
 // Keep auth routes eager for fast login experience
 import Auth from "./pages/Auth";
@@ -150,8 +150,8 @@ const App = () => (
                 {/* Employee routes */}
                 <Route path="/ot/submit" element={<ProtectedRoute requiredRole="employee"><SubmitOT /></ProtectedRoute>} />
                 <Route path="/ot/history" element={<ProtectedRoute requiredRole="employee"><OTHistory /></ProtectedRoute>} />
-                <Route path="/leave/request" element={<ProtectedRoute requiredRole={['employee', ...MANAGEMENT_ROUTE_ROLES]}><LeaveRequest /></ProtectedRoute>} />
-                <Route path="/leave/history" element={<ProtectedRoute requiredRole={['employee', ...MANAGEMENT_ROUTE_ROLES]}><LeaveHistory /></ProtectedRoute>} />
+                <Route path="/leave/request" element={<ProtectedRoute requiredRole="employee"><LeaveRequest /></ProtectedRoute>} />
+                <Route path="/leave/history" element={<ProtectedRoute requiredRole="employee"><LeaveHistory /></ProtectedRoute>} />
                 <Route path="/claims/submit" element={<ProtectedRoute requiredRole="employee"><ClaimSubmit /></ProtectedRoute>} />
                 <Route path="/claims/history" element={<ProtectedRoute requiredRole="employee"><ClaimHistory /></ProtectedRoute>} />
                 <Route path="/attendance/history" element={<ProtectedRoute requiredRole="employee"><MyAttendance /></ProtectedRoute>} />

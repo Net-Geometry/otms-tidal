@@ -18,7 +18,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 const AVAILABLE_ROLES: { value: AppRole; label: string; description: string }[] = [
-  { value: 'employee', label: 'Employee', description: 'Can submit OT requests' },
+  { value: 'employee', label: 'Employee', description: 'Base role (always assigned) — leave, claims, OT' },
   { value: 'supervisor', label: 'Supervisor', description: 'Can verify OT requests' },
   { value: 'hr', label: 'HR Manager', description: 'Can approve OT and manage system' },
   { value: 'finance_admin', label: 'Finance Admin', description: 'Data entry: create PRF, PV, input claims' },
@@ -52,7 +52,11 @@ export function RoleSelector({
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleEditClick = () => {
-    setTempRoles(selectedRoles);
+    // Ensure employee role is always present
+    const rolesWithEmployee = selectedRoles.includes('employee')
+      ? selectedRoles
+      : ['employee' as AppRole, ...selectedRoles];
+    setTempRoles(rolesWithEmployee);
     setValidationError(null);
     setIsDialogOpen(true);
   };
@@ -78,7 +82,9 @@ export function RoleSelector({
       return;
     }
 
-    onRolesChange(tempRoles);
+    // Ensure employee is always included
+    const finalRoles = tempRoles.includes('employee') ? tempRoles : ['employee' as AppRole, ...tempRoles];
+    onRolesChange(finalRoles);
     setIsDialogOpen(false);
   };
 
@@ -167,6 +173,8 @@ export function RoleSelector({
                     checked={tempRoles.includes(roleOption.value)}
                     onCheckedChange={() => handleRoleToggle(roleOption.value)}
                     disabled={
+                      // Employee role is always required
+                      roleOption.value === 'employee' ||
                       // Disable other roles if admin is selected
                       (tempRoles.includes('admin') && roleOption.value !== 'admin') ||
                       // Disable admin if other roles are selected

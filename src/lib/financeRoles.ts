@@ -6,12 +6,11 @@ export const FINANCE_SPECIFIC_ROLES: AppRole[] = [
   'account_assistant',
   'assistant_manager',
   'manager',
-  'dmd',
   'account_exec',
 ];
 
-/** All finance roles: legacy 'finance' + 5 specific roles */
-export const ALL_FINANCE_ROLES: AppRole[] = ['finance', ...FINANCE_SPECIFIC_ROLES];
+/** All finance roles: legacy 'finance' + 5 specific roles + executive finance roles */
+export const ALL_FINANCE_ROLES: AppRole[] = ['finance', ...FINANCE_SPECIFIC_ROLES, 'dmd', 'head_finance'];
 
 /** Check if a single role string is any finance role */
 export function isFinanceRole(role: string | null): boolean {
@@ -36,6 +35,5 @@ export const FINANCE_ROLE_LABELS: Record<string, string> = {
   account_assistant: 'Account Assistant',
   assistant_manager: 'Assistant Manager',
   manager: 'Manager',
-  dmd: 'Deputy Manager Director',
   account_exec: 'Account Executive',
 };

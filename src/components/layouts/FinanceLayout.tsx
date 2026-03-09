@@ -40,7 +40,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { DashboardSwitcher } from '@/components/DashboardSwitcher';
 import {
-  LayoutDashboard, 
+  LayoutDashboard,
   Wallet,
   Receipt,
   FileText,

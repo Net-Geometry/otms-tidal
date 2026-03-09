@@ -27,7 +27,11 @@ function getPreferredRoleFromPath(roles: AppRole[]): AppRole | null {
   }
   if (path.startsWith('/hr/') && roles.includes('hr')) return 'hr';
   if (path.startsWith('/supervisor/') && roles.includes('supervisor')) return 'supervisor';
-  if (path.startsWith('/management/') && roles.includes('management')) return 'management';
+  if (path.startsWith('/management/')) {
+    const mgmtRoles: AppRole[] = ['management', 'director', 'gm', 'sgm'];
+    const mgmtRole = mgmtRoles.find(r => roles.includes(r));
+    if (mgmtRole) return mgmtRole;
+  }
   if (path.startsWith('/employee/') && roles.includes('employee')) return 'employee';
   if (path.startsWith('/admin/') && roles.includes('admin')) return 'admin';
   
@@ -60,8 +64,8 @@ export function ActiveRoleProvider({ children }: ActiveRoleProviderProps) {
     // Fall back to default priority order
     const roleOrder: AppRole[] = [
       'admin', 'hr',
-      ...FINANCE_SPECIFIC_ROLES, 'finance',
-      'sgm', 'dmd', 'management', 'director', 'gm', 'head_finance',
+      ...FINANCE_SPECIFIC_ROLES, 'finance', 'dmd', 'head_finance',
+      'sgm', 'management', 'director', 'gm',
       'supervisor', 'employee',
     ];
     const newActiveRole = roleOrder.find((role) => roles.includes(role)) || roles[0] || null;

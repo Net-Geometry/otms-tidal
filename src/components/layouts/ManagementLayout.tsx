@@ -47,12 +47,6 @@ import {
   Calendar,
   Settings,
   CheckCircle,
-  CalendarPlus,
-  CalendarDays,
-  FileText,
-  CreditCard,
-  PlusCircle,
-  History,
 } from 'lucide-react';
 import { generateBreadcrumbs } from './layoutUtils';
 
@@ -72,7 +66,6 @@ function ManagementSidebar({ activeRole }: { activeRole: string | null }) {
       items: [
         { path: '/management/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { path: '/management/report', label: 'Management Report', icon: Eye },
-        { path: '/finance/reports', label: 'Finance Reports', icon: FileText },
       ]
     },
     {
@@ -82,17 +75,6 @@ function ManagementSidebar({ activeRole }: { activeRole: string | null }) {
         { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle },
         { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt },
         { path: '/hr/payroll', label: 'Approve Payroll', icon: Wallet },
-        { path: '/finance/ap/prf', label: 'Approve PRF', icon: FileText },
-        { path: '/finance/ap/payment-vouchers', label: 'Approve PV', icon: CreditCard },
-      ]
-    },
-    {
-      label: 'Personal Space',
-      items: [
-        { path: '/leave/request', label: 'Apply Leave', icon: CalendarPlus },
-        { path: '/leave/history', label: 'Leave History', icon: CalendarDays },
-        { path: '/claims/submit', label: 'Submit Claim', icon: PlusCircle },
-        { path: '/claims/history', label: 'Claim History', icon: History },
       ]
     },
     {

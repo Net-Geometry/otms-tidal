@@ -45,10 +45,6 @@ import {
   User,
   LogOut,
   BadgeCheck,
-  CalendarPlus,
-  CalendarDays,
-  PlusCircle,
-  History,
 } from 'lucide-react';
 import { generateBreadcrumbs } from './layoutUtils';
 
@@ -69,15 +65,6 @@ function SupervisorSidebar() {
         { path: '/supervisor/verify', label: 'Verify OT', icon: CheckCircle },
         { path: '/supervisor/approve-leave', label: 'Approve Leave', icon: CheckCircle },
         { path: '/supervisor/approve-claims', label: 'Approve Claims', icon: BadgeCheck },
-      ]
-    },
-    {
-      label: 'Personal Space',
-      items: [
-        { path: '/leave/request', label: 'Apply Leave', icon: CalendarPlus },
-        { path: '/leave/history', label: 'Leave History', icon: CalendarDays },
-        { path: '/claims/submit', label: 'Submit Claim', icon: PlusCircle },
-        { path: '/claims/history', label: 'Claim History', icon: History },
       ]
     },
     {

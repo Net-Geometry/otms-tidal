@@ -127,11 +127,14 @@ serve(async (req)=>{
       throw profileError;
     }
     console.log('Profile created');
-    // Create user role - if this fails, clean up both auth user and profile
-    const { error: roleError } = await supabaseAdmin.from('user_roles').insert({
-      user_id: authData.user.id,
-      role: role
-    });
+    // Create user roles - always include 'employee' as base role
+    const rolesToInsert = role === 'employee'
+      ? [{ user_id: authData.user.id, role: 'employee' }]
+      : [
+          { user_id: authData.user.id, role: 'employee' },
+          { user_id: authData.user.id, role: role },
+        ];
+    const { error: roleError } = await supabaseAdmin.from('user_roles').insert(rolesToInsert);
     if (roleError) {
       // Clean up profile and auth user
       console.error('Role creation failed, cleaning up:', roleError);
