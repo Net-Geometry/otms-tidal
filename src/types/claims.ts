@@ -75,6 +75,9 @@ export interface Claim {
   posting_reference: string | null;
   posting_remarks: string | null;
 
+  memo_id: string | null;
+  is_memo_locked: boolean;
+
   created_at: string;
   updated_at: string;
 
@@ -214,4 +217,113 @@ export function getClaimApproverName(claim: Claim): string | null {
     return claim.head_finance_profile.full_name;
   }
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Claim Memo types
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ClaimMemoStatus =
+  | 'draft'
+  | 'pending_director'
+  | 'pending_finance'
+  | 'finance_approved'
+  | 'posted'
+  | 'rejected';
+
+export type ClaimMemoApprovalRole = 'hr' | 'management' | 'finance';
+
+export const CLAIM_MEMO_STATUS_LABELS: Record<ClaimMemoStatus, string> = {
+  draft: 'Draft',
+  pending_director: 'Pending Director',
+  pending_finance: 'Pending Finance',
+  finance_approved: 'Finance Approved',
+  posted: 'Posted',
+  rejected: 'Rejected',
+};
+
+export const CLAIM_MEMO_STATUS_TRANSITIONS = [
+  { from: 'draft', to: 'pending_director', role: 'hr' },
+  { from: 'pending_director', to: 'pending_finance', role: 'management' },
+  { from: 'pending_director', to: 'rejected', role: 'management' },
+  { from: 'pending_finance', to: 'finance_approved', role: 'finance' },
+  { from: 'pending_finance', to: 'rejected', role: 'finance' },
+  { from: 'finance_approved', to: 'posted', role: 'finance' },
+] as const;
+
+export function canTransitionClaimMemo(from: string, to: string, role: string): boolean {
+  return CLAIM_MEMO_STATUS_TRANSITIONS.some(
+    (t) => t.from === from && t.to === to && t.role === role
+  );
+}
+
+export interface ClaimMemoTypeBreakdown {
+  claim_type_id: string;
+  name: string;
+  code: string;
+  count: number;
+  total: number;
+}
+
+export interface OTBreakdownItem {
+  employee_id: string;
+  employee_name: string;
+  hours: number;
+  amount: number;
+}
+
+export interface AllowanceBreakdownItem {
+  allowance_type_id: string;
+  name: string;
+  code: string;
+  count: number;
+  total: number;
+}
+
+export interface ClaimMemo {
+  id: string;
+  memo_number: string;
+  pay_period_month: number;
+  pay_period_year: number;
+  status: ClaimMemoStatus;
+
+  total_amount: number;
+  claim_count: number;
+  type_breakdown: ClaimMemoTypeBreakdown[];
+
+  ot_total_amount: number;
+  ot_count: number;
+  ot_breakdown: OTBreakdownItem[];
+
+  allowance_total_amount: number;
+  allowance_count: number;
+  allowance_breakdown: AllowanceBreakdownItem[];
+
+  grand_total: number;
+
+  created_by: string | null;
+
+  hr_id: string | null;
+  hr_approved_at: string | null;
+  hr_remarks: string | null;
+
+  director_id: string | null;
+  director_approved_at: string | null;
+  director_remarks: string | null;
+
+  finance_id: string | null;
+  finance_approved_at: string | null;
+  finance_remarks: string | null;
+
+  rejected_by: string | null;
+  rejected_at: string | null;
+  rejection_remarks: string | null;
+  rejection_stage: string | null;
+
+  is_posted: boolean;
+  posted_at: string | null;
+  posted_by: string | null;
+
+  created_at: string;
+  updated_at: string;
 }

@@ -73,9 +73,9 @@ const Payroll = lazy(() => import("./pages/hr/Payroll"));
 const Leave = lazy(() => import("./pages/hr/Leave"));
 const Attendance = lazy(() => import("./pages/hr/Attendance"));
 const HRClaims = lazy(() => import("./pages/hr/Claims"));
+const HRMemos = lazy(() => import("./pages/hr/Memos"));
 const PayrollRunDetail = lazy(() => import("./pages/hr/PayrollRunDetail"));
 const OrgChart = lazy(() => import("./pages/hr/OrgChart"));
-const ClaimMemoPage = lazy(() => import("./pages/hr/ClaimMemo"));
 
 // Lazy load Finance routes
 const ChartOfAccounts = lazy(() => import("./pages/finance/ChartOfAccounts"));
@@ -150,8 +150,8 @@ const App = () => (
                 {/* Employee routes */}
                 <Route path="/ot/submit" element={<ProtectedRoute requiredRole="employee"><SubmitOT /></ProtectedRoute>} />
                 <Route path="/ot/history" element={<ProtectedRoute requiredRole="employee"><OTHistory /></ProtectedRoute>} />
-                <Route path="/leave/request" element={<ProtectedRoute requiredRole="employee"><LeaveRequest /></ProtectedRoute>} />
-                <Route path="/leave/history" element={<ProtectedRoute requiredRole="employee"><LeaveHistory /></ProtectedRoute>} />
+                <Route path="/leave/request" element={<ProtectedRoute requiredRole={['employee', ...MANAGEMENT_ROUTE_ROLES]}><LeaveRequest /></ProtectedRoute>} />
+                <Route path="/leave/history" element={<ProtectedRoute requiredRole={['employee', ...MANAGEMENT_ROUTE_ROLES]}><LeaveHistory /></ProtectedRoute>} />
                 <Route path="/claims/submit" element={<ProtectedRoute requiredRole="employee"><ClaimSubmit /></ProtectedRoute>} />
                 <Route path="/claims/history" element={<ProtectedRoute requiredRole="employee"><ClaimHistory /></ProtectedRoute>} />
                 <Route path="/attendance/history" element={<ProtectedRoute requiredRole="employee"><MyAttendance /></ProtectedRoute>} />
@@ -177,8 +177,9 @@ const App = () => (
                 <Route path="/hr/leave" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Leave /></ProtectedRoute>} />
                 <Route path="/hr/attendance" element={<ProtectedRoute requiredRole={['hr', 'admin']}><Attendance /></ProtectedRoute>} />
                 <Route path="/hr/claims" element={<ProtectedRoute requiredRole={['hr', 'admin']}><HRClaims /></ProtectedRoute>} />
+                <Route path="/hr/memos" element={<ProtectedRoute requiredRole={['hr', 'admin', 'management', ...ALL_FINANCE_ROLES]}><HRMemos /></ProtectedRoute>} />
                 <Route path="/hr/org-chart" element={<ProtectedRoute requiredRole={['hr', ...MANAGEMENT_ROUTE_ROLES]}><OrgChart /></ProtectedRoute>} />
-                <Route path="/hr/claim-memo" element={<ProtectedRoute requiredRole={['hr', ...MANAGEMENT_ROUTE_ROLES, ...ALL_FINANCE_ROLES]}><ClaimMemoPage /></ProtectedRoute>} />
+
 
                 {/* Finance routes */}
                 <Route path="/finance/chart-of-accounts" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ChartOfAccounts /></ProtectedRoute>} />

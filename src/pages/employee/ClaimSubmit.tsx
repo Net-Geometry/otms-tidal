@@ -25,11 +25,13 @@ export default function ClaimSubmit() {
 
   const handleSubmit = async (values: ClaimSubmitFormValues) => {
     await submit.mutateAsync({
-      claim_type_id: values.claim_type_id,
-      claim_date: values.claim_date,
-      amount: values.amount,
-      purpose: values.purpose,
-      receipt_urls: values.receipt_urls,
+      items: values.items.map((item) => ({
+        claim_type_id: item.claim_type_id,
+        claim_date: item.claim_date,
+        amount: item.amount,
+        purpose: item.purpose,
+        receipt_urls: item.receipt_urls,
+      })),
     });
     navigate('/claims/history');
   };

@@ -93,16 +93,22 @@ export function ConsolidatedClaimMemo() {
   const canCreateMemo = !memo && !memoLoading && approvalRole === 'hr';
   const showRejectionAlert = memo?.status === 'rejected';
 
-  const breakdown = memo?.type_breakdown ?? [];
+  const claimsBreakdown = memo?.type_breakdown ?? [];
+  const otBreakdown = memo?.ot_breakdown ?? [];
+  const allowanceBreakdown = memo?.allowance_breakdown ?? [];
 
   // Preview query for HR when no memo exists
-  const { data: previewClaims = [], isLoading: previewLoading } = useClaimMemoPreview(
+  const { data: preview, isLoading: previewLoading } = useClaimMemoPreview(
     month,
     year,
     canCreateMemo
   );
 
-  // Aggregate preview claims by type for the preview table
+  const previewClaims = preview?.claims ?? [];
+  const previewOT = preview?.otRequests ?? [];
+  const previewAllowances = preview?.allowances ?? [];
+
+  // Aggregate preview claims by type
   const previewByType = canCreateMemo
     ? previewClaims.reduce<Record<string, { name: string; count: number; total: number }>>((acc, c: any) => {
         const typeId = c.claim_type_id;
@@ -115,9 +121,43 @@ export function ConsolidatedClaimMemo() {
       }, {})
     : {};
 
-  const previewRows = Object.values(previewByType);
-  const previewTotal = previewRows.reduce((s, r) => s + r.total, 0);
-  const previewCount = previewRows.reduce((s, r) => s + r.count, 0);
+  const previewClaimRows = Object.values(previewByType);
+  const previewClaimTotal = previewClaimRows.reduce((s, r) => s + r.total, 0);
+
+  // Aggregate preview OT by employee
+  const previewOTByEmployee = canCreateMemo
+    ? previewOT.reduce<Record<string, { name: string; hours: number; amount: number }>>((acc, ot: any) => {
+        const empId = ot.employee_id;
+        if (!acc[empId]) {
+          acc[empId] = { name: ot.profiles?.full_name ?? 'Unknown', hours: 0, amount: 0 };
+        }
+        acc[empId].hours += Number(ot.total_hours || 0);
+        acc[empId].amount += Number(ot.ot_amount || 0);
+        return acc;
+      }, {})
+    : {};
+
+  const previewOTRows = Object.values(previewOTByEmployee);
+  const previewOTTotal = previewOTRows.reduce((s, r) => s + r.amount, 0);
+
+  // Aggregate preview allowances by type
+  const previewAllowByType = canCreateMemo
+    ? previewAllowances.reduce<Record<string, { name: string; count: number; total: number }>>((acc, a: any) => {
+        const typeId = a.allowance_type_id;
+        if (!acc[typeId]) {
+          acc[typeId] = { name: a.allowance_types?.name ?? 'Unknown', count: 0, total: 0 };
+        }
+        acc[typeId].count += 1;
+        acc[typeId].total += Number(a.amount || 0);
+        return acc;
+      }, {})
+    : {};
+
+  const previewAllowRows = Object.values(previewAllowByType);
+  const previewAllowTotal = previewAllowRows.reduce((s, r) => s + r.total, 0);
+
+  const previewGrandTotal = previewClaimTotal + previewOTTotal + previewAllowTotal;
+  const hasPreviewData = previewClaims.length > 0 || previewOT.length > 0 || previewAllowances.length > 0;
 
   return (
     <Card>
@@ -125,7 +165,7 @@ export function ConsolidatedClaimMemo() {
         <div className="flex items-start justify-between">
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
-              Claim Memo
+              Claim, OT & Allowance Memo
               {memo && (
                 <Badge variant={getStatusBadgeVariant(memo.status)}>
                   {CLAIM_MEMO_STATUS_LABELS[memo.status]}
@@ -179,7 +219,7 @@ export function ConsolidatedClaimMemo() {
         </div>
 
         <div className="flex items-center gap-2 mt-3">
-          {canCreateMemo && previewClaims.length > 0 && (
+          {canCreateMemo && hasPreviewData && (
             <Button onClick={() => createMemo()} disabled={isCreating}>
               <FilePlus className="h-4 w-4 mr-2" />
               {isCreating ? 'Creating...' : 'Create Memo'}
@@ -204,7 +244,7 @@ export function ConsolidatedClaimMemo() {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {showRejectionAlert && memo && (
           <Alert variant="destructive">
             <AlertDescription>
@@ -220,77 +260,233 @@ export function ConsolidatedClaimMemo() {
         {memoLoading ? (
           <p className="text-muted-foreground text-sm">Loading...</p>
         ) : memo ? (
-          /* ── Memo exists: show type breakdown ── */
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[200px]">Claim Type</TableHead>
-                  <TableHead className="text-center w-[100px]">Claims</TableHead>
-                  <TableHead className="text-right min-w-[140px]">Total (RM)</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {breakdown.map((row) => (
-                  <TableRow key={row.claim_type_id}>
-                    <TableCell>{row.name}</TableCell>
-                    <TableCell className="text-center">{row.count}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(row.total)}</TableCell>
+          /* ── Memo exists: show all sections ── */
+          <>
+            {/* Claims Section */}
+            {claimsBreakdown.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Claims</h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[200px]">Claim Type</TableHead>
+                        <TableHead className="text-center w-[100px]">Count</TableHead>
+                        <TableHead className="text-right min-w-[140px]">Total (RM)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {claimsBreakdown.map((row) => (
+                        <TableRow key={row.claim_type_id}>
+                          <TableCell>{row.name}</TableCell>
+                          <TableCell className="text-center">{row.count}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(row.total)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-semibold bg-muted/50">
+                        <TableCell>Claims Subtotal</TableCell>
+                        <TableCell className="text-center">{memo.claim_count}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(memo.total_amount)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* OT Section */}
+            {otBreakdown.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Overtime (OT)</h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[200px]">Employee</TableHead>
+                        <TableHead className="text-center w-[100px]">Hours</TableHead>
+                        <TableHead className="text-right min-w-[140px]">Amount (RM)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {otBreakdown.map((row) => (
+                        <TableRow key={row.employee_id}>
+                          <TableCell>{row.employee_name}</TableCell>
+                          <TableCell className="text-center">{row.hours.toFixed(1)}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(row.amount)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-semibold bg-muted/50">
+                        <TableCell>OT Subtotal</TableCell>
+                        <TableCell className="text-center">{memo.ot_count}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(memo.ot_total_amount)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* Allowance Section */}
+            {allowanceBreakdown.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Allowances</h3>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[200px]">Allowance Type</TableHead>
+                        <TableHead className="text-center w-[100px]">Count</TableHead>
+                        <TableHead className="text-right min-w-[140px]">Total (RM)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {allowanceBreakdown.map((row) => (
+                        <TableRow key={row.allowance_type_id}>
+                          <TableCell>{row.name}</TableCell>
+                          <TableCell className="text-center">{row.count}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(row.total)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-semibold bg-muted/50">
+                        <TableCell>Allowances Subtotal</TableCell>
+                        <TableCell className="text-center">{memo.allowance_count}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(memo.allowance_total_amount)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )}
+
+            {/* Grand Total */}
+            <div className="overflow-x-auto">
+              <Table>
+                <TableBody>
+                  <TableRow className="font-bold text-base bg-primary/5">
+                    <TableCell className="min-w-[200px]">Grand Total</TableCell>
+                    <TableCell className="text-center w-[100px]" />
+                    <TableCell className="text-right min-w-[140px]">{formatCurrency(memo.grand_total)}</TableCell>
                   </TableRow>
-                ))}
-                <TableRow className="font-semibold bg-muted/50">
-                  <TableCell>Grand Total</TableCell>
-                  <TableCell className="text-center">{memo.claim_count}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(memo.total_amount)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
+                </TableBody>
+              </Table>
+            </div>
+          </>
         ) : canCreateMemo && !previewLoading ? (
           /* ── No memo yet: show preview for HR ── */
-          previewClaims.length > 0 ? (
-            <div className="space-y-3">
+          hasPreviewData ? (
+            <div className="space-y-4">
               <Alert>
                 <Info className="h-4 w-4" />
                 <AlertDescription>
-                  {previewCount} approved claim(s) totalling {formatCurrency(previewTotal)} found
-                  for {MONTHS[month]} {year}. Click "Create Memo" to consolidate them.
+                  Preview for {MONTHS[month]} {year} — Grand Total: {formatCurrency(previewGrandTotal)}.
+                  Click "Create Memo" to consolidate.
                 </AlertDescription>
               </Alert>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[200px]">Claim Type</TableHead>
-                      <TableHead className="text-center w-[100px]">Claims</TableHead>
-                      <TableHead className="text-right min-w-[140px]">Total (RM)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {previewRows.map((row) => (
-                      <TableRow key={row.name}>
-                        <TableCell>{row.name}</TableCell>
-                        <TableCell className="text-center">{row.count}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(row.total)}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="font-semibold bg-muted/50">
-                      <TableCell>Grand Total</TableCell>
-                      <TableCell className="text-center">{previewCount}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(previewTotal)}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+
+              {/* Preview Claims */}
+              {previewClaimRows.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Claims</h3>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[200px]">Claim Type</TableHead>
+                          <TableHead className="text-center w-[100px]">Count</TableHead>
+                          <TableHead className="text-right min-w-[140px]">Total (RM)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewClaimRows.map((row) => (
+                          <TableRow key={row.name}>
+                            <TableCell>{row.name}</TableCell>
+                            <TableCell className="text-center">{row.count}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(row.total)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="font-semibold bg-muted/50">
+                          <TableCell>Claims Subtotal</TableCell>
+                          <TableCell className="text-center">{previewClaims.length}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(previewClaimTotal)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview OT */}
+              {previewOTRows.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Overtime (OT)</h3>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[200px]">Employee</TableHead>
+                          <TableHead className="text-center w-[100px]">Hours</TableHead>
+                          <TableHead className="text-right min-w-[140px]">Amount (RM)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewOTRows.map((row) => (
+                          <TableRow key={row.name}>
+                            <TableCell>{row.name}</TableCell>
+                            <TableCell className="text-center">{row.hours.toFixed(1)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(row.amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="font-semibold bg-muted/50">
+                          <TableCell>OT Subtotal</TableCell>
+                          <TableCell className="text-center">{previewOT.length}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(previewOTTotal)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Allowances */}
+              {previewAllowRows.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Allowances</h3>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[200px]">Allowance Type</TableHead>
+                          <TableHead className="text-center w-[100px]">Count</TableHead>
+                          <TableHead className="text-right min-w-[140px]">Total (RM)</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {previewAllowRows.map((row) => (
+                          <TableRow key={row.name}>
+                            <TableCell>{row.name}</TableCell>
+                            <TableCell className="text-center">{row.count}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(row.total)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="font-semibold bg-muted/50">
+                          <TableCell>Allowances Subtotal</TableCell>
+                          <TableCell className="text-center">{previewAllowances.length}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(previewAllowTotal)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <p className="text-muted-foreground text-sm">
-              No approved, unposted claims found for {MONTHS[month]} {year}.
+              No approved claims, OT, or allowances found for {MONTHS[month]} {year}.
             </p>
           )
         ) : !memo ? (
           <p className="text-muted-foreground text-sm">
-            No claim memo for {MONTHS[month]} {year}.
+            No memo for {MONTHS[month]} {year}.
           </p>
         ) : null}
 

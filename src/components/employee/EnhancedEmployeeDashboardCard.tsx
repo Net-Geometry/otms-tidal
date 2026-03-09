@@ -18,15 +18,15 @@ export function EnhancedEmployeeDashboardCard({
   variant = 'purple'
 }: EnhancedEmployeeDashboardCardProps) {
   const gradientClasses = {
-    purple: 'from-purple-100 to-purple-50 dark:from-purple-950/40 dark:to-purple-900/20',
-    yellow: 'from-yellow-100 to-yellow-50 dark:from-yellow-950/40 dark:to-yellow-900/20',
-    green: 'from-green-100 to-green-50 dark:from-green-950/40 dark:to-green-900/20',
+    purple: 'from-primary/20 to-primary/10',
+    yellow: 'from-warning/20 to-warning/10',
+    green: 'from-success/20 to-success/10',
   };
 
   const iconColorClasses = {
-    purple: 'text-purple-600 dark:text-purple-400',
-    yellow: 'text-yellow-600 dark:text-yellow-400',
-    green: 'text-green-600 dark:text-green-400',
+    purple: 'text-primary',
+    yellow: 'text-warning',
+    green: 'text-success',
   };
 
   return (

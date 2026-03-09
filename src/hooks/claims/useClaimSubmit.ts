@@ -17,12 +17,16 @@ async function sendClaimPushNotification(requestId: string, newStatus: string): 
   });
 }
 
-export interface ClaimSubmitData {
+export interface ClaimSubmitItem {
   claim_type_id: string;
   claim_date: string; // yyyy-mm-dd
   amount: number;
   purpose?: string | null;
   receipt_urls?: string[];
+}
+
+export interface ClaimSubmitData {
+  items: ClaimSubmitItem[];
 }
 
 function uniqueUpperSuffix(len = 4) {
@@ -57,22 +61,9 @@ export function useClaimSubmit() {
       if (!authData?.user) throw new Error('Not authenticated');
       const user = authData.user;
 
-      if (!input.claim_type_id) throw new Error('Claim type is required');
-      if (!input.claim_date) throw new Error('Receipt date is required');
-      if (input.amount == null || Number.isNaN(Number(input.amount))) throw new Error('Amount is required');
-      if (Number(input.amount) <= 0) throw new Error('Amount must be greater than 0');
+      if (!input.items || input.items.length === 0) throw new Error('At least one claim item is required');
 
-      const claimDate = parseISO(input.claim_date);
-      if (Number.isNaN(claimDate.getTime())) throw new Error('Invalid receipt date');
-
-      const claimType = await fetchClaimType(input.claim_type_id);
-      const limitWarning = buildLimitWarning({
-        amount: Number(input.amount),
-        limit_amount: claimType.limit_amount ?? null,
-        limit_period: claimType.limit_period ?? null,
-      });
-
-      // Fetch profile for supervisor
+      // Fetch profile for supervisor (shared across all items)
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('supervisor_id, is_director')
@@ -81,28 +72,6 @@ export function useClaimSubmit() {
       if (profileError) throw profileError;
 
       const db = supabase as any;
-
-      // Duplicate check (exclude rejected/cancelled)
-      const { data: dup, error: dupError } = await db
-        .from('claims')
-        .select('id, ticket_number, status')
-        .eq('employee_id', user.id)
-        .eq('claim_type_id', input.claim_type_id)
-        .eq('claim_date', input.claim_date)
-        .eq('amount', Number(input.amount))
-        .not('status', 'in', '(rejected,cancelled)')
-        .limit(1);
-      if (dupError) throw dupError;
-      if (dup && dup.length > 0) {
-        throw new Error('Possible duplicate claim detected for the same date/type/amount');
-      }
-
-      // Check submission cutoff cycle
-      const today = format(new Date(), 'yyyy-MM-dd');
-      if (!isSubmissionOpen(input.claim_date, today)) {
-        const cycle = getClaimCyclePeriod(input.claim_date);
-        throw new Error(`Submission period for this claim date has closed. The cycle ended on ${cycle.end}.`);
-      }
 
       let supervisorId: string | null = profile?.supervisor_id || null;
       let initialStatus: any = 'pending_supervisor';
@@ -127,45 +96,94 @@ export function useClaimSubmit() {
         }
       }
 
-      // Ticket number: CL-YYYYMMDD-RANDOM
-      const dateStr = format(claimDate, 'yyyyMMdd');
-      const ticketNumber = `CL-${dateStr}-${uniqueUpperSuffix(4)}`;
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const rows: any[] = [];
 
+      // Validate and prepare all items
+      for (let i = 0; i < input.items.length; i++) {
+        const item = input.items[i];
+        const itemLabel = input.items.length > 1 ? `Item ${i + 1}: ` : '';
+
+        if (!item.claim_type_id) throw new Error(`${itemLabel}Claim type is required`);
+        if (!item.claim_date) throw new Error(`${itemLabel}Receipt date is required`);
+        if (item.amount == null || Number.isNaN(Number(item.amount))) throw new Error(`${itemLabel}Amount is required`);
+        if (Number(item.amount) <= 0) throw new Error(`${itemLabel}Amount must be greater than 0`);
+
+        const claimDate = parseISO(item.claim_date);
+        if (Number.isNaN(claimDate.getTime())) throw new Error(`${itemLabel}Invalid receipt date`);
+
+        const claimType = await fetchClaimType(item.claim_type_id);
+        const limitWarning = buildLimitWarning({
+          amount: Number(item.amount),
+          limit_amount: claimType.limit_amount ?? null,
+          limit_period: claimType.limit_period ?? null,
+        });
+
+        // Duplicate check (exclude rejected/cancelled)
+        const { data: dup, error: dupError } = await db
+          .from('claims')
+          .select('id, ticket_number, status')
+          .eq('employee_id', user.id)
+          .eq('claim_type_id', item.claim_type_id)
+          .eq('claim_date', item.claim_date)
+          .eq('amount', Number(item.amount))
+          .not('status', 'in', '(rejected,cancelled)')
+          .limit(1);
+        if (dupError) throw dupError;
+        if (dup && dup.length > 0) {
+          throw new Error(`${itemLabel}Possible duplicate claim detected for the same date/type/amount`);
+        }
+
+        // Check submission cutoff cycle
+        if (!isSubmissionOpen(item.claim_date, today)) {
+          const cycle = getClaimCyclePeriod(item.claim_date);
+          throw new Error(`${itemLabel}Submission period for this claim date has closed. The cycle ended on ${cycle.end}.`);
+        }
+
+        const dateStr = format(claimDate, 'yyyyMMdd');
+        const ticketNumber = `CL-${dateStr}-${uniqueUpperSuffix(4)}`;
+
+        rows.push({
+          ticket_number: ticketNumber,
+          employee_id: user.id,
+          claim_type_id: item.claim_type_id,
+          claim_date: item.claim_date,
+          amount: Number(item.amount),
+          purpose: item.purpose || null,
+          receipt_urls: item.receipt_urls || [],
+          limit_warning: limitWarning,
+          supervisor_id: supervisorId,
+          status: initialStatus,
+        });
+      }
+
+      // Insert all claims in a single batch
       const { data: created, error: insertError } = await db
         .from('claims')
-        .insert([
-          {
-            ticket_number: ticketNumber,
-            employee_id: user.id,
-            claim_type_id: input.claim_type_id,
-            claim_date: input.claim_date,
-            amount: Number(input.amount),
-            purpose: input.purpose || null,
-            receipt_urls: input.receipt_urls || [],
-            limit_warning: limitWarning,
-            supervisor_id: supervisorId,
-            status: initialStatus,
-          },
-        ])
-        .select('*')
-        .single();
+        .insert(rows)
+        .select('*');
 
       if (insertError) throw insertError;
 
-      // Push notification (non-blocking, failure doesn't affect submission)
-      sendClaimPushNotification(created.id, initialStatus).catch((e) => {
-        console.warn('Failed to send claim push notification:', e);
-      });
+      // Push notifications (non-blocking)
+      for (const claim of created) {
+        sendClaimPushNotification(claim.id, initialStatus).catch((e) => {
+          console.warn('Failed to send claim push notification:', e);
+        });
+      }
 
-      return created as any;
+      return created as any[];
     },
-    onSuccess: (created: any) => {
+    onSuccess: (created: any[]) => {
       queryClient.invalidateQueries({ queryKey: ['claims'] });
       queryClient.invalidateQueries({ queryKey: ['claim-requests'] });
       queryClient.invalidateQueries({ queryKey: ['claim-approvals'] });
+      const count = created.length;
       toast({
         title: 'Success',
-        description: `Claim ${created.ticket_number} submitted successfully`,
+        description: count === 1
+          ? `Claim ${created[0].ticket_number} submitted successfully`
+          : `${count} claims submitted successfully`,
       });
     },
     onError: (error: Error) => {
