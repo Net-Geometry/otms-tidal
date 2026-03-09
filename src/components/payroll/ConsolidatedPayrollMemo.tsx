@@ -247,7 +247,7 @@ function getStatusBadgeVariant(
 function deriveApprovalRole(
   activeRole: string | null
 ): PayrollApprovalRole {
-  if (activeRole === 'management' || activeRole === 'director' || activeRole === 'gm' || activeRole === 'dmd')
+  if (activeRole === 'management' || activeRole === 'director' || activeRole === 'gm' || activeRole === 'sgm' || activeRole === 'dmd')
     return 'management';
   if (isFinanceRole(activeRole) || activeRole === 'head_finance') return 'finance';
   return 'hr';
