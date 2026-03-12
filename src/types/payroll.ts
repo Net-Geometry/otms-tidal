@@ -3,7 +3,7 @@ export type PayrollRunStatus =
   | 'finalized'
   | 'cancelled';
 
-export type PayrollApprovalRole = 'hr' | 'management' | 'finance';
+export type PayrollApprovalRole = 'hr' | 'management' | 'dmd' | 'finance';
 
 export type PayrollMemoStatus =
   | 'draft'
@@ -26,6 +26,8 @@ export const MEMO_STATUS_TRANSITIONS = [
   { from: 'draft', to: 'pending_director', role: 'hr' },
   { from: 'pending_director', to: 'pending_finance', role: 'management' },
   { from: 'pending_director', to: 'rejected', role: 'management' },
+  { from: 'pending_director', to: 'pending_finance', role: 'dmd' },
+  { from: 'pending_director', to: 'rejected', role: 'dmd' },
   { from: 'pending_finance', to: 'finance_approved', role: 'finance' },
   { from: 'pending_finance', to: 'rejected', role: 'finance' },
   { from: 'finance_approved', to: 'posted', role: 'finance' },

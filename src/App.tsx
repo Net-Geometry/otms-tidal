@@ -213,7 +213,7 @@ const App = () => (
                 <Route path="/management/approve" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveOT /></ProtectedRoute>} />
                 <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveLeave /></ProtectedRoute>} />
                 <Route path="/management/approve-claims" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveClaims /></ProtectedRoute>} />
-                <Route path="/management/approve-payroll" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApprovePayroll /></ProtectedRoute>} />
+                <Route path="/management/approve-payroll" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES, ...ALL_FINANCE_ROLES]}><ManagementApprovePayroll /></ProtectedRoute>} />
                 <Route path="/management/report" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ReviewOT /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />

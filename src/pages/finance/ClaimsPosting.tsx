@@ -45,8 +45,8 @@ export default function ClaimsPosting() {
       if (error) throw error;
 
       const pendingFinance = (data || []).filter((r: any) => r.status === 'pending_finance').length;
-      const readyToPost = (data || []).filter((r: any) => r.status === 'finance_approved' && !r.is_posted).length;
-      const posted = (data || []).filter((r: any) => r.status === 'finance_approved' && r.is_posted).length;
+      const readyToPost = (data || []).filter((r: any) => r.status === 'hr_approved' && !r.is_posted).length;
+      const posted = (data || []).filter((r: any) => r.status === 'hr_approved' && r.is_posted).length;
       return { pendingFinance, readyToPost, posted };
     },
     staleTime: 20 * 1000,
@@ -65,7 +65,7 @@ export default function ClaimsPosting() {
           <DashboardCard
             title="Ready To Post"
             value={String(stats?.readyToPost ?? '-')}
-            subtitle="Finance approved"
+            subtitle="HR approved"
             icon={CheckCircle}
           />
           <DashboardCard

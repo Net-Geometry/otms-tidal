@@ -30,7 +30,7 @@ export function useClaimPosting(options?: { tab?: ClaimPostingTab }) {
             departments(name)
           )
         `)
-        .eq('status', 'finance_approved')
+        .in('status', ['hr_approved', 'director_approved', 'gm_approved', 'head_finance_approved'])
         .order('created_at', { ascending: false });
 
       if (tab === 'ready') q = q.eq('is_posted', false);
@@ -57,9 +57,10 @@ export function useClaimPosting(options?: { tab?: ClaimPostingTab }) {
         .in('id', input.claimIds);
       if (fetchErr) throw fetchErr;
 
-      const invalid = (current || []).filter((r: any) => r.status !== 'finance_approved' || r.is_posted);
+      const postableStatuses = ['hr_approved', 'director_approved', 'gm_approved', 'head_finance_approved'];
+      const invalid = (current || []).filter((r: any) => !postableStatuses.includes(r.status) || r.is_posted);
       if (invalid.length > 0) {
-        throw new Error('Only unposted finance-approved claims can be posted');
+        throw new Error('Only unposted approved claims can be posted');
       }
 
       const { data: glAccounts, error: glAccountsError } = await db

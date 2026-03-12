@@ -28,39 +28,39 @@ function getStatusFilter(role: ClaimApprovalRole, tab: ClaimApprovalTab): ClaimR
 
   if (tab === 'pending') {
     if (role === 'supervisor') return ['pending_supervisor'];
-    if (role === 'hr') return ['pending_hr', 'supervisor_approved'];
     if (role === 'finance') return ['pending_finance'];
+    if (role === 'hr') return ['pending_hr'];
     if (role === 'director') return ['pending_director'];
     if (role === 'gm') return ['pending_gm'];
     if (role === 'head_finance') return ['pending_head_finance'];
-    return ['pending_finance', 'pending_director', 'pending_gm', 'pending_head_finance'];
+    return ['pending_finance', 'pending_hr', 'pending_director', 'pending_gm', 'pending_head_finance'];
   }
 
   // approved - show all final approved statuses
-  return ['finance_approved', 'director_approved', 'gm_approved', 'head_finance_approved'];
+  return ['hr_approved', 'director_approved', 'gm_approved', 'head_finance_approved'];
 }
 
 function getApproveUpdate(role: ClaimApprovalRole, remarks?: string | null) {
   const now = new Date().toISOString();
   if (role === 'supervisor') {
     return {
-      status: 'supervisor_approved',
+      status: 'pending_finance',
       supervisor_approved_at: now,
       supervisor_remarks: remarks || null,
     };
   }
-  if (role === 'hr') {
-    return {
-      status: 'pending_finance',
-      hr_approved_at: now,
-      hr_remarks: remarks || null,
-    };
-  }
   if (role === 'finance') {
     return {
-      status: 'finance_approved',
+      status: 'pending_hr',
       finance_approved_at: now,
       finance_remarks: remarks || null,
+    };
+  }
+  if (role === 'hr') {
+    return {
+      status: 'hr_approved',
+      hr_approved_at: now,
+      hr_remarks: remarks || null,
     };
   }
   if (role === 'director') {
@@ -173,36 +173,6 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
         .in('id', input.requestIds);
       if (fetchErr) throw fetchErr;
 
-      const now = new Date().toISOString();
-
-      // For HR role, always forward to pending_finance
-      if (role === 'hr') {
-        const invalid = (current || []).filter(
-          (r: any) => !canTransitionClaim(r.status, 'pending_finance', role)
-        );
-        if (invalid.length > 0) {
-          const statuses = invalid.map((r: any) => r.status).join(', ');
-          throw new Error(`Cannot approve: ${invalid.length} claim(s) in invalid state (${statuses}) for ${role} role`);
-        }
-
-        const { error } = await db
-          .from('claims')
-          .update({
-            status: 'pending_finance',
-            hr_id: authData.user.id,
-            hr_approved_at: now,
-            hr_remarks: input.remarks || null,
-          })
-          .in('id', input.requestIds);
-        if (error) throw error;
-
-        // Push notification (non-blocking)
-        sendClaimPushNotification(input.requestIds, 'pending_finance').catch((e) =>
-          console.warn('Failed to send claim push notification:', e)
-        );
-        return;
-      }
-
       const updateData: any = getApproveUpdate(role, input.remarks);
       const targetStatus = updateData.status;
 
@@ -215,6 +185,7 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
       // Set the approver ID based on role
       if (role === 'supervisor') updateData.supervisor_id = authData.user.id;
       if (role === 'finance') updateData.finance_id = authData.user.id;
+      if (role === 'hr') updateData.hr_id = authData.user.id;
       if (role === 'director') updateData.director_id = authData.user.id;
       if (role === 'gm') updateData.gm_id = authData.user.id;
       if (role === 'head_finance') updateData.head_finance_id = authData.user.id;
@@ -257,7 +228,7 @@ export function useClaimApproval(options: { role: ClaimApprovalRole; tab?: Claim
         director: 'pending_director',
         gm: 'pending_gm',
         head_finance: 'pending_head_finance',
-        final_approve: 'finance_approved',
+        final_approve: 'pending_hr',
       };
 
       const targetStatus = statusMap[input.nextApprover];

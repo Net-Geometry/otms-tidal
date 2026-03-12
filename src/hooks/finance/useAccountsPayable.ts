@@ -1187,6 +1187,8 @@ export interface UpsertPaymentVoucherInput {
   pay_for?: string | null;
   is_recurring?: boolean;
   remarks?: string | null;
+  prf_id?: string | null;
+  attachment_urls?: string[];
   allocations?: PaymentVoucherAllocationInput[];
   lines?: PaymentVoucherLineInput[];
 }
@@ -1316,6 +1318,8 @@ async function upsertPaymentVoucher(db: any, input: UpsertPaymentVoucherInput, c
     pay_for: input.pay_for?.trim() || null,
     is_recurring: input.is_recurring ?? false,
     remarks: input.remarks?.trim() || null,
+    prf_id: input.prf_id || null,
+    attachment_urls: input.attachment_urls || [],
     total_amount: totalAmount,
   };
 
@@ -1471,6 +1475,42 @@ export function useSubmitPV() {
   };
 }
 
+export function useCheckPV() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: { pvId: string }) => {
+      const { data, error } = await db
+        .from('payment_vouchers')
+        .update({
+          status: 'checked',
+          checked_at: new Date().toISOString(),
+        })
+        .eq('id', input.pvId)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('Only pending payment vouchers can be checked');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      toast({ title: 'Checked', description: 'Payment voucher checked and forwarded for approval' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    checkPV: mutation.mutateAsync,
+    isChecking: mutation.isPending,
+  };
+}
+
 export function useApprovePV() {
   const db = supabase as any;
   const queryClient = useQueryClient();
@@ -1485,12 +1525,12 @@ export function useApprovePV() {
           approved_at: new Date().toISOString(),
         })
         .eq('id', input.pvId)
-        .eq('status', 'pending')
+        .eq('status', 'checked')
         .select('id')
         .maybeSingle();
 
       if (error) throw error;
-      if (!data) throw new Error('Only pending payment vouchers can be approved');
+      if (!data) throw new Error('Only checked payment vouchers can be approved');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });

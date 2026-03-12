@@ -76,12 +76,12 @@ export function useClaimSubmit() {
       let supervisorId: string | null = profile?.supervisor_id || null;
       let initialStatus: any = 'pending_supervisor';
 
-      // Director bypass: skip supervisor, go directly to pending_hr
+      // Director bypass: skip supervisor, go directly to finance
       if (profile?.is_director) {
-        initialStatus = 'pending_hr';
+        initialStatus = 'pending_finance';
         supervisorId = null;
       } else if (!supervisorId) {
-        initialStatus = 'pending_hr';
+        initialStatus = 'pending_finance';
       } else {
         // If supervisor is a privileged role, skip supervisor stage
         const { data: svRoles, error: svRoleError } = await db
@@ -92,11 +92,14 @@ export function useClaimSubmit() {
           .limit(1);
         if (svRoleError) throw svRoleError;
         if (svRoles && svRoles.length > 0) {
-          initialStatus = 'pending_hr';
+          initialStatus = 'pending_finance';
         }
       }
 
       const today = format(new Date(), 'yyyy-MM-dd');
+      const batchId = crypto.randomUUID();
+      const batchDateStr = format(new Date(), 'yyyyMMdd');
+      const batchSuffix = uniqueUpperSuffix(4);
       const rows: any[] = [];
 
       // Validate and prepare all items
@@ -140,11 +143,13 @@ export function useClaimSubmit() {
           throw new Error(`${itemLabel}Submission period for this claim date has closed. The cycle ended on ${cycle.end}.`);
         }
 
-        const dateStr = format(claimDate, 'yyyyMMdd');
-        const ticketNumber = `CL-${dateStr}-${uniqueUpperSuffix(4)}`;
+        const itemTicket = input.items.length === 1
+          ? `CL-${batchDateStr}-${batchSuffix}`
+          : `CL-${batchDateStr}-${batchSuffix}-${i + 1}`;
 
         rows.push({
-          ticket_number: ticketNumber,
+          ticket_number: itemTicket,
+          batch_id: batchId,
           employee_id: user.id,
           claim_type_id: item.claim_type_id,
           claim_date: item.claim_date,
@@ -178,12 +183,9 @@ export function useClaimSubmit() {
       queryClient.invalidateQueries({ queryKey: ['claims'] });
       queryClient.invalidateQueries({ queryKey: ['claim-requests'] });
       queryClient.invalidateQueries({ queryKey: ['claim-approvals'] });
-      const count = created.length;
       toast({
         title: 'Success',
-        description: count === 1
-          ? `Claim ${created[0].ticket_number} submitted successfully`
-          : `${count} claims submitted successfully`,
+        description: `Claim ${created[0].ticket_number} submitted successfully (${created.length} item${created.length > 1 ? 's' : ''})`,
       });
     },
     onError: (error: Error) => {

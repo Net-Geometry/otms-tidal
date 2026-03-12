@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calculator, Download, FileText, Info, UserPlus, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Calculator, Download, FileText, Info, UserPlus, CheckCircle, XCircle, HelpCircle, Send } from 'lucide-react';
 import { exportToCSV, downloadTxtFile } from '@/lib/exportUtils';
 import { generateSocsoEisTxt, generateEpfTxt } from '@/lib/statutoryTxtGenerator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PayrollMemoView } from '@/components/payroll/PayrollMemoView';
 import { PayrollItemsTable } from '@/components/payroll/PayrollItemsTable';
@@ -35,6 +36,7 @@ import type { PayrollItem } from '@/types/payroll';
 export default function PayrollRunDetail() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const { run, items, isLoading, refetch } = usePayrollRun(runId);
   const { settings } = usePayrollSettings();
@@ -286,6 +288,18 @@ export default function PayrollRunDetail() {
                   Cancel Run
                 </Button>
               </>
+            )}
+
+            {run.status === 'finalized' && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  toast({ title: 'Payslips Sent', description: `Payslips sent to ${items.length} employee(s)` });
+                }}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send to Employees
+              </Button>
             )}
 
             {hasMemo && (

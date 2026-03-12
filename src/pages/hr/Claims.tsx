@@ -7,7 +7,7 @@ import { PageLayout } from '@/components/ui/page-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, ClipboardList, DollarSign, Download, Receipt, Search, Settings2 } from 'lucide-react';
+import { CheckCircle, ClipboardList, DollarSign, Download, Search, Settings2 } from 'lucide-react';
 import { exportToCSV } from '@/lib/exportUtils';
 import { ClaimRequestTable } from '@/components/claims/ClaimRequestTable';
 import { ClaimTypeSetup } from '@/components/claims/ClaimTypeSetup';
@@ -49,14 +49,13 @@ export default function Claims() {
         .gte('created_at', monthStart.toISOString());
       if (error) throw error;
 
-      const pendingHr = (data || []).filter((r: any) => ['pending_hr', 'supervisor_approved'].includes(r.status)).length;
-      const pendingFinance = (data || []).filter((r: any) => r.status === 'pending_finance').length;
-      const approvedCount = (data || []).filter((r: any) => ['hr_approved', 'finance_approved'].includes(r.status)).length;
+      const pendingHr = (data || []).filter((r: any) => r.status === 'pending_hr').length;
+      const approvedCount = (data || []).filter((r: any) => r.status === 'hr_approved').length;
       const approvedAmount = (data || [])
-        .filter((r: any) => ['hr_approved', 'finance_approved'].includes(r.status))
+        .filter((r: any) => r.status === 'hr_approved')
         .reduce((sum: number, r: any) => sum + Number(r.amount || 0), 0);
 
-      return { pendingHr, pendingFinance, approvedCount, approvedAmount };
+      return { pendingHr, approvedCount, approvedAmount };
     },
     staleTime: 30 * 1000,
   });
@@ -68,14 +67,8 @@ export default function Claims() {
           <DashboardCard
             title="Pending (HR)"
             value={String(stats?.pendingHr ?? '-')}
-            subtitle="Awaiting HR review"
+            subtitle="Awaiting HR processing"
             icon={ClipboardList}
-          />
-          <DashboardCard
-            title="Pending (Finance)"
-            value={String(stats?.pendingFinance ?? '-')}
-            subtitle="Forwarded to finance"
-            icon={Receipt}
           />
           <DashboardCard
             title="Approved Amount (Month)"

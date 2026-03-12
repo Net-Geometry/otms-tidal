@@ -45,9 +45,11 @@ import {
   useMarkPVPaid,
   usePaymentVouchers,
   usePostPV,
+  usePurchaseRequisitions,
   useSubmitPV,
   useUpdatePaymentVoucher,
 } from '@/hooks/finance/useAccountsPayable';
+import { FileUpload } from '@/components/ot/FileUpload';
 import { useActiveRole } from '@/hooks/useActiveRole';
 import {
   AP_PAYMENT_METHOD_LABELS,
@@ -79,6 +81,8 @@ interface PvFormState {
   remarks: string;
   lines: PvLineRow[];
   allocations: Record<string, string>;
+  prf_id: string;
+  attachment_urls: string[];
 }
 
 function formatMoney(value: number) {
@@ -110,6 +114,8 @@ function makeInitialForm(companyId: string): PvFormState {
     remarks: '',
     lines: [makeEmptyLine(today)],
     allocations: {},
+    prf_id: '',
+    attachment_urls: [],
   };
 }
 
@@ -118,6 +124,8 @@ export default function PaymentVouchers() {
   const { data: companies = [] } = useCompanies();
   const suppliers = useSuppliers();
   const bankAccounts = useBankAccounts();
+  const { data: prfData } = usePurchaseRequisitions({ status: 'approved' });
+  const approvedPrfs = useMemo(() => prfData?.rows || [], [prfData]);
 
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ApPvStatus>('all');
@@ -245,6 +253,8 @@ export default function PaymentVouchers() {
       remarks: voucher.remarks || '',
       lines: existingLines.length ? existingLines : [makeEmptyLine(voucher.payment_date)],
       allocations,
+      prf_id: voucher.prf_id || '',
+      attachment_urls: voucher.attachment_urls || [],
     });
     setDialogOpen(true);
   };
@@ -354,6 +364,8 @@ export default function PaymentVouchers() {
       pay_for: form.pay_for.trim() || null,
       is_recurring: form.is_recurring,
       remarks: form.remarks.trim() || null,
+      prf_id: form.prf_id || null,
+      attachment_urls: form.attachment_urls,
       allocations,
       lines,
     };
@@ -675,8 +687,10 @@ export default function PaymentVouchers() {
                   <Label>Ref No.</Label>
                   <Input
                     value={form.reference_no}
-                    onChange={(event) => setForm((prev) => ({ ...prev, reference_no: event.target.value }))}
-                    placeholder="Auto-generated or manual"
+                    readOnly
+                    disabled
+                    placeholder="Auto-generated"
+                    className="bg-muted"
                   />
                 </div>
 
@@ -740,7 +754,7 @@ export default function PaymentVouchers() {
                     onValueChange={(value) => setForm((prev) => ({ ...prev, payment_method: value as ApPaymentMethod }))}
                     className="flex flex-wrap items-center gap-x-4 gap-y-2"
                   >
-                    {(['cheque', 'online_transfer', 'cash', 'auto_debit', 'others'] as ApPaymentMethod[]).map((method) => (
+                    {(['cheque', 'online_transfer', 'cash', 'others'] as ApPaymentMethod[]).map((method) => (
                       <div key={method} className="flex items-center gap-1.5">
                         <RadioGroupItem value={method} id={`method-${method}`} />
                         <Label htmlFor={`method-${method}`} className="font-normal cursor-pointer text-sm">
@@ -948,6 +962,43 @@ export default function PaymentVouchers() {
                   onChange={(event) => setForm((prev) => ({ ...prev, remarks: event.target.value }))}
                   placeholder="Optional notes"
                 />
+              </div>
+
+              {/* PRF No & Attachments */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>PRF No.</Label>
+                  <Select
+                    value={form.prf_id || 'none'}
+                    onValueChange={(value) => setForm((prev) => ({ ...prev, prf_id: value === 'none' ? '' : value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Link to PRF (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {approvedPrfs.map((prf: any) => (
+                        <SelectItem key={prf.id} value={prf.id}>
+                          {prf.prf_number} - {prf.description || prf.requester?.full_name || ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Attachments</Label>
+                  <FileUpload
+                    bucket="pv-attachments"
+                    onUploadComplete={(urls) => setForm((prev) => ({ ...prev, attachment_urls: urls }))}
+                    onRemove={(idx) => setForm((prev) => ({
+                      ...prev,
+                      attachment_urls: prev.attachment_urls.filter((_, i) => i !== idx),
+                    }))}
+                    currentFiles={form.attachment_urls}
+                    maxFiles={5}
+                  />
+                </div>
               </div>
 
               {/* Totals Summary */}

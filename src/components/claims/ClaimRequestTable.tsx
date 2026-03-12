@@ -13,18 +13,81 @@ import { ClaimApprovalActions } from '@/components/claims/ClaimApprovalActions';
 
 type TableRole = 'employee' | 'supervisor' | 'hr' | 'finance' | 'director' | 'gm' | 'head_finance';
 
+/** Group claims by batch_id. Claims without batch_id stay individual. */
+interface ClaimGroup {
+  key: string; // batch_id or claim id
+  ticket_number: string;
+  claims: Claim[];
+  totalAmount: number;
+  typeNames: string[];
+  earliestDate: string;
+  submittedAt: string;
+  status: string;
+  /** Representative claim for status/profile info */
+  representative: Claim;
+}
+
+function groupClaimsByBatch(claims: Claim[]): ClaimGroup[] {
+  const batchMap = new Map<string, Claim[]>();
+  const singles: Claim[] = [];
+
+  for (const c of claims) {
+    if (c.batch_id) {
+      const existing = batchMap.get(c.batch_id) || [];
+      existing.push(c);
+      batchMap.set(c.batch_id, existing);
+    } else {
+      singles.push(c);
+    }
+  }
+
+  const groups: ClaimGroup[] = [];
+
+  for (const [batchId, batchClaims] of batchMap) {
+    const sorted = batchClaims.sort((a, b) => new Date(a.claim_date).getTime() - new Date(b.claim_date).getTime());
+    groups.push({
+      key: batchId,
+      ticket_number: sorted[0].ticket_number,
+      claims: sorted,
+      totalAmount: sorted.reduce((sum, c) => sum + Number(c.amount || 0), 0),
+      typeNames: [...new Set(sorted.map((c) => c.claim_type?.name || c.claim_type_id))],
+      earliestDate: sorted[0].claim_date,
+      submittedAt: sorted[0].created_at,
+      status: sorted[0].status,
+      representative: sorted[0],
+    });
+  }
+
+  for (const c of singles) {
+    groups.push({
+      key: c.id,
+      ticket_number: c.ticket_number,
+      claims: [c],
+      totalAmount: Number(c.amount || 0),
+      typeNames: [c.claim_type?.name || c.claim_type_id],
+      earliestDate: c.claim_date,
+      submittedAt: c.created_at,
+      status: c.status,
+      representative: c,
+    });
+  }
+
+  // Sort by submitted date descending
+  groups.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+  return groups;
+}
+
 function isPendingForRole(role: TableRole, status: string) {
   if (role === 'supervisor') return status === 'pending_supervisor';
-  if (role === 'hr') return status === 'pending_hr' || status === 'supervisor_approved';
   if (role === 'finance') return status === 'pending_finance';
+  if (role === 'hr') return status === 'pending_hr';
   if (role === 'director') return status === 'pending_director';
   if (role === 'gm') return status === 'pending_gm';
   if (role === 'head_finance') return status === 'pending_head_finance';
   return (
     status === 'pending_supervisor' ||
-    status === 'supervisor_approved' ||
-    status === 'pending_hr' ||
     status === 'pending_finance' ||
+    status === 'pending_hr' ||
     status === 'pending_director' ||
     status === 'pending_gm' ||
     status === 'pending_head_finance'
@@ -74,8 +137,11 @@ export function ClaimRequestTable({
   showActions?: boolean;
 }) {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [active, setActive] = useState<Claim | null>(null);
+  const [activeBatch, setActiveBatch] = useState<Claim[]>([]);
   const [open, setOpen] = useState(false);
+
+  // Group all claims by batch
+  const groups = useMemo(() => groupClaimsByBatch(requests), [requests]);
 
   const pendingIds = useMemo(() => {
     return requests.filter((r) => isPendingForRole(role, r.status)).map((r) => r.id);
@@ -98,8 +164,8 @@ export function ClaimRequestTable({
     setSelected(next);
   };
 
-  const openDetails = (req: Claim) => {
-    setActive(req);
+  const openDetails = (batch: Claim[]) => {
+    setActiveBatch(batch);
     setOpen(true);
   };
 
@@ -163,42 +229,53 @@ export function ClaimRequestTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {requests.map((r) => {
-              const typeName = r.claim_type?.name || r.claim_type_id;
-              const employeeName = r.profiles?.full_name || r.employee_id;
-              const isRowPending = isPendingForRole(role, r.status);
+            {groups.map((g) => {
+              const rep = g.representative;
+              const employeeName = rep.profiles?.full_name || rep.employee_id;
+              const isRowPending = isPendingForRole(role, rep.status);
 
               return (
-                <TableRow key={r.id}>
+                <TableRow key={g.key}>
                   {canBatch && (
                     <TableCell>
                       {isRowPending ? (
                         <Checkbox
-                          checked={!!selected[r.id]}
-                          onCheckedChange={(v) => setSelected((prev) => ({ ...prev, [r.id]: !!v }))}
+                          checked={g.claims.every((c) => !!selected[c.id])}
+                          onCheckedChange={(v) =>
+                            setSelected((prev) => {
+                              const next = { ...prev };
+                              for (const c of g.claims) next[c.id] = !!v;
+                              return next;
+                            })
+                          }
                         />
                       ) : null}
                     </TableCell>
                   )}
-                  <TableCell className="font-medium">{r.ticket_number}</TableCell>
+                  <TableCell className="font-medium">{g.ticket_number}</TableCell>
                   {role !== 'employee' && <TableCell>{employeeName}</TableCell>}
-                  <TableCell>{typeName}</TableCell>
-                  <TableCell>{r.claim_date ? format(new Date(r.claim_date), 'dd MMM yyyy') : '—'}</TableCell>
-                  <TableCell>{r.created_at ? format(new Date(r.created_at), 'dd MMM yyyy') : '—'}</TableCell>
-                  <TableCell className="text-right">{Number(r.amount || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</TableCell>
+                  <TableCell>
+                    {g.typeNames.join(', ')}
+                    {g.claims.length > 1 && (
+                      <span className="text-muted-foreground ml-1">({g.claims.length} items)</span>
+                    )}
+                  </TableCell>
+                  <TableCell>{g.earliestDate ? format(new Date(g.earliestDate), 'dd MMM yyyy') : '—'}</TableCell>
+                  <TableCell>{g.submittedAt ? format(new Date(g.submittedAt), 'dd MMM yyyy') : '—'}</TableCell>
+                  <TableCell className="text-right">{g.totalAmount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <StatusWithMetadata 
-                        status={r.status} 
-                        label={getClaimStatusDisplay(r.status)}
-                        metadata={getClaimApproverMetadata(r)}
+                      <StatusWithMetadata
+                        status={rep.status}
+                        label={getClaimStatusDisplay(rep.status)}
+                        metadata={getClaimApproverMetadata(rep)}
                       />
-                      {r.is_posted && <Badge variant="secondary">posted</Badge>}
+                      {rep.is_posted && <Badge variant="secondary">posted</Badge>}
                     </div>
                   </TableCell>
                   {showActions && (
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" className="gap-2" onClick={() => openDetails(r)}>
+                      <Button variant="outline" size="sm" className="gap-2" onClick={() => openDetails(g.claims)}>
                         <Eye className="h-4 w-4" />
                         View
                       </Button>
@@ -212,7 +289,7 @@ export function ClaimRequestTable({
       </div>
 
       <ClaimDetailsSheet
-        request={active}
+        claims={activeBatch}
         open={open}
         onOpenChange={setOpen}
         role={role}

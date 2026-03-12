@@ -37,6 +37,7 @@ export interface ClaimType {
 export interface Claim {
   id: string;
   ticket_number: string;
+  batch_id: string | null;
 
   employee_id: string;
   claim_type_id: string;
@@ -60,6 +61,18 @@ export interface Claim {
   finance_id: string | null;
   finance_approved_at: string | null;
   finance_remarks: string | null;
+
+  director_id: string | null;
+  director_approved_at: string | null;
+  director_remarks: string | null;
+
+  gm_id: string | null;
+  gm_approved_at: string | null;
+  gm_remarks: string | null;
+
+  head_finance_id: string | null;
+  head_finance_approved_at: string | null;
+  head_finance_remarks: string | null;
 
   rejected_by: string | null;
   rejected_at: string | null;
@@ -117,31 +130,32 @@ export interface Claim {
 }
 
 /**
- * Transition list is intentionally permissive for HR branching.
- * The actual HR target depends on `claim_type.final_approver`:
- * - `hr` routes to `hr_approved`
- * - `finance` routes to `pending_finance`
- * Hooks enforce the final target per claim type before updating.
+ * Claim approval flow: Supervisor → Finance → HR → Finance (posting/PC).
+ * Finance reviews first, then HR processes, then Finance creates PC.
  */
 export const CLAIM_STATUS_TRANSITIONS = [
-  { from: 'pending_supervisor', to: 'supervisor_approved', role: 'supervisor' },
+  // Supervisor approves → goes to finance for review
+  { from: 'pending_supervisor', to: 'pending_finance', role: 'supervisor' },
   { from: 'pending_supervisor', to: 'rejected', role: 'supervisor' },
 
-  // HR always forwards to finance for review
-  { from: 'pending_hr', to: 'pending_finance', role: 'hr' },
-  { from: 'pending_hr', to: 'rejected', role: 'hr' },
-
-  { from: 'supervisor_approved', to: 'pending_finance', role: 'hr' },
-  { from: 'supervisor_approved', to: 'rejected', role: 'hr' },
-
-  // Finance can forward to next approver or finalize
+  // Finance reviews → forwards to HR for processing (or to management)
+  { from: 'pending_finance', to: 'pending_hr', role: 'finance' },
   { from: 'pending_finance', to: 'pending_director', role: 'finance' },
   { from: 'pending_finance', to: 'pending_gm', role: 'finance' },
   { from: 'pending_finance', to: 'pending_head_finance', role: 'finance' },
-  { from: 'pending_finance', to: 'finance_approved', role: 'finance' },
   { from: 'pending_finance', to: 'rejected', role: 'finance' },
 
-  // Final approvers
+  // HR processes → hr_approved (ready for finance posting/PC creation)
+  { from: 'pending_hr', to: 'hr_approved', role: 'hr' },
+  { from: 'pending_hr', to: 'rejected', role: 'hr' },
+
+  // Finance loop-back: after final approval, finance can return claim for PC creation
+  { from: 'hr_approved', to: 'pending_finance', role: 'finance' },
+  { from: 'director_approved', to: 'pending_finance', role: 'finance' },
+  { from: 'gm_approved', to: 'pending_finance', role: 'finance' },
+  { from: 'head_finance_approved', to: 'pending_finance', role: 'finance' },
+
+  // Final approvers (management)
   { from: 'pending_director', to: 'director_approved', role: 'director' },
   { from: 'pending_director', to: 'rejected', role: 'director' },
 
@@ -160,9 +174,9 @@ export function canTransitionClaim(from: string, to: string, role: string): bool
 export const CLAIM_STATUS_LABELS: Record<ClaimRequestStatus, string> = {
   pending_supervisor: 'Pending',
   supervisor_approved: 'Checked',
-  pending_hr: 'Pending Review',
-  hr_approved: 'Reviewed',
   pending_finance: 'Pending Finance',
+  pending_hr: 'Pending HR',
+  hr_approved: 'HR Approved',
   pending_director: 'Pending Director',
   pending_gm: 'Pending GM',
   pending_head_finance: 'Pending Head of Finance',
@@ -183,9 +197,9 @@ export function getClaimStatusDisplay(status: ClaimRequestStatus, approverName?:
   return baseLabel;
 }
 
-// Statuses that are considered fully approved
+// Statuses that are considered fully approved (ready for PC/posting)
 export const CLAIM_FINAL_APPROVED_STATUSES: ClaimRequestStatus[] = [
-  'finance_approved',
+  'hr_approved',
   'director_approved',
   'gm_approved',
   'head_finance_approved',

@@ -35,7 +35,7 @@ function getAvailableActions(status: string, role: PayrollApprovalRole): MemoAct
     if (status === 'draft') return ['submit', 'delete'];
     if (status === 'rejected') return ['resubmit', 'delete'];
   }
-  if (role === 'management') {
+  if (role === 'management' || role === 'dmd') {
     if (status === 'pending_director') return ['approve', 'reject'];
   }
   if (role === 'finance') {

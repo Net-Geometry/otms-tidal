@@ -218,7 +218,7 @@ export function usePayrollMemo(month: number, year: number) {
           .eq('memo_id', input.memoId);
 
         if (lockErr) throw lockErr;
-      } else if (input.role === 'management' && current.status === 'pending_director') {
+      } else if ((input.role === 'management' || input.role === 'dmd') && current.status === 'pending_director') {
         if (!canTransitionMemo('pending_director', 'pending_finance', 'management')) {
           throw new Error('Cannot approve this memo as Director');
         }
@@ -396,7 +396,7 @@ export function usePayrollMemo(month: number, year: number) {
 
       const { data: current, error: fetchErr } = await db
         .from('payroll_memos')
-        .select('id, status')
+        .select('*')
         .eq('id', memoId)
         .single();
 
@@ -420,10 +420,10 @@ export function usePayrollMemo(month: number, year: number) {
 
       if (updateErr) throw updateErr;
 
-      // Get linked run IDs
+      // Get linked runs (need company_id for PV creation)
       const { data: runs, error: runsErr } = await db
         .from('payroll_runs')
-        .select('id')
+        .select('id, company_id')
         .eq('memo_id', memoId);
 
       if (runsErr) throw runsErr;
@@ -451,10 +451,112 @@ export function usePayrollMemo(month: number, year: number) {
 
         if (postRunsErr) throw postRunsErr;
       }
+
+      // ── Auto-create draft PV for net salary payout ──
+      const companyId = (runs || [])[0]?.company_id;
+      if (!companyId) return; // No runs = no PV
+
+      // Get company's default bank account
+      const { data: companyProfile } = await db
+        .from('finance_company_profiles')
+        .select('default_bank_account_id')
+        .eq('company_id', companyId)
+        .maybeSingle();
+
+      const bankAccountId = companyProfile?.default_bank_account_id;
+      if (!bankAccountId) {
+        // No default bank account configured — skip PV creation silently
+        console.warn('Skipping auto PV creation: no default bank account configured for company');
+        return;
+      }
+
+      // Get company name for pay_to
+      const { data: company } = await db
+        .from('companies')
+        .select('name')
+        .eq('id', companyId)
+        .single();
+
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const periodLabel = `${monthNames[current.pay_period_month - 1]} ${current.pay_period_year}`;
+
+      // Generate PV number
+      const paymentDate = now.slice(0, 10);
+      const { data: pvNumber, error: seqErr } = await db.rpc('finance_next_document_number', {
+        p_company_id: companyId,
+        p_prefix: 'PV',
+        p_doc_date: paymentDate,
+      });
+      if (seqErr) throw seqErr;
+
+      // Build PV line items breakdown
+      const grossSalary = Number(current.total_gross_salary || 0);
+      const employeeEpf = Number(current.total_employee_epf || 0);
+      const employeeSocso = Number(current.total_employee_socso || 0);
+      const employeeEis = Number(current.total_employee_eis || 0);
+      const pcb = Number(current.total_pcb || 0);
+      const deductions = Number(current.total_deductions || 0);
+      const netSalary = Number(current.total_net_salary || 0);
+
+      const pvLines: { line_date: string; description: string; amount: number; sort_order: number }[] = [];
+      let sort = 0;
+
+      if (grossSalary > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Gross Salary', amount: grossSalary, sort_order: sort++ });
+      }
+      if (employeeEpf > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Less: Employee EPF', amount: -employeeEpf, sort_order: sort++ });
+      }
+      if (employeeSocso > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Less: Employee SOCSO', amount: -employeeSocso, sort_order: sort++ });
+      }
+      if (employeeEis > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Less: Employee EIS', amount: -employeeEis, sort_order: sort++ });
+      }
+      if (pcb > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Less: PCB/MTD', amount: -pcb, sort_order: sort++ });
+      }
+      if (deductions > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Less: Other Deductions', amount: -deductions, sort_order: sort++ });
+      }
+
+      // Insert draft PV
+      const { data: pv, error: pvErr } = await db
+        .from('payment_vouchers')
+        .insert({
+          company_id: companyId,
+          pv_number: pvNumber,
+          supplier_id: null,
+          bank_account_id: bankAccountId,
+          payment_date: paymentDate,
+          payment_method: 'online_transfer',
+          pay_to: company?.name || 'Payroll',
+          pay_for: `Payroll - ${periodLabel}`,
+          total_amount: netSalary,
+          status: 'draft',
+          post_to_type: 'cashbook',
+          remarks: `Auto-generated from ${current.memo_number}`,
+          source_type: 'payroll_memo',
+          source_id: memoId,
+        })
+        .select('id')
+        .single();
+
+      if (pvErr) throw pvErr;
+
+      // Insert PV lines
+      if (pvLines.length > 0 && pv?.id) {
+        const { error: linesErr } = await db
+          .from('payment_voucher_lines')
+          .insert(pvLines.map((line) => ({ pv_id: pv.id, ...line })));
+
+        if (linesErr) throw linesErr;
+      }
     },
     onSuccess: () => {
       invalidateAll(queryClient);
-      toast({ title: 'Posted', description: 'Payroll memo posted successfully' });
+      queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      toast({ title: 'Posted', description: 'Payroll memo posted — draft PV created' });
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

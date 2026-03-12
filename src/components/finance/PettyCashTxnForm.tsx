@@ -380,6 +380,7 @@ export function PettyCashTxnForm({
                                 <FormControl>
                                   <Input className="h-8 text-xs" placeholder="Line description" {...f} />
                                 </FormControl>
+                                <FormMessage />
                               </FormItem>
                             )}
                           />

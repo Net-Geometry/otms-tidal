@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Upload, X, FileText, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -27,10 +27,13 @@ export function FileUpload({
   maxFiles = 5,
   bucket = 'ot-attachments',
 }: FileUploadProps) {
+  const inputId = useId();
   const [uploading, setUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const { toast } = useToast();
+  const currentFilesRef = useRef(currentFiles);
+  currentFilesRef.current = currentFiles;
 
   const isImageFile = (url: string, type?: string): boolean => {
     if (type) {
@@ -97,9 +100,13 @@ export function FileUpload({
         const fileExt = file.name.split('.').pop();
         const filePath = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
+        const arrayBuffer = await file.arrayBuffer();
         const { error: uploadError } = await supabase.storage
           .from(bucket)
-          .upload(filePath, file);
+          .upload(filePath, arrayBuffer, {
+            contentType: file.type,
+            cacheControl: '3600',
+          });
 
         if (uploadError) throw uploadError;
 
@@ -116,7 +123,7 @@ export function FileUpload({
         });
       }
 
-      const allUrls = [...currentFiles, ...uploadedUrls];
+      const allUrls = [...currentFilesRef.current, ...uploadedUrls];
       setUploadedFiles([...uploadedFiles, ...uploadedFileData]);
       onUploadComplete(allUrls);
 
@@ -242,14 +249,14 @@ export function FileUpload({
         <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
           <input
             type="file"
-            id="file-upload"
+            id={inputId}
             className="hidden"
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={handleFileChange}
             disabled={uploading}
             multiple
           />
-          <label htmlFor="file-upload" className="cursor-pointer">
+          <label htmlFor={inputId} className="cursor-pointer">
             <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               {uploading ? 'Uploading...' : 'Click to upload attachments'}

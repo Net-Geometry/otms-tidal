@@ -8,10 +8,10 @@ export type ClaimRequestsFilter = 'pending' | 'approved' | 'rejected' | 'all';
 function getStatusList(filter: ClaimRequestsFilter): ClaimRequestStatus[] | null {
   if (filter === 'all') return null;
   if (filter === 'pending') {
-    return ['pending_supervisor', 'supervisor_approved', 'pending_hr', 'pending_finance'];
+    return ['pending_supervisor', 'pending_finance', 'pending_hr'];
   }
   if (filter === 'approved') {
-    return ['hr_approved', 'finance_approved'];
+    return ['hr_approved', 'director_approved', 'gm_approved', 'head_finance_approved'];
   }
   return ['rejected', 'cancelled'];
 }

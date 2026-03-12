@@ -422,7 +422,10 @@ export default function ArDebitCreditNotes() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Customers</SelectItem>
-                  {customers.customers.map((customer) => (
+                  {(companyFilter === 'all'
+                    ? customers.customers
+                    : customers.customers.filter((c) => c.company_id === companyFilter)
+                  ).map((customer) => (
                     <SelectItem key={customer.id} value={customer.id}>
                       {customer.customer_code} - {customer.customer_name}
                     </SelectItem>

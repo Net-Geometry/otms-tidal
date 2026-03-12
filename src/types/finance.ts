@@ -639,17 +639,38 @@ export const AP_INVOICE_STATUS_LABELS: Record<ApInvoiceStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-export type ApPvStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'paid' | 'posted' | 'cancelled';
+export type ApPvStatus = 'draft' | 'pending' | 'checked' | 'approved' | 'rejected' | 'paid' | 'posted' | 'cancelled';
 
 export const AP_PV_STATUS_LABELS: Record<ApPvStatus, string> = {
   draft: 'Draft',
-  pending: 'Pending',
+  pending: 'Pending Approval',
+  checked: 'Checked',
   approved: 'Approved',
   rejected: 'Rejected',
   paid: 'Paid',
   posted: 'Posted',
   cancelled: 'Cancelled',
 };
+
+/** PV Approval Flow: Admin prepares → Asst Manager checks → DMD approves → Paid */
+export type PvApprovalRole = 'finance_admin' | 'assistant_manager' | 'dmd';
+
+export const PV_STATUS_TRANSITIONS = [
+  // Admin submits → pending check by assistant manager
+  { from: 'draft', to: 'pending', role: 'finance_admin' },
+  // Assistant manager checks → checked, ready for DMD
+  { from: 'pending', to: 'checked', role: 'assistant_manager' },
+  { from: 'pending', to: 'rejected', role: 'assistant_manager' },
+  // DMD approves → approved, ready for payment
+  { from: 'checked', to: 'approved', role: 'dmd' },
+  { from: 'checked', to: 'rejected', role: 'dmd' },
+  // Finance admin marks as paid
+  { from: 'approved', to: 'paid', role: 'finance_admin' },
+] as const;
+
+export function canTransitionPV(from: string, to: string, role: string): boolean {
+  return PV_STATUS_TRANSITIONS.some((t) => t.from === from && t.to === to && t.role === role);
+}
 
 export type PvPostToType = 'cashbook' | 'ap_payment' | 'ap_credit_note';
 
@@ -659,13 +680,12 @@ export const PV_POST_TO_LABELS: Record<PvPostToType, string> = {
   ap_credit_note: 'AP Credit Note',
 };
 
-export type ApPaymentMethod = 'cheque' | 'online_transfer' | 'cash' | 'auto_debit' | 'others';
+export type ApPaymentMethod = 'cheque' | 'online_transfer' | 'cash' | 'others';
 
 export const AP_PAYMENT_METHOD_LABELS: Record<ApPaymentMethod, string> = {
   cheque: 'Cheque',
   online_transfer: 'Online Transfer',
   cash: 'Cash',
-  auto_debit: 'Auto Debit',
   others: 'Others',
 };
 
@@ -871,6 +891,8 @@ export interface PaymentVoucherLine {
   created_at?: string;
 }
 
+export type PvSourceType = 'payroll_memo' | 'claim_memo';
+
 export interface PaymentVoucher {
   id: string;
   company_id: string;
@@ -894,12 +916,19 @@ export interface PaymentVoucher {
   paid_at: string | null;
   paid_by: string | null;
   post_to_type: PvPostToType | null;
+  source_type: PvSourceType | null;
+  source_id: string | null;
+  prf_id: string | null;
+  attachment_urls: string[];
+  checked_at: string | null;
+  checked_by: string | null;
   created_at?: string;
   updated_at?: string;
   supplier?: Pick<Supplier, 'id' | 'supplier_code' | 'supplier_name'> | null;
   bank_account?: Pick<BankAccount, 'id' | 'account_code' | 'account_name' | 'bank_name' | 'gl_account_id'> | null;
   allocations?: PaymentVoucherAllocation[];
   lines?: PaymentVoucherLine[];
+  purchase_requisition?: { id: string; prf_number: string } | null;
 }
 
 export type ArInvoiceStatus =
