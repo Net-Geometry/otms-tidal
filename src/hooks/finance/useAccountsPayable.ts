@@ -1782,3 +1782,312 @@ export function usePostPV() {
     isPosting: mutation.isPending,
   };
 }
+
+// ─── AP Payments ─────────────────────────────────────────────────────────────
+
+const AP_PAYMENT_PAGE_SIZE = 20;
+
+export interface ApPaymentFilters {
+  companyId?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+}
+
+export function useApPayments(filters: ApPaymentFilters = {}) {
+  const db = supabase as any;
+  const { profile } = useAuth();
+  const page = filters.page || 1;
+
+  return useQuery({
+    queryKey: ['ap-payments', filters],
+    queryFn: async () => {
+      let q = db
+        .from('ap_payments')
+        .select(
+          `*, bank_account:bank_accounts(id, account_code, account_name, bank_name, gl_account_id), allocations:ap_payment_allocations(*, payment_voucher:payment_vouchers(id, pv_number, total_amount, status, supplier:suppliers(id, supplier_code, supplier_name)))`,
+          { count: 'exact' },
+        )
+        .order('created_at', { ascending: false });
+
+      const companyId = filters.companyId || profile?.company_id;
+      if (companyId) q = q.eq('company_id', companyId);
+      if (filters.status) q = q.eq('status', filters.status);
+
+      const search = (filters.search || '').trim();
+      if (search) {
+        q = q.or(`payment_number.ilike.%${search}%,reference_no.ilike.%${search}%`);
+      }
+
+      q = q.range((page - 1) * AP_PAYMENT_PAGE_SIZE, page * AP_PAYMENT_PAGE_SIZE - 1);
+
+      const { data, error, count } = await q;
+      if (error) throw error;
+
+      const total = count || 0;
+      return {
+        data: (data || []) as any[],
+        total,
+        page,
+        pageSize: AP_PAYMENT_PAGE_SIZE,
+      };
+    },
+    enabled: !!(filters.companyId || profile?.company_id),
+    staleTime: 20 * 1000,
+  });
+}
+
+export interface CreateApPaymentInput {
+  company_id: string;
+  bank_account_id: string;
+  payment_date: string;
+  payment_method: string;
+  reference_no?: string;
+  remarks?: string;
+  allocations: Record<string, string>; // pv_id -> amount string
+}
+
+export function useCreateApPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: CreateApPaymentInput) => {
+      const companyId = await resolveCompanyId(db, input.company_id);
+      const paymentNumber = await nextDocumentNumber(db, companyId, 'APP', input.payment_date);
+      const totalAmount = roundMoney(
+        Object.values(input.allocations).reduce((s, v) => s + toNumber(v), 0),
+      );
+
+      const { data, error } = await db
+        .from('ap_payments')
+        .insert({
+          company_id: companyId,
+          bank_account_id: input.bank_account_id,
+          payment_date: input.payment_date,
+          payment_method: input.payment_method,
+          reference_no: input.reference_no?.trim() || null,
+          remarks: input.remarks?.trim() || null,
+          payment_number: paymentNumber,
+          total_amount: totalAmount,
+          status: 'draft',
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+
+      const apPaymentId = data.id as string;
+
+      const allocationRows = Object.entries(input.allocations)
+        .map(([pvId, amount]) => ({ ap_payment_id: apPaymentId, pv_id: pvId, allocated_amount: roundMoney(toNumber(amount)) }))
+        .filter((r) => r.allocated_amount > 0);
+
+      if (allocationRows.length) {
+        const { error: allocError } = await db.from('ap_payment_allocations').insert(allocationRows);
+        if (allocError) throw allocError;
+      }
+
+      return { id: apPaymentId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
+      toast({ title: 'Created', description: 'AP payment saved as draft' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    createApPayment: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+  };
+}
+
+export interface UpdateApPaymentInput extends CreateApPaymentInput {
+  id: string;
+}
+
+export function useUpdateApPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: UpdateApPaymentInput) => {
+      const userId = await getCurrentUserId();
+      const totalAmount = roundMoney(
+        Object.values(input.allocations).reduce((s, v) => s + toNumber(v), 0),
+      );
+
+      const { error } = await db
+        .from('ap_payments')
+        .update({
+          bank_account_id: input.bank_account_id,
+          payment_date: input.payment_date,
+          payment_method: input.payment_method,
+          reference_no: input.reference_no?.trim() || null,
+          remarks: input.remarks?.trim() || null,
+          total_amount: totalAmount,
+          updated_at: new Date().toISOString(),
+          updated_by: userId,
+        })
+        .eq('id', input.id);
+      if (error) throw error;
+
+      const { error: deleteError } = await db
+        .from('ap_payment_allocations')
+        .delete()
+        .eq('ap_payment_id', input.id);
+      if (deleteError) throw deleteError;
+
+      const allocationRows = Object.entries(input.allocations)
+        .map(([pvId, amount]) => ({ ap_payment_id: input.id, pv_id: pvId, allocated_amount: roundMoney(toNumber(amount)) }))
+        .filter((r) => r.allocated_amount > 0);
+
+      if (allocationRows.length) {
+        const { error: allocError } = await db.from('ap_payment_allocations').insert(allocationRows);
+        if (allocError) throw allocError;
+      }
+
+      return { id: input.id };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
+      toast({ title: 'Saved', description: 'AP payment updated' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    updateApPayment: mutation.mutateAsync,
+    isSaving: mutation.isPending,
+  };
+}
+
+export function useSubmitApPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db
+        .from('ap_payments')
+        .update({ status: 'pending', submitted_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
+      toast({ title: 'Submitted', description: 'AP payment submitted for approval' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    submitApPayment: mutation.mutateAsync,
+    isSubmitting: mutation.isPending,
+  };
+}
+
+export function useApproveApPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db
+        .from('ap_payments')
+        .update({ status: 'approved', approved_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
+      toast({ title: 'Approved', description: 'AP payment approved' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    approveApPayment: mutation.mutateAsync,
+    isApproving: mutation.isPending,
+  };
+}
+
+export function usePostApPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: updateError } = await db
+        .from('ap_payments')
+        .update({ status: 'posted', posted_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updateError) throw updateError;
+
+      const { data: allocations, error: allocError } = await db
+        .from('ap_payment_allocations')
+        .select('pv_id')
+        .eq('ap_payment_id', id);
+      if (allocError) throw allocError;
+
+      for (const allocation of (allocations || []) as any[]) {
+        const { error: pvError } = await db
+          .from('payment_vouchers')
+          .update({ status: 'paid', paid_at: new Date().toISOString() })
+          .eq('id', allocation.pv_id);
+        if (pvError) throw pvError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      toast({ title: 'Posted', description: 'AP payment posted' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    postApPayment: mutation.mutateAsync,
+    isPosting: mutation.isPending,
+  };
+}
+
+export function useDeleteApPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db.from('ap_payments').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
+      toast({ title: 'Deleted', description: 'AP payment deleted' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    deleteApPayment: mutation.mutateAsync,
+    isDeleting: mutation.isPending,
+  };
+}
