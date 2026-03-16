@@ -10,7 +10,7 @@ export const FINANCE_SPECIFIC_ROLES: AppRole[] = [
 ];
 
 /** All finance roles: legacy 'finance' + 5 specific roles + executive finance roles */
-export const ALL_FINANCE_ROLES: AppRole[] = ['finance', ...FINANCE_SPECIFIC_ROLES, 'dmd', 'head_finance'];
+export const ALL_FINANCE_ROLES: AppRole[] = ['finance', ...FINANCE_SPECIFIC_ROLES, 'head_finance'];
 
 /** Check if a single role string is any finance role */
 export function isFinanceRole(role: string | null): boolean {

@@ -19,7 +19,7 @@ import { HolidayManagement } from "./components/admin/HolidayManagement";
 import { ALL_FINANCE_ROLES } from "./lib/financeRoles";
 
 const FINANCE_ROUTE_ROLES = [...ALL_FINANCE_ROLES, 'admin'] as const;
-const MANAGEMENT_ROUTE_ROLES = ['management', 'director', 'gm', 'sgm', 'admin'] as const;
+const MANAGEMENT_ROUTE_ROLES = ['management', 'director', 'gm', 'sgm', 'dmd', 'admin'] as const;
 
 // Keep auth routes eager for fast login experience
 import Auth from "./pages/Auth";

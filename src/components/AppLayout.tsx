@@ -39,7 +39,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     return <FinanceLayout activeRole={activeRole}>{children}</FinanceLayout>;
   }
 
-  if (['sgm', 'management', 'director', 'gm'].includes(activeRole || '')) {
+  if (['sgm', 'management', 'director', 'gm', 'dmd'].includes(activeRole || '')) {
     return <ManagementLayout activeRole={activeRole}>{children}</ManagementLayout>;
   }
 

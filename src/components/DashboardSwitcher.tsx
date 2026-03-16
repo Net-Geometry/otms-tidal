@@ -52,6 +52,8 @@ export function DashboardSwitcher() {
     return DASHBOARD_ROUTES.filter((option) => {
       // For the finance dashboard entry, check all finance roles
       if (option.role === 'finance') return hasAnyFinanceRole(roles);
+      // For the management dashboard entry, check all management roles including dmd
+      if (option.role === 'management') return ['management', 'director', 'gm', 'sgm', 'dmd'].some(r => roles.includes(r as AppRole));
       return roles.includes(option.role);
     });
   }, [roles]);
@@ -76,9 +78,14 @@ export function DashboardSwitcher() {
     localStorage.setItem(STORAGE_KEY, path);
     setPreferredDashboard(path);
     // When switching to finance dashboard, use user's actual finance_* role
-    const effectiveRole = role === 'finance'
-      ? (getFirstFinanceRole(roles) ?? role)
-      : role;
+    // When switching to management dashboard, use user's actual management role (including dmd)
+    let effectiveRole: AppRole = role;
+    if (role === 'finance') {
+      effectiveRole = getFirstFinanceRole(roles) ?? role;
+    } else if (role === 'management') {
+      const mgmtRoles: AppRole[] = ['dmd', 'management', 'director', 'gm', 'sgm'];
+      effectiveRole = mgmtRoles.find(r => roles.includes(r)) ?? role;
+    }
     setActiveRole(effectiveRole);
     navigate(path);
   };
