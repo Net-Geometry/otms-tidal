@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { Download } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -7,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 import { useDepartments } from '@/hooks/hr/useDepartments';
 import { useAttendanceSummary } from '@/hooks/attendance/useAttendanceSummary';
+import { exportToCSV } from '@/lib/exportUtils';
 
 function currentMonthValue() {
   const d = new Date();
@@ -33,10 +36,42 @@ export function AttendanceSummaryReport() {
 
   const rows = useMemo(() => summary.data || [], [summary.data]);
 
+  const deptLabel = useMemo(() => {
+    if (departmentId === 'all') return 'All';
+    return departments.data?.find((d) => d.id === departmentId)?.name ?? 'All';
+  }, [departmentId, departments.data]);
+
+  const handleExportCSV = () => {
+    if (rows.length === 0) return;
+    const monthLabel = new Date(year, monthNum - 1).toLocaleString('en-MY', { month: 'long', year: 'numeric' });
+    exportToCSV(
+      rows,
+      `attendance-report-${month}`,
+      [
+        { key: 'employee_code', label: 'Employee ID' },
+        { key: 'employee_name', label: 'Employee' },
+        { key: 'department_name', label: 'Department' },
+        { key: 'present_count', label: 'Present' },
+        { key: 'late_count', label: 'Late' },
+        { key: 'absent_count', label: 'Absent' },
+        { key: 'late_minutes_total', label: 'Late Minutes' },
+      ],
+      {
+        reportName: 'Attendance Monthly Summary',
+        period: `${monthLabel} — Department: ${deptLabel}`,
+        generatedDate: new Date().toLocaleDateString('en-MY'),
+      }
+    );
+  };
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Monthly Summary</CardTitle>
+        <Button variant="outline" size="sm" onClick={handleExportCSV} disabled={rows.length === 0}>
+          <Download className="h-4 w-4 mr-2" />
+          Export CSV
+        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
