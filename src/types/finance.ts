@@ -932,6 +932,49 @@ export interface PaymentVoucher {
   purchase_requisition?: { id: string; prf_number: string } | null;
 }
 
+// AP Payments
+export type ApPaymentStatus = 'draft' | 'pending' | 'approved' | 'posted' | 'cancelled';
+
+export const AP_PAYMENT_STATUS_LABELS: Record<ApPaymentStatus, string> = {
+  draft: 'Draft',
+  pending: 'Pending',
+  approved: 'Approved',
+  posted: 'Posted',
+  cancelled: 'Cancelled',
+};
+
+export interface ApPaymentAllocation {
+  id: string;
+  ap_payment_id: string;
+  pv_id: string;
+  allocated_amount: number;
+  created_at?: string;
+  payment_voucher?: Pick<PaymentVoucher, 'id' | 'pv_number' | 'total_amount' | 'status' | 'supplier'> | null;
+}
+
+export interface ApPayment {
+  id: string;
+  company_id: string;
+  payment_number: string | null;
+  bank_account_id: string;
+  payment_date: string;
+  payment_method: ApPaymentMethod;
+  reference_no: string | null;
+  total_amount: number;
+  remarks: string | null;
+  status: ApPaymentStatus;
+  journal_entry_id: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at?: string;
+  updated_at?: string;
+  submitted_at: string | null;
+  approved_at: string | null;
+  posted_at: string | null;
+  bank_account?: Pick<BankAccount, 'id' | 'account_code' | 'account_name' | 'bank_name' | 'gl_account_id'> | null;
+  allocations?: ApPaymentAllocation[];
+}
+
 export type ArInvoiceStatus =
   | 'draft'
   | 'pending'
@@ -1056,6 +1099,52 @@ export interface OfficialReceipt {
   customer?: Pick<Customer, 'id' | 'customer_code' | 'customer_name'> | null;
   bank_account?: Pick<BankAccount, 'id' | 'account_code' | 'account_name' | 'bank_name' | 'gl_account_id'> | null;
   allocations?: OfficialReceiptAllocation[];
+}
+
+// AR Payments
+export type ArPaymentStatus = 'draft' | 'pending' | 'approved' | 'posted' | 'cancelled';
+
+export const AR_PAYMENT_STATUS_LABELS: Record<ArPaymentStatus, string> = {
+  draft: 'Draft',
+  pending: 'Pending',
+  approved: 'Approved',
+  posted: 'Posted',
+  cancelled: 'Cancelled',
+};
+
+export interface ArPaymentAllocation {
+  id: string;
+  ar_payment_id: string;
+  ar_invoice_id: string;
+  allocated_amount: number;
+  created_at?: string;
+  ar_invoice?: Pick<ArInvoice, 'id' | 'invoice_number' | 'total_amount' | 'paid_amount' | 'status'> | null;
+}
+
+export interface ArPayment {
+  id: string;
+  company_id: string;
+  payment_number: string | null;
+  customer_id: string | null;
+  received_from: string | null;
+  bank_account_id: string;
+  payment_date: string;
+  payment_method: ArPaymentMethod;
+  reference_no: string | null;
+  total_amount: number;
+  remarks: string | null;
+  status: ArPaymentStatus;
+  journal_entry_id: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  created_at?: string;
+  updated_at?: string;
+  submitted_at: string | null;
+  approved_at: string | null;
+  posted_at: string | null;
+  customer?: Pick<Customer, 'id' | 'customer_code' | 'customer_name'> | null;
+  bank_account?: Pick<BankAccount, 'id' | 'account_code' | 'account_name' | 'bank_name' | 'gl_account_id'> | null;
+  allocations?: ArPaymentAllocation[];
 }
 
 // AP Debit/Credit Notes
