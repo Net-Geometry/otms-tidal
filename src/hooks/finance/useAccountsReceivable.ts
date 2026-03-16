@@ -985,3 +985,358 @@ export function usePostOR() {
     isPosting: mutation.isPending,
   };
 }
+
+// ─── AR Payments ─────────────────────────────────────────────────────────────
+
+export interface ArPaymentFilters {
+  companyId?: string;
+  status?: string;
+  customerId?: string;
+  search?: string;
+  page?: number;
+}
+
+const AR_PAYMENT_PAGE_SIZE = 20;
+
+export function useArPayments(filters: ArPaymentFilters = {}) {
+  const db = supabase as any;
+  const { profile } = useAuth();
+  const page = filters.page || 1;
+
+  return useQuery({
+    queryKey: ['ar-payments', filters],
+    queryFn: async () => {
+      const companyId = filters.companyId || profile?.company_id;
+      if (!companyId) {
+        return { data: [], total: 0, page, pageSize: AR_PAYMENT_PAGE_SIZE };
+      }
+
+      let q = db
+        .from('ar_payments')
+        .select(
+          `*, customer:customers(id, customer_code, customer_name), bank_account:bank_accounts(id, account_code, account_name, bank_name, gl_account_id), allocations:ar_payment_allocations(*, ar_invoice:ar_invoices(id, invoice_number, total_amount, paid_amount, status))`,
+          { count: 'exact' },
+        )
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false });
+
+      if (filters.status) q = q.eq('status', filters.status);
+      if (filters.customerId) q = q.eq('customer_id', filters.customerId);
+
+      const search = (filters.search || '').trim();
+      if (search) {
+        q = q.or(
+          `payment_number.ilike.%${search}%,reference_no.ilike.%${search}%,received_from.ilike.%${search}%`,
+        );
+      }
+
+      q = q.range((page - 1) * AR_PAYMENT_PAGE_SIZE, page * AR_PAYMENT_PAGE_SIZE - 1);
+
+      const { data, error, count } = await q;
+      if (error) throw error;
+
+      return {
+        data: (data || []) as any[],
+        total: count || 0,
+        page,
+        pageSize: AR_PAYMENT_PAGE_SIZE,
+      };
+    },
+    enabled: !!(filters.companyId || profile?.company_id),
+    staleTime: 20 * 1000,
+  });
+}
+
+export interface CreateArPaymentInput {
+  company_id: string;
+  customer_id?: string;
+  received_from?: string;
+  bank_account_id: string;
+  payment_date: string;
+  payment_method: string;
+  reference_no?: string;
+  remarks?: string;
+  allocations: Record<string, string>; // ar_invoice_id -> amount string
+}
+
+export function useCreateArPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: CreateArPaymentInput) => {
+      const companyId = await resolveCompanyId(db, input.company_id);
+      const paymentNumber = await nextDocumentNumber(db, companyId, 'ARP', input.payment_date);
+
+      const allocationEntries = Object.entries(input.allocations || {})
+        .map(([ar_invoice_id, amount]) => ({
+          ar_invoice_id,
+          allocated_amount: roundMoney(toNumber(amount)),
+        }))
+        .filter((a) => a.ar_invoice_id && a.allocated_amount > 0);
+
+      const totalAmount = roundMoney(allocationEntries.reduce((sum, a) => sum + a.allocated_amount, 0));
+
+      const { data: payment, error: paymentError } = await db
+        .from('ar_payments')
+        .insert({
+          company_id: companyId,
+          payment_number: paymentNumber,
+          customer_id: input.customer_id || null,
+          received_from: input.received_from?.trim() || null,
+          bank_account_id: input.bank_account_id,
+          payment_date: input.payment_date,
+          payment_method: input.payment_method,
+          reference_no: input.reference_no?.trim() || null,
+          remarks: input.remarks?.trim() || null,
+          total_amount: totalAmount,
+        })
+        .select('id')
+        .single();
+      if (paymentError) throw paymentError;
+
+      const paymentId = payment.id as string;
+
+      if (allocationEntries.length) {
+        const { error: allocError } = await db
+          .from('ar_payment_allocations')
+          .insert(
+            allocationEntries.map((a) => ({
+              ar_payment_id: paymentId,
+              ar_invoice_id: a.ar_invoice_id,
+              allocated_amount: a.allocated_amount,
+            })),
+          );
+        if (allocError) throw allocError;
+      }
+
+      return { id: paymentId };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
+      toast({ title: 'Created', description: 'AR payment saved as draft' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    createArPayment: mutation.mutateAsync,
+    isCreating: mutation.isPending,
+  };
+}
+
+export interface UpdateArPaymentInput extends CreateArPaymentInput {
+  id: string;
+}
+
+export function useUpdateArPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: UpdateArPaymentInput) => {
+      if (!input.id) throw new Error('AR payment id is required');
+
+      const companyId = await resolveCompanyId(db, input.company_id);
+
+      const allocationEntries = Object.entries(input.allocations || {})
+        .map(([ar_invoice_id, amount]) => ({
+          ar_invoice_id,
+          allocated_amount: roundMoney(toNumber(amount)),
+        }))
+        .filter((a) => a.ar_invoice_id && a.allocated_amount > 0);
+
+      const totalAmount = roundMoney(allocationEntries.reduce((sum, a) => sum + a.allocated_amount, 0));
+
+      const { error: updateError } = await db
+        .from('ar_payments')
+        .update({
+          company_id: companyId,
+          customer_id: input.customer_id || null,
+          received_from: input.received_from?.trim() || null,
+          bank_account_id: input.bank_account_id,
+          payment_date: input.payment_date,
+          payment_method: input.payment_method,
+          reference_no: input.reference_no?.trim() || null,
+          remarks: input.remarks?.trim() || null,
+          total_amount: totalAmount,
+        })
+        .eq('id', input.id);
+      if (updateError) throw updateError;
+
+      const { error: deleteError } = await db
+        .from('ar_payment_allocations')
+        .delete()
+        .eq('ar_payment_id', input.id);
+      if (deleteError) throw deleteError;
+
+      if (allocationEntries.length) {
+        const { error: allocError } = await db
+          .from('ar_payment_allocations')
+          .insert(
+            allocationEntries.map((a) => ({
+              ar_payment_id: input.id,
+              ar_invoice_id: a.ar_invoice_id,
+              allocated_amount: a.allocated_amount,
+            })),
+          );
+        if (allocError) throw allocError;
+      }
+
+      return { id: input.id };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
+      toast({ title: 'Saved', description: 'AR payment updated' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    updateArPayment: mutation.mutateAsync,
+    isSaving: mutation.isPending,
+  };
+}
+
+export function useSubmitArPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db
+        .from('ar_payments')
+        .update({ status: 'pending', submitted_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
+      toast({ title: 'Submitted', description: 'AR payment submitted for approval' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    submitArPayment: mutation.mutateAsync,
+    isSubmitting: mutation.isPending,
+  };
+}
+
+export function useApproveArPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db
+        .from('ar_payments')
+        .update({ status: 'approved', approved_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
+      toast({ title: 'Approved', description: 'AR payment approved' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    approveArPayment: mutation.mutateAsync,
+    isApproving: mutation.isPending,
+  };
+}
+
+export function usePostArPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: updateError } = await db
+        .from('ar_payments')
+        .update({ status: 'posted', posted_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updateError) throw updateError;
+
+      const { data: allocations, error: allocError } = await db
+        .from('ar_payment_allocations')
+        .select('ar_invoice_id, allocated_amount')
+        .eq('ar_payment_id', id);
+      if (allocError) throw allocError;
+
+      for (const alloc of (allocations || []) as any[]) {
+        const { data: invoice, error: invoiceError } = await db
+          .from('ar_invoices')
+          .select('paid_amount, total_amount')
+          .eq('id', alloc.ar_invoice_id)
+          .single();
+        if (invoiceError) throw invoiceError;
+
+        const newPaid = toNumber(invoice.paid_amount) + toNumber(alloc.allocated_amount);
+        const newStatus = newPaid >= toNumber(invoice.total_amount) ? 'paid' : 'partially_paid';
+
+        const { error: invoiceUpdateError } = await db
+          .from('ar_invoices')
+          .update({ paid_amount: roundMoney(newPaid), status: newStatus })
+          .eq('id', alloc.ar_invoice_id);
+        if (invoiceUpdateError) throw invoiceUpdateError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['ar-invoices'] });
+      toast({ title: 'Posted', description: 'AR payment posted' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    postArPayment: mutation.mutateAsync,
+    isPosting: mutation.isPending,
+  };
+}
+
+export function useDeleteArPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db
+        .from('ar_payments')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
+      toast({ title: 'Deleted', description: 'AR payment deleted' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    deleteArPayment: mutation.mutateAsync,
+    isDeleting: mutation.isPending,
+  };
+}
