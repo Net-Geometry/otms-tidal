@@ -1993,6 +1993,34 @@ export function useSubmitApPayment() {
   };
 }
 
+export function useCheckApPayment() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db
+        .from('ap_payments')
+        .update({ status: 'checked', checked_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
+      toast({ title: 'Checked', description: 'AP payment checked' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    checkApPayment: mutation.mutateAsync,
+    isChecking: mutation.isPending,
+  };
+}
+
 export function useApproveApPayment() {
   const db = supabase as any;
   const queryClient = useQueryClient();

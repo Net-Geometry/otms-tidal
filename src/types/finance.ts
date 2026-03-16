@@ -933,11 +933,12 @@ export interface PaymentVoucher {
 }
 
 // AP Payments
-export type ApPaymentStatus = 'draft' | 'pending' | 'approved' | 'posted' | 'cancelled';
+export type ApPaymentStatus = 'draft' | 'pending' | 'checked' | 'approved' | 'posted' | 'cancelled';
 
 export const AP_PAYMENT_STATUS_LABELS: Record<ApPaymentStatus, string> = {
   draft: 'Draft',
   pending: 'Pending',
+  checked: 'Checked',
   approved: 'Approved',
   posted: 'Posted',
   cancelled: 'Cancelled',
@@ -969,6 +970,8 @@ export interface ApPayment {
   created_at?: string;
   updated_at?: string;
   submitted_at: string | null;
+  checked_at: string | null;
+  checked_by: string | null;
   approved_at: string | null;
   posted_at: string | null;
   bank_account?: Pick<BankAccount, 'id' | 'account_code' | 'account_name' | 'bank_name' | 'gl_account_id'> | null;

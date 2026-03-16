@@ -49,6 +49,7 @@ import {
   useCreateApPayment,
   useUpdateApPayment,
   useSubmitApPayment,
+  useCheckApPayment,
   useApproveApPayment,
   usePostApPayment,
   useDeleteApPayment,
@@ -126,6 +127,7 @@ export default function ApPayments() {
   const createPayment = useCreateApPayment();
   const updatePayment = useUpdateApPayment();
   const submitApPayment = useSubmitApPayment();
+  const checkApPayment = useCheckApPayment();
   const approveApPayment = useApproveApPayment();
   const postApPayment = usePostApPayment();
   const deleteApPayment = useDeleteApPayment();
@@ -168,7 +170,7 @@ export default function ApPayments() {
 
   // Summary counts
   const counts = useMemo(() => {
-    const result = { draft: 0, pending: 0, approved: 0, posted: 0 };
+    const result = { draft: 0, pending: 0, checked: 0, approved: 0, posted: 0 };
     for (const row of rows) {
       if (row.status in result) {
         result[row.status as keyof typeof result]++;
@@ -289,7 +291,7 @@ export default function ApPayments() {
         }
       >
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-6">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">Draft</CardTitle>
@@ -304,6 +306,14 @@ export default function ApPayments() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">{counts.pending}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Checked</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">{counts.checked}</p>
             </CardContent>
           </Card>
           <Card>
@@ -477,6 +487,18 @@ export default function ApPayments() {
                                 </>
                               )}
                               {payment.status === 'pending' && canApprove && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => checkApPayment.checkApPayment(payment.id)}
+                                    disabled={checkApPayment.isChecking}
+                                  >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Check
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {payment.status === 'checked' && canApprove && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem

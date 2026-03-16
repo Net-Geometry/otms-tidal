@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import {
   useApPayments,
+  useCheckApPayment,
   useApproveApPayment,
 } from '@/hooks/finance/useAccountsPayable';
 import {
@@ -55,9 +56,13 @@ export default function ApproveApPayment() {
   const isDmd = roles.includes('dmd');
 
   const roleLabel = isAsstMgr ? 'Assistant Manager' : isDmd ? 'DMD' : '';
+  const actionLabel = isAsstMgr ? 'Check' : isDmd ? 'Approve' : '';
+
+  // assistant_manager sees 'pending', dmd sees 'checked'
+  const pendingStatus = isAsstMgr ? 'pending' : isDmd ? 'checked' : 'pending';
 
   const pendingPayments = useApPayments({
-    status: 'pending',
+    status: pendingStatus,
     page: 1,
   });
 
@@ -65,6 +70,7 @@ export default function ApproveApPayment() {
     page: 1,
   });
 
+  const checkApPayment = useCheckApPayment();
   const { approveApPayment, isApproving } = useApproveApPayment();
 
   const pendingRows = useMemo(() => {
@@ -78,10 +84,13 @@ export default function ApproveApPayment() {
 
   const rows: ApPayment[] = tab === 'pending' ? pendingRows : historyRows;
 
+  const isActionPending = checkApPayment.isChecking || isApproving;
+
   const getStatusBadgeClass = (status: ApPaymentStatus) => {
     switch (status) {
       case 'draft': return 'bg-gray-100 text-gray-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'checked': return 'bg-purple-100 text-purple-800';
       case 'approved': return 'bg-green-100 text-green-800';
       case 'posted': return 'bg-indigo-100 text-indigo-800';
       case 'cancelled': return 'bg-gray-100 text-gray-800';
@@ -89,8 +98,12 @@ export default function ApproveApPayment() {
     }
   };
 
-  const handleApprove = (payment: ApPayment) => {
-    approveApPayment(payment.id);
+  const handleAction = (payment: ApPayment) => {
+    if (isAsstMgr && payment.status === 'pending') {
+      checkApPayment.checkApPayment(payment.id);
+    } else if (isDmd && payment.status === 'checked') {
+      approveApPayment(payment.id);
+    }
   };
 
   return (
@@ -104,7 +117,7 @@ export default function ApproveApPayment() {
           <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="pending">
-                Pending Approval ({pendingRows.length})
+                Pending {actionLabel} ({pendingRows.length})
               </TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
             </TabsList>
@@ -151,10 +164,10 @@ export default function ApproveApPayment() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleApprove(payment)}
-                                  disabled={isApproving}
+                                  onClick={() => handleAction(payment)}
+                                  disabled={isActionPending}
                                 >
-                                  Approve
+                                  {actionLabel}
                                 </Button>
                               )}
                               <Button
