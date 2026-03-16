@@ -175,7 +175,7 @@ export default function ApPayments() {
   }, [rows]);
 
   const canApprove = ['dmd', 'assistant_manager', 'director', 'gm'].includes(activeRole || '');
-  const canSubmitPost = ['finance', 'head_finance', 'admin'].includes(activeRole || '');
+  const canSubmitPost = ['finance', 'finance_admin', 'account_assistant', 'account_exec', 'head_finance', 'admin'].includes(activeRole || '');
 
   const openNewDialog = () => {
     const defaultCompanyId =

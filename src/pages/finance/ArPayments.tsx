@@ -36,6 +36,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useBankAccounts, useCustomers } from '@/hooks/finance/useFinanceFoundation';
+import { useActiveRole } from '@/hooks/useActiveRole';
 import {
   useArInvoices,
   useArPayments,
@@ -94,6 +95,10 @@ export default function ArPayments() {
   const { data: companies = [] } = useCompanies();
   const bankAccounts = useBankAccounts();
   const customersQuery = useCustomers();
+  const { activeRole } = useActiveRole();
+
+  const canApprove = ['dmd', 'assistant_manager', 'director', 'gm'].includes(activeRole || '');
+  const canSubmitPost = ['finance', 'finance_admin', 'account_assistant', 'account_exec', 'head_finance', 'admin'].includes(activeRole || '');
 
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ArPaymentStatus>('all');
@@ -406,7 +411,7 @@ export default function ArPayments() {
                                 Edit
                               </Button>
                             )}
-                            {payment.status === 'draft' && (
+                            {payment.status === 'draft' && canSubmitPost && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -416,7 +421,7 @@ export default function ArPayments() {
                                 Submit
                               </Button>
                             )}
-                            {payment.status === 'draft' && (
+                            {payment.status === 'draft' && canSubmitPost && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -426,7 +431,7 @@ export default function ArPayments() {
                                 Delete
                               </Button>
                             )}
-                            {payment.status === 'pending' && (
+                            {payment.status === 'pending' && canApprove && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -436,7 +441,7 @@ export default function ArPayments() {
                                 Approve
                               </Button>
                             )}
-                            {payment.status === 'approved' && (
+                            {payment.status === 'approved' && canSubmitPost && (
                               <Button
                                 variant="outline"
                                 size="sm"
