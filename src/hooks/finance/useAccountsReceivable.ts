@@ -1000,26 +1000,20 @@ const AR_PAYMENT_PAGE_SIZE = 20;
 
 export function useArPayments(filters: ArPaymentFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
   const page = filters.page || 1;
 
   return useQuery({
     queryKey: ['ar-payments', filters],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) {
-        return { data: [], total: 0, page, pageSize: AR_PAYMENT_PAGE_SIZE };
-      }
-
       let q = db
         .from('ar_payments')
         .select(
           `*, customer:customers(id, customer_code, customer_name), bank_account:bank_accounts(id, account_code, account_name, bank_name, gl_account_id), allocations:ar_payment_allocations(*, ar_invoice:ar_invoices(id, invoice_number, total_amount, paid_amount, status))`,
           { count: 'exact' },
         )
-        .eq('company_id', companyId)
         .order('created_at', { ascending: false });
 
+      if (filters.companyId) q = q.eq('company_id', filters.companyId);
       if (filters.status) q = q.eq('status', filters.status);
       if (filters.customerId) q = q.eq('customer_id', filters.customerId);
 
@@ -1042,7 +1036,6 @@ export function useArPayments(filters: ArPaymentFilters = {}) {
         pageSize: AR_PAYMENT_PAGE_SIZE,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
     staleTime: 20 * 1000,
   });
 }

@@ -1796,7 +1796,6 @@ export interface ApPaymentFilters {
 
 export function useApPayments(filters: ApPaymentFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
   const page = filters.page || 1;
 
   return useQuery({
@@ -1810,8 +1809,7 @@ export function useApPayments(filters: ApPaymentFilters = {}) {
         )
         .order('created_at', { ascending: false });
 
-      const companyId = filters.companyId || profile?.company_id;
-      if (companyId) q = q.eq('company_id', companyId);
+      if (filters.companyId) q = q.eq('company_id', filters.companyId);
       if (filters.status) q = q.eq('status', filters.status);
 
       const search = (filters.search || '').trim();
@@ -1832,7 +1830,6 @@ export function useApPayments(filters: ApPaymentFilters = {}) {
         pageSize: AP_PAYMENT_PAGE_SIZE,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
     staleTime: 20 * 1000,
   });
 }
