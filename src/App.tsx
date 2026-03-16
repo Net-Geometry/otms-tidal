@@ -102,6 +102,8 @@ const ArDebitCreditNotes = lazy(() => import("./pages/finance/ArDebitCreditNotes
 const CashBook = lazy(() => import("./pages/finance/CashBook"));
 const OpeningBalance = lazy(() => import("./pages/finance/OpeningBalance"));
 const BankReconciliation = lazy(() => import("./pages/finance/BankReconciliation"));
+const ApPayments = lazy(() => import("./pages/finance/ApPayments"));
+const ArPayments = lazy(() => import("./pages/finance/ArPayments"));
 
 const ReviewOT = lazy(() => import("./pages/management/ReviewOT"));
 const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
@@ -200,8 +202,10 @@ const App = () => (
                 <Route path="/finance/ap/prf" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PurchaseRequisitions /></ProtectedRoute>} />
                 <Route path="/finance/ap/invoices" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ApInvoices /></ProtectedRoute>} />
                 <Route path="/finance/ap/payment-vouchers" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PaymentVouchers /></ProtectedRoute>} />
+                <Route path="/finance/ap/payments" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ApPayments /></ProtectedRoute>} />
                 <Route path="/finance/ar/invoices" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ArInvoices /></ProtectedRoute>} />
                 <Route path="/finance/ar/official-receipts" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><OfficialReceipts /></ProtectedRoute>} />
+                <Route path="/finance/ar/payments" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ArPayments /></ProtectedRoute>} />
                 <Route path="/finance/ap/notes" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ApDebitCreditNotes /></ProtectedRoute>} />
                 <Route path="/finance/ar/notes" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ArDebitCreditNotes /></ProtectedRoute>} />
                 <Route path="/finance/gl/cashbook" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><CashBook /></ProtectedRoute>} />
