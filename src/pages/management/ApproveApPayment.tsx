@@ -230,7 +230,7 @@ export default function ApproveApPayment() {
                             <TableCell>
                               {(alloc.payment_voucher as any)?.supplier?.supplier_name || '-'}
                             </TableCell>
-                            <TableCell className="text-right">{formatMoney(alloc.amount)}</TableCell>
+                            <TableCell className="text-right">{formatMoney(alloc.allocated_amount)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
