@@ -19,7 +19,7 @@ import { HolidayManagement } from "./components/admin/HolidayManagement";
 import { ALL_FINANCE_ROLES } from "./lib/financeRoles";
 
 const FINANCE_ROUTE_ROLES = [...ALL_FINANCE_ROLES, 'admin'] as const;
-const MANAGEMENT_ROUTE_ROLES = ['management', 'director', 'gm', 'sgm', 'dmd', 'admin'] as const;
+const MANAGEMENT_ROUTE_ROLES = ['management', 'director', 'gm', 'sgm', 'dmd', 'assistant_manager', 'manager', 'admin'] as const;
 
 // Keep auth routes eager for fast login experience
 import Auth from "./pages/Auth";
@@ -80,6 +80,7 @@ const OrgChart = lazy(() => import("./pages/hr/OrgChart"));
 // Lazy load Finance routes
 const ChartOfAccounts = lazy(() => import("./pages/finance/ChartOfAccounts"));
 const ClaimsPosting = lazy(() => import("./pages/finance/ClaimsPosting"));
+const FinanceMemos = lazy(() => import("./pages/finance/Memos"));
 const PettyCash = lazy(() => import("./pages/finance/PettyCash"));
 // const ProjectCosting = lazy(() => import("./pages/finance/ProjectCosting"));
 const Wages = lazy(() => import("./pages/finance/Wages"));
@@ -107,6 +108,9 @@ const ManagementApproveOT = lazy(() => import("./pages/management/ApproveOT"));
 const ManagementApproveLeave = lazy(() => import("./pages/management/ApproveLeave"));
 const ManagementApproveClaims = lazy(() => import("./pages/management/ApproveClaims"));
 const ManagementApprovePayroll = lazy(() => import("./pages/management/ApprovePayroll"));
+const ManagementApprovePRF = lazy(() => import("./pages/management/ApprovePRF"));
+const ManagementApproveMemos = lazy(() => import("./pages/management/ApproveMemos"));
+const ManagementApprovePV = lazy(() => import("./pages/management/ApprovePV"));
 
 const queryClient = createQueryClient();
 
@@ -204,6 +208,7 @@ const App = () => (
                 <Route path="/finance/gl/opening-balance" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><OpeningBalance /></ProtectedRoute>} />
                 <Route path="/finance/bank/reconciliation" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><BankReconciliation /></ProtectedRoute>} />
                 <Route path="/finance/claims" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ClaimsPosting /></ProtectedRoute>} />
+                <Route path="/finance/memos" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><FinanceMemos /></ProtectedRoute>} />
                 <Route path="/finance/petty-cash" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PettyCash /></ProtectedRoute>} />
                 {/* <Route path="/finance/project-costing" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ProjectCosting /></ProtectedRoute>} /> */}
                 <Route path="/finance/wages" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><Wages /></ProtectedRoute>} />
@@ -213,7 +218,10 @@ const App = () => (
                 <Route path="/management/approve" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveOT /></ProtectedRoute>} />
                 <Route path="/management/approve-leave" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveLeave /></ProtectedRoute>} />
                 <Route path="/management/approve-claims" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveClaims /></ProtectedRoute>} />
-                <Route path="/management/approve-payroll" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES, ...ALL_FINANCE_ROLES]}><ManagementApprovePayroll /></ProtectedRoute>} />
+                <Route path="/management/approve-payroll" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApprovePayroll /></ProtectedRoute>} />
+                <Route path="/management/approve-prf" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApprovePRF /></ProtectedRoute>} />
+                <Route path="/management/memo-approval" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApproveMemos /></ProtectedRoute>} />
+                <Route path="/management/approve-pv" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ManagementApprovePV /></ProtectedRoute>} />
                 <Route path="/management/report" element={<ProtectedRoute requiredRole={[...MANAGEMENT_ROUTE_ROLES]}><ReviewOT /></ProtectedRoute>} />
                 
                 <Route path="*" element={<NotFound />} />

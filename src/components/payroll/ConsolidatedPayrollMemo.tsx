@@ -96,7 +96,7 @@ const SALARY_ROWS: SalaryRow[] = [
   { label: 'Employer SOCSO', key: 'total_employer_socso', countField: 'employer_socso' },
   { label: 'Employer EIS', key: 'total_employer_eis', countField: 'employer_eis' },
   // B) Total Employer Contribution
-  { label: 'B) Total Employer Contribution', key: 'computed_total_employer_contribution', isSubtotal: true, isComputed: true },
+  { label: 'Total Employer Contribution', key: 'computed_total_employer_contribution', isSubtotal: true, isComputed: true },
   // 12. Total Allowances
   { label: 'Total Allowances', key: 'total_allowances', countField: 'total_allowances' },
   // 13. Phone Allowance (breakdown)
@@ -106,7 +106,7 @@ const SALARY_ROWS: SalaryRow[] = [
   // 15. Other Deduction
   { label: 'Other Deduction', key: 'item_other_deductions', itemField: 'other_deductions', countField: 'other_deductions' },
   // A) Total Duit Keluar (Grand Total)
-  { label: 'A) Total Duit Keluar', key: 'computed_total_duit_keluar', isSubtotal: true, isComputed: true },
+  { label: 'Grand Total', key: 'computed_total_duit_keluar', isSubtotal: true, isComputed: true },
 ];
 
 // Count fields we need from payroll_items (includes new item-level fields)

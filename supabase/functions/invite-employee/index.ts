@@ -13,7 +13,7 @@ serve(async (req)=>{
     });
   }
   try {
-    const { email, full_name, employee_id, ic_no, phone_no, position, position_id, company_id, department_id, basic_salary, epf_no, socso_no, income_tax_no, employment_type, joining_date, work_location, supervisor_id, role = 'employee', designation, state, is_ot_eligible = true } = await req.json();
+    const { email, full_name, employee_id, ic_no, phone_no, position, position_id, company_id, department_id, basic_salary, epf_no, socso_no, income_tax_no, employment_type, joining_date, work_location, supervisor_id, role = 'employee', designation, state, is_ot_eligible = true, supervisor_required = true } = await req.json();
     // Generate placeholder email if not provided
     const effectiveEmail = email && email.trim() !== '' ? email : `${employee_id}@internal.company`;
     console.log('Inviting employee:', {
@@ -118,6 +118,7 @@ serve(async (req)=>{
       designation,
       state,
       is_ot_eligible,
+      supervisor_required,
       status: 'pending_password'
     });
     if (profileError) {

@@ -121,15 +121,35 @@ export function useLeaveApproval(options: { role: LeaveApprovalRole; tab?: Leave
       if (authError) throw authError;
       if (!authData?.user) throw new Error('Not authenticated');
 
-      // Validate transitions: fetch current statuses
+      // Validate transitions: fetch current statuses + employee IDs
       const { data: current, error: fetchErr } = await db
         .from('leave_requests')
-        .select('id, status')
+        .select('id, status, employee_id')
         .in('id', input.requestIds);
       if (fetchErr) throw fetchErr;
 
       const updateData: any = getApproveUpdate(role, input.remarks);
-      const targetStatus = updateData.status;
+      let targetStatus = updateData.status;
+
+      // When HR approves, check if the applicant is Director/MD/GM — skip management step
+      if (role === 'hr') {
+        const employeeIds = [...new Set((current || []).map((r: any) => r.employee_id))];
+        const { data: seniorRoles } = await db
+          .from('user_roles')
+          .select('user_id, role')
+          .in('user_id', employeeIds)
+          .in('role', ['director', 'management', 'gm']);
+
+        const seniorUserIds = new Set((seniorRoles || []).map((r: any) => r.user_id));
+        const allSenior = employeeIds.length > 0 && employeeIds.every((id: string) => seniorUserIds.has(id));
+
+        if (allSenior) {
+          // Senior staff: HR approval is final — skip management step
+          updateData.status = 'management_approved';
+          updateData.management_approved_at = updateData.hr_approved_at;
+          targetStatus = 'management_approved';
+        }
+      }
 
       // Check each request allows this transition
       const invalid = (current || []).filter(

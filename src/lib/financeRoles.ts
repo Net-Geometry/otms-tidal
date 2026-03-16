@@ -4,8 +4,6 @@ import type { AppRole } from '@/types/otms';
 export const FINANCE_SPECIFIC_ROLES: AppRole[] = [
   'finance_admin',
   'account_assistant',
-  'assistant_manager',
-  'manager',
   'account_exec',
 ];
 
@@ -33,7 +31,5 @@ export const FINANCE_ROLE_LABELS: Record<string, string> = {
   finance: 'Finance (Legacy)',
   finance_admin: 'Finance Admin',
   account_assistant: 'Account Assistant',
-  assistant_manager: 'Assistant Manager',
-  manager: 'Manager',
   account_exec: 'Account Executive',
 };

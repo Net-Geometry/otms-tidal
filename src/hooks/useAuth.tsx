@@ -244,6 +244,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (roles.includes('management')) return '/management/dashboard';
     if (roles.includes('director')) return '/management/dashboard';
     if (roles.includes('gm')) return '/management/dashboard';
+    if (roles.includes('assistant_manager')) return '/management/dashboard';
+    if (roles.includes('manager')) return '/management/dashboard';
     if (roles.includes('supervisor')) return '/supervisor/dashboard';
     if (roles.includes('employee')) return '/employee/dashboard';
 

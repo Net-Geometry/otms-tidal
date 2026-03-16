@@ -143,6 +143,8 @@ export interface Profile {
   status: string;
   is_ot_eligible: boolean;
   require_ot_attachment?: boolean;
+  /** Whether this employee requires a supervisor (Reporting To). Default true. */
+  supervisor_required?: boolean;
   /** Per-employee payroll contribution rates - override global settings if set */
   employee_epf_rate?: number | null;
   employer_epf_rate?: number | null;

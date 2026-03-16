@@ -47,6 +47,7 @@ import {
   Calendar,
   Settings,
   CheckCircle,
+  FileText,
 } from 'lucide-react';
 import { generateBreadcrumbs } from './layoutUtils';
 
@@ -57,6 +58,7 @@ interface ManagementLayoutProps {
 
 function ManagementSidebar() {
   const { open } = useSidebar();
+  const { roles } = useAuth();
   const location = useLocation();
   const currentPath = location.pathname;
 
@@ -69,6 +71,19 @@ function ManagementSidebar() {
     system: true,
   });
 
+  // Only assistant_manager and dmd are in the PV approval workflow
+  const canApprovePV = roles.includes('assistant_manager') || roles.includes('dmd');
+
+  const approvalItems = [
+    { path: '/management/approve', label: 'Approve OT', icon: CheckCircle },
+    { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle },
+    { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt },
+    { path: '/management/approve-payroll', label: 'Approve Payroll', icon: Wallet },
+    { path: '/management/approve-prf', label: 'Approve PRF', icon: CheckCircle },
+    ...(canApprovePV ? [{ path: '/management/approve-pv', label: 'Approve PV', icon: CheckCircle }] : []),
+    { path: '/management/memo-approval', label: 'Approve Memos', icon: FileText },
+  ];
+
   const menuGroups = {
     executive: {
       label: 'Executive View',
@@ -79,12 +94,7 @@ function ManagementSidebar() {
     },
     approvals: {
       label: 'Approvals',
-      items: [
-        { path: '/management/approve', label: 'Approve OT', icon: CheckCircle },
-        { path: '/management/approve-leave', label: 'Approve Leave', icon: CheckCircle },
-        { path: '/management/approve-claims', label: 'Approve Claims', icon: Receipt },
-        { path: '/management/approve-payroll', label: 'Approve Payroll', icon: Wallet },
-      ],
+      items: approvalItems,
     },
     system: {
       label: 'System',

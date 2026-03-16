@@ -4,12 +4,11 @@ import { ResponsiveTable } from '@/components/ui/responsive-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Eye, Edit, Mail, Trash2, AlertTriangle } from 'lucide-react';
+import { Eye, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/otCalculations';
 import { calculateYearsOfService } from '@/utils/yearsOfService';
 import { EmployeeDetailsSheet } from './EmployeeDetailsSheet';
 import { Profile } from '@/types/otms';
-import { useResendInvite } from '@/hooks/hr/useResendInvite';
 import { useDeleteEmployee } from '@/hooks/hr/useDeleteEmployee';
 import { useUpdateEmployee } from '@/hooks/hr/useUpdateEmployee';
 import { useEmployees } from '@/hooks/hr/useEmployees';
@@ -36,7 +35,6 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
   const [sheetMode, setSheetMode] = useState<'view' | 'edit'>('view');
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState<Profile | null>(null);
-  const resendInvite = useResendInvite();
   const deleteEmployee = useDeleteEmployee();
   const updateEmployee = useUpdateEmployee();
   const { data: allEmployees = [] } = useEmployees();
@@ -66,13 +64,6 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
 
     return matchesSearch && matchesStatus;
   });
-
-  const handleResendInvite = (employee: Profile) => {
-    resendInvite.mutate({
-      userId: employee.id,
-      email: employee.email
-    });
-  };
 
   const handleDeleteEmployee = () => {
     if (employeeToDelete) {
@@ -180,20 +171,6 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                {(employee.status === 'pending' || employee.status === 'inactive' || employee.status === 'pending_password' || employee.status === 'pending_setup') && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleResendInvite(employee);
-                    }}
-                    disabled={resendInvite.isPending}
-                    className="h-9 w-9"
-                  >
-                    <Mail className="h-4 w-4" />
-                  </Button>
-                )}
                 <Button
                   size="icon"
                   variant="ghost"
@@ -344,16 +321,6 @@ export function EmployeeTable({ employees, isLoading, searchQuery, statusFilter 
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      {(employee.status === 'pending' || employee.status === 'inactive' || employee.status === 'pending_password' || employee.status === 'pending_setup') && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleResendInvite(employee)}
-                          disabled={resendInvite.isPending}
-                        >
-                          <Mail className="h-4 w-4" />
-                        </Button>
-                      )}
                       <Button
                         size="sm"
                         variant="outline"

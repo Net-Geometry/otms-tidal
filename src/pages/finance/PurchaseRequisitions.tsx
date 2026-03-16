@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Eye, PlusCircle, Trash2 } from 'lucide-react';
+import { Eye, FileText as FileTextIcon, PlusCircle, Trash2 } from 'lucide-react';
+import { FileUpload } from '@/components/ot/FileUpload';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -92,6 +93,7 @@ interface PrfFormState {
   chk_others: boolean;
   chk_others_text: string;
   accounts_dept_remarks: string;
+  attachments: string[];
 }
 
 function formatMoney(value: number) {
@@ -139,6 +141,7 @@ function makeInitialForm(companyId: string): PrfFormState {
     chk_others: false,
     chk_others_text: '',
     accounts_dept_remarks: '',
+    attachments: [],
   };
 }
 
@@ -263,6 +266,7 @@ export default function PurchaseRequisitions() {
       chk_others: prf.chk_others ?? false,
       chk_others_text: prf.chk_others_text || '',
       accounts_dept_remarks: prf.accounts_dept_remarks || '',
+      attachments: prf.attachments || [],
     });
     setDialogOpen(true);
   };
@@ -333,6 +337,7 @@ export default function PurchaseRequisitions() {
       chk_others: form.chk_others,
       chk_others_text: form.chk_others ? form.chk_others_text.trim() || null : null,
       accounts_dept_remarks: form.accounts_dept_remarks.trim() || null,
+      attachments: form.attachments,
       items: preparedItems,
     };
 
@@ -861,6 +866,25 @@ export default function PurchaseRequisitions() {
 
               <Separator />
 
+              {/* Attachments */}
+              <div className="space-y-2">
+                <Label>Attachments</Label>
+                <FileUpload
+                  bucket="prf-attachments"
+                  maxFiles={10}
+                  currentFiles={form.attachments}
+                  onUploadComplete={(urls) => setForm((prev) => ({ ...prev, attachments: urls }))}
+                  onRemove={(index) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      attachments: prev.attachments.filter((_, i) => i !== index),
+                    }))
+                  }
+                />
+              </div>
+
+              <Separator />
+
               {/* Checklist & Accounts Dept */}
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="space-y-3">
@@ -1068,6 +1092,35 @@ export default function PurchaseRequisitions() {
                   <div className="text-sm">
                     <p className="text-muted-foreground">Accounts Department Remarks:</p>
                     <p>{detailPrf.accounts_dept_remarks}</p>
+                  </div>
+                )}
+
+                {/* Attachments display */}
+                {detailPrf.attachments && detailPrf.attachments.length > 0 && (
+                  <div className="text-sm space-y-2">
+                    <p className="text-muted-foreground">Attachments ({detailPrf.attachments.length}):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {detailPrf.attachments.map((url, idx) => {
+                        const filename = decodeURIComponent(url.split('/').pop() || `Attachment ${idx + 1}`);
+                        const isImage = /\.(jpg|jpeg|png)$/i.test(url);
+                        return (
+                          <a
+                            key={idx}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs hover:bg-muted transition-colors"
+                          >
+                            {isImage ? (
+                              <img src={url} alt={filename} className="h-8 w-8 rounded object-cover" />
+                            ) : (
+                              <FileTextIcon className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="max-w-[150px] truncate">{filename}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 

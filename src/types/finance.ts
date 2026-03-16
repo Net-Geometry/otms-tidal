@@ -643,7 +643,7 @@ export type ApPvStatus = 'draft' | 'pending' | 'checked' | 'approved' | 'rejecte
 
 export const AP_PV_STATUS_LABELS: Record<ApPvStatus, string> = {
   draft: 'Draft',
-  pending: 'Pending Approval',
+  pending: 'Prepared',
   checked: 'Checked',
   approved: 'Approved',
   rejected: 'Rejected',
@@ -788,6 +788,7 @@ export interface PurchaseRequisition {
   chk_others: boolean;
   chk_others_text: string | null;
   accounts_dept_remarks: string | null;
+  attachments: string[];
   status: ApPrfStatus;
   submitted_at: string | null;
   approved_at: string | null;

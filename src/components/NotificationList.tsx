@@ -2,7 +2,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { CheckCheck, Bell, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import { CheckCheck, Bell, CheckCircle, XCircle, Clock, AlertCircle, FileText, Receipt } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,18 @@ export function NotificationList() {
       case 'ot_pending_review':
       case 'ot_requests_new':
         return <Clock className="h-4 w-4 text-blue-500" />;
+      case 'prf_pending_review':
+        return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'prf_approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'prf_rejected':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'pv_pending_review':
+        return <Receipt className="h-4 w-4 text-blue-500" />;
+      case 'pv_approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'pv_rejected':
+        return <XCircle className="h-4 w-4 text-red-500" />;
       default:
         return <Bell className="h-4 w-4 text-muted-foreground" />;
     }

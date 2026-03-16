@@ -63,7 +63,7 @@ export function useEmployeePayslips(options?: { year?: number }) {
       return items.filter(
         (item) =>
           item.payroll_run?.pay_period_year === year &&
-          ['finalized', 'locked'].includes(item.payroll_run?.status)
+          ['finalized', 'locked', 'posted'].includes(item.payroll_run?.status)
       );
     },
     staleTime: 60 * 1000,

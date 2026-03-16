@@ -85,8 +85,8 @@ export function EmployeeDetailsSheet({
 
   const isAdmin = hasRole('admin');
 
-  // Determine if supervisor is required based on selected roles
-  const supervisorRequired = !selectedRoles.some(role => ['admin', 'management'].includes(role));
+  // Determine if supervisor is required based on per-employee setting (default true)
+  const supervisorRequired = formData.supervisor_required !== false;
 
   // Validation error for supervisor_id
   const [supervisorValidationError, setSupervisorValidationError] = useState<string | null>(null);
@@ -662,6 +662,31 @@ export function EmployeeDetailsSheet({
                       className="w-fit"
                     >
                       {employee.status}
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Require Supervisor */}
+                <div className="grid gap-2 col-span-2">
+                  <Label htmlFor="supervisor_required">Require Supervisor</Label>
+                  {isEditing ? (
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="supervisor_required"
+                        checked={formData.supervisor_required !== false}
+                        onChange={(e) =>
+                          setFormData({ ...formData, supervisor_required: e.target.checked })
+                        }
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        Require this employee to have a supervisor (Reporting To)
+                      </span>
+                    </div>
+                  ) : (
+                    <Badge variant={employee.supervisor_required !== false ? 'default' : 'secondary'} className="w-fit">
+                      {employee.supervisor_required !== false ? 'Required' : 'Optional'}
                     </Badge>
                   )}
                 </div>

@@ -7,9 +7,10 @@ import type { LeaveRequest } from '@/types/leave';
 import { getLeaveStatusDisplay, getLeaveApproverName } from '@/types/leave';
 import { LeaveApprovalActions } from '@/components/leave/LeaveApprovalActions';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
 
 type DetailsRole = 'employee' | 'supervisor' | 'hr' | 'management';
 
@@ -63,13 +64,26 @@ export function LeaveRequestDetailsSheet({
 }) {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  const [isSeniorEmployee, setIsSeniorEmployee] = useState(false);
+
+  // Check if employee is senior staff (director/management/gm) — HR approval is final for them
+  useEffect(() => {
+    if (!request || role !== 'hr') { setIsSeniorEmployee(false); return; }
+    const db = supabase as any;
+    db.from('user_roles')
+      .select('role')
+      .eq('user_id', request.employee_id)
+      .in('role', ['director', 'management', 'gm'])
+      .limit(1)
+      .then(({ data }: any) => setIsSeniorEmployee(!!(data && data.length > 0)));
+  }, [request?.employee_id, role]);
 
   if (!request) return null;
 
   const typeName = request.leave_type?.name || request.leave_type_id;
   const employeeName = request.profiles?.full_name || request.employee_id;
 
-  const approveLabel = role === 'supervisor' ? 'Approve (To HR)' : role === 'hr' ? 'Approve (To Management)' : 'Final Approve';
+  const approveLabel = role === 'supervisor' ? 'Approve (To HR)' : role === 'hr' ? (isSeniorEmployee ? 'Final Approve' : 'Approve (To Management)') : 'Final Approve';
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>

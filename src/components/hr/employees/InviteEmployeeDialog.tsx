@@ -35,15 +35,15 @@ const inviteSchema = z.object({
     'assistant_manager', 'manager', 'dmd', 'sgm', 'director', 'gm', 'head_finance',
   ]),
   is_ot_eligible: z.boolean().default(true),
+  supervisor_required: z.boolean().default(true),
 }).refine((data) => {
-  // supervisor_id is required unless the user is admin or management
-  const requiresSupervisor = !['admin', 'management', 'director', 'gm', 'sgm', 'dmd'].includes(data.role);
-  if (requiresSupervisor && !data.supervisor_id) {
+  // supervisor_id is required only if supervisor_required is true
+  if (data.supervisor_required && !data.supervisor_id) {
     return false;
   }
   return true;
 }, {
-  message: 'Reporting To is required for this role',
+  message: 'Reporting To is required for this employee',
   path: ['supervisor_id'],
 });
 
@@ -79,6 +79,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
       supervisor_id: '',
       role: 'employee',
       is_ot_eligible: true,
+      supervisor_required: true,
     },
   });
 
@@ -99,9 +100,8 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
     form.setValue('position_id', '');
   }
 
-  // Watch role to determine if supervisor_id is required
-  const selectedRole = form.watch('role');
-  const supervisorRequired = !['admin', 'management', 'director', 'gm', 'sgm', 'dmd'].includes(selectedRole);
+  // Watch supervisor_required toggle to determine if supervisor_id is required
+  const supervisorRequired = form.watch('supervisor_required') !== false;
 
   const onSubmit = (data: InviteFormData) => {
     // Get position title from selected position
@@ -130,6 +130,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
       supervisor_id: data.supervisor_id || null,
       role: data.role,
       is_ot_eligible: data.is_ot_eligible,
+      supervisor_required: data.supervisor_required,
     }, {
       onSuccess: () => {
         form.reset();
@@ -491,6 +492,30 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                     <FormLabel>OT Eligible</FormLabel>
                     <p className="text-sm text-muted-foreground">
                       Allow this employee to submit overtime requests
+                    </p>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {/* Row 12: Require Supervisor */}
+            <FormField
+              control={form.control}
+              name="supervisor_required"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value !== false}
+                      onChange={field.onChange}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>Require Supervisor</FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Require this employee to have a supervisor (Reporting To)
                     </p>
                   </div>
                 </FormItem>

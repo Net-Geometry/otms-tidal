@@ -130,7 +130,7 @@ export function useClaimMemoPreview(month: number, year: number, enabled: boolea
       // Fetch management-approved OT for the period
       const { data: otRequests, error: otErr } = await db
         .from('ot_requests')
-        .select('id, employee_id, ot_amount, total_hours, ot_date, profiles(full_name)')
+        .select('id, employee_id, ot_amount, total_hours, ot_date, profiles:profiles!ot_requests_employee_id_fkey(full_name)')
         .eq('status', 'management_approved')
         .gte('ot_date', monthStart)
         .lt('ot_date', monthEnd);
@@ -216,7 +216,7 @@ export function useClaimMemo(month: number, year: number) {
       // Fetch management-approved OT for the period
       const { data: otRequests, error: otErr } = await db
         .from('ot_requests')
-        .select('id, employee_id, ot_amount, total_hours, ot_date, profiles(full_name)')
+        .select('id, employee_id, ot_amount, total_hours, ot_date, profiles:profiles!ot_requests_employee_id_fkey(full_name)')
         .eq('status', 'management_approved')
         .gte('ot_date', monthStart)
         .lt('ot_date', monthEnd);
@@ -494,7 +494,7 @@ export function useClaimMemo(month: number, year: number) {
       // Re-fetch OT
       const { data: otRequests, error: otErr } = await db
         .from('ot_requests')
-        .select('id, employee_id, ot_amount, total_hours, ot_date, profiles(full_name)')
+        .select('id, employee_id, ot_amount, total_hours, ot_date, profiles:profiles!ot_requests_employee_id_fkey(full_name)')
         .eq('status', 'management_approved')
         .gte('ot_date', monthStart)
         .lt('ot_date', monthEnd);

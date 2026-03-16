@@ -53,7 +53,7 @@ export function DashboardSwitcher() {
       // For the finance dashboard entry, check all finance roles
       if (option.role === 'finance') return hasAnyFinanceRole(roles);
       // For the management dashboard entry, check all management roles including dmd
-      if (option.role === 'management') return ['management', 'director', 'gm', 'sgm', 'dmd'].some(r => roles.includes(r as AppRole));
+      if (option.role === 'management') return ['management', 'director', 'gm', 'sgm', 'dmd', 'assistant_manager', 'manager'].some(r => roles.includes(r as AppRole));
       return roles.includes(option.role);
     });
   }, [roles]);
@@ -83,7 +83,7 @@ export function DashboardSwitcher() {
     if (role === 'finance') {
       effectiveRole = getFirstFinanceRole(roles) ?? role;
     } else if (role === 'management') {
-      const mgmtRoles: AppRole[] = ['dmd', 'management', 'director', 'gm', 'sgm'];
+      const mgmtRoles: AppRole[] = ['dmd', 'management', 'director', 'gm', 'sgm', 'assistant_manager', 'manager'];
       effectiveRole = mgmtRoles.find(r => roles.includes(r)) ?? role;
     }
     setActiveRole(effectiveRole);

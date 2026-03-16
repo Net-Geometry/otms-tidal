@@ -236,11 +236,21 @@ export function useLeaveSubmit() {
         }
       }
 
-      // Initial status: pending_supervisor or pending_hr (no supervisor / supervisor is management)
+      // Initial status: pending_supervisor or pending_hr
+      // Senior staff (Director/MD/GM) always skip supervisor step → go straight to HR
       let supervisorId: string | null = profile?.supervisor_id || null;
       let initialStatus: any = 'pending_supervisor';
 
-      if (!supervisorId) {
+      // Check if applicant is senior staff (director/management/gm)
+      const { data: applicantRoles } = await db
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .in('role', ['director', 'management', 'gm']);
+
+      const isSeniorStaff = applicantRoles && applicantRoles.length > 0;
+
+      if (isSeniorStaff || !supervisorId) {
         initialStatus = 'pending_hr';
       } else {
         const { data: svRoles, error: svRoleError } = await db

@@ -92,7 +92,7 @@ function FinanceSidebar({ activeRole }: { activeRole: string | null }) {
       items: [
         { path: '/finance/dashboard', label: 'Finance Dashboard', icon: LayoutDashboard },
         { path: '/finance/workflow/inbox', label: 'Approval Inbox', icon: CheckCircle },
-        { path: '/hr/memos', label: 'Payroll Approval', icon: Wallet },
+        { path: '/finance/memos', label: 'Memos', icon: Wallet },
       ],
     },
     financeSetup: {

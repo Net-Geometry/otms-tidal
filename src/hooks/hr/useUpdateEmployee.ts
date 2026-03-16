@@ -30,6 +30,13 @@ interface UpdateEmployeeData {
   pcb_category?: number | null;
   is_ot_eligible?: boolean;
   require_ot_attachment?: boolean;
+  supervisor_required?: boolean;
+  employee_epf_rate?: number | null;
+  employer_epf_rate?: number | null;
+  employee_socso_rate?: number | null;
+  employer_socso_rate?: number | null;
+  employee_eis_rate?: number | null;
+  employer_eis_rate?: number | null;
   roles?: AppRole[];
 }
 
@@ -48,8 +55,11 @@ export function useUpdateEmployee() {
         'company_id', 'department_id', 'position_id', 'position', 'basic_salary',
         'ot_base', 'epf_category', 'employment_type',
         'designation', 'supervisor_id', 'joining_date', 'date_of_birth', 'work_location',
-        'state', 'status', 'is_ot_eligible', 'require_ot_attachment',
-        'marital_status', 'pcb_category'
+        'state', 'status', 'is_ot_eligible', 'require_ot_attachment', 'supervisor_required',
+        'marital_status', 'pcb_category',
+        'employee_epf_rate', 'employer_epf_rate',
+        'employee_socso_rate', 'employer_socso_rate',
+        'employee_eis_rate', 'employer_eis_rate'
       ];
 
       // Nullable fields that should convert empty strings to null
@@ -57,7 +67,10 @@ export function useUpdateEmployee() {
         'ic_no', 'phone_no', 'personal_email', 'company_id', 'department_id',
         'employment_type', 'position', 'supervisor_id',
         'joining_date', 'date_of_birth', 'work_location', 'state', 'position_id',
-        'ot_base'
+        'ot_base',
+        'employee_epf_rate', 'employer_epf_rate',
+        'employee_socso_rate', 'employer_socso_rate',
+        'employee_eis_rate', 'employer_eis_rate'
       ];
 
       // Sanitize the update payload

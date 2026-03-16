@@ -100,6 +100,9 @@ export const LEAVE_STATUS_TRANSITIONS = [
   { from: 'pending_hr', to: 'rejected', role: 'hr' },
   { from: 'supervisor_approved', to: 'hr_approved', role: 'hr' },
   { from: 'supervisor_approved', to: 'rejected', role: 'hr' },
+  // Senior staff (Director/MD/GM): HR approval is final — skip management step
+  { from: 'pending_hr', to: 'management_approved', role: 'hr' },
+  { from: 'supervisor_approved', to: 'management_approved', role: 'hr' },
   { from: 'hr_approved', to: 'management_approved', role: 'management' },
   { from: 'hr_approved', to: 'rejected', role: 'management' },
   { from: 'pending_management', to: 'management_approved', role: 'management' },

@@ -19,6 +19,7 @@ interface InviteEmployeeData {
   supervisor_id: string | null;
   role: string;
   is_ot_eligible: boolean;
+  supervisor_required: boolean;
 }
 
 export function useInviteEmployee() {

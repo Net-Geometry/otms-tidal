@@ -191,6 +191,7 @@ export interface UpsertPrfInput {
   chk_others?: boolean;
   chk_others_text?: string | null;
   accounts_dept_remarks?: string | null;
+  attachments?: string[];
   items: PurchaseRequisitionItemInput[];
 }
 
@@ -247,6 +248,7 @@ async function upsertPrf(db: any, input: UpsertPrfInput): Promise<{ id: string }
     chk_others: input.chk_others ?? false,
     chk_others_text: input.chk_others_text?.trim() || null,
     accounts_dept_remarks: input.accounts_dept_remarks?.trim() || null,
+    attachments: input.attachments || [],
   };
 
   let prfId = input.id;
@@ -1544,6 +1546,59 @@ export function useApprovePV() {
   return {
     approvePV: mutation.mutateAsync,
     isApproving: mutation.isPending,
+  };
+}
+
+export function useRejectPV() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: { pvId: string; remarks: string }) => {
+      const userId = await getCurrentUserId();
+
+      const { data: current, error: currentError } = await db
+        .from('payment_vouchers')
+        .select('id, status')
+        .eq('id', input.pvId)
+        .single();
+      if (currentError) throw currentError;
+
+      const rejectableStatuses = ['pending', 'checked'];
+      if (!current || !rejectableStatuses.includes(current.status)) {
+        throw new Error('Only pending or checked payment vouchers can be rejected');
+      }
+
+      const { data, error } = await db
+        .from('payment_vouchers')
+        .update({
+          status: 'rejected',
+          rejected_by: userId,
+          rejected_at: new Date().toISOString(),
+          rejection_remarks: input.remarks,
+          rejection_stage: current.status,
+        })
+        .eq('id', input.pvId)
+        .in('status', rejectableStatuses)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('Payment voucher was already updated by another user');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      toast({ title: 'Rejected', description: 'Payment voucher has been rejected' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    rejectPV: mutation.mutateAsync,
+    isRejecting: mutation.isPending,
   };
 }
 

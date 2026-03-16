@@ -289,10 +289,10 @@ export function ConsolidatedClaimMemo() {
         </div>
 
         <div className="flex items-center gap-2 mt-3">
-          {canCreateMemo && hasPreviewData && (
-            <Button onClick={() => createMemo()} disabled={isCreating}>
+          {canCreateMemo && (
+            <Button onClick={() => createMemo()} disabled={isCreating || !hasPreviewData}>
               <FilePlus className="h-4 w-4 mr-2" />
-              {isCreating ? 'Creating...' : 'Create Memo'}
+              {isCreating ? 'Creating...' : 'Generate & Submit Memo'}
             </Button>
           )}
           {memo && (
