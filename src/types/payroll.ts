@@ -1,6 +1,7 @@
 export type PayrollRunStatus =
   | 'draft'
   | 'finalized'
+  | 'posted'
   | 'cancelled';
 
 export type PayrollApprovalRole = 'hr' | 'management' | 'dmd' | 'finance';
@@ -42,6 +43,7 @@ export function canTransitionMemo(from: string, to: string, role: string): boole
 export const PAYROLL_STATUS_LABELS: Record<PayrollRunStatus, string> = {
   draft: 'Draft',
   finalized: 'Finalized',
+  posted: 'Posted',
   cancelled: 'Cancelled',
 };
 
@@ -230,12 +232,14 @@ export interface PayrollItem {
     id: string;
     employee_id: string;
     full_name: string;
+    ic_no?: string;
+    position?: string;
+    designation?: string;
     department_id?: string;
     departments?: { name: string };
     epf_no?: string;
     socso_no?: string;
     income_tax_no?: string;
-    ic_no?: string;
     bank_name?: string;
     bank_account_no?: string;
   };

@@ -6,12 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Calculator, Download, FileText, Info, UserPlus, CheckCircle, XCircle, HelpCircle, Send } from 'lucide-react';
+import {
+  ArrowLeft, Calculator, Download, FileText, Info, UserPlus,
+  CheckCircle, XCircle, HelpCircle, Send, ChevronDown,
+} from 'lucide-react';
 import { exportToCSV, downloadTxtFile } from '@/lib/exportUtils';
 import { generateSocsoEisTxt, generateEpfTxt } from '@/lib/statutoryTxtGenerator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PayrollMemoView } from '@/components/payroll/PayrollMemoView';
 import { PayrollItemsTable } from '@/components/payroll/PayrollItemsTable';
 import { EmployeePayrollForm } from '@/components/payroll/EmployeePayrollForm';
@@ -21,6 +30,7 @@ import { usePayrollRuns } from '@/hooks/payroll/usePayrollRuns';
 import { usePayrollCalculation } from '@/hooks/payroll/usePayrollCalculation';
 import { usePayrollSettings, useAllowanceTypes, useDeductionTypes, useSocsoTable } from '@/hooks/payroll/usePayrollSettings';
 import { PAYROLL_STATUS_LABELS } from '@/types/payroll';
+import type { PayrollRunStatus } from '@/types/payroll';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +42,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { PayrollItem } from '@/types/payroll';
+
+function statusVariant(status: PayrollRunStatus): string {
+  if (status === 'finalized') return 'default';
+  if (status === 'posted') return 'secondary';
+  if (status === 'cancelled') return 'destructive';
+  return 'outline';
+}
 
 export default function PayrollRunDetail() {
   const { runId } = useParams<{ runId: string }>();
@@ -145,10 +162,13 @@ export default function PayrollRunDetail() {
   }
 
   const isDraft = run.status === 'draft';
+  const isPosted = run.status === 'posted';
   const hasMemo = !!run.memo_id;
+  const hasItems = items.length > 0;
+  const missingSettings = !settings || !socsoTable;
 
   const handleExportCSV = () => {
-    if (!items.length) return;
+    if (!hasItems) return;
     const headers = [
       { key: 'net_salary', label: 'Net Salary' },
       { key: 'employee_name', label: 'Employee' },
@@ -193,7 +213,7 @@ export default function PayrollRunDetail() {
   };
 
   const handleExportSocso = () => {
-    if (!items.length || !run) return;
+    if (!hasItems || !run) return;
     const companyName = run.companies?.name || 'Company';
     const txt = generateSocsoEisTxt({
       employerSocsoNo: run.companies?.socso_employer_no || '',
@@ -205,7 +225,7 @@ export default function PayrollRunDetail() {
   };
 
   const handleExportEpf = () => {
-    if (!items.length || !run) return;
+    if (!hasItems || !run) return;
     const companyName = run.companies?.name || 'Company';
     const txt = generateEpfTxt({
       employerEpfNo: run.companies?.epf_employer_no || '',
@@ -217,100 +237,117 @@ export default function PayrollRunDetail() {
     downloadTxtFile(txt, `${companyName}_EPF_${run.pay_period_month}_${run.pay_period_year}.txt`);
   };
 
-  const statusVariant = run.status === 'finalized' ? 'default' : run.status === 'cancelled' ? 'destructive' : 'outline';
-
   return (
     <AppLayout>
       <PageLayout
         title={`Payroll Run ${run.run_number}`}
         description={`${run.companies?.name || ''} — ${run.pay_period_month}/${run.pay_period_year}`}
       >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => navigate('/hr/payroll')}>
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back
-            </Button>
-            <Badge variant={statusVariant as any}>
-              {PAYROLL_STATUS_LABELS[run.status] || run.status}
-            </Badge>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {items.length > 0 && (
-              <>
-                <Button variant="outline" size="sm" onClick={handleExportCSV}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Export CSV
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleExportSocso}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  SOCSO/EIS TXT
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleExportEpf}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  EPF TXT
-                </Button>
-              </>
-            )}
-            {isDraft && !hasMemo && (
-              <>
-                <Button variant="outline" onClick={() => setShowAddEmployee(true)}>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add Employee
-                </Button>
-                <Button onClick={handleCalculateClick} disabled={isCalculating || !settings || !socsoTable}>
-                  <Calculator className="h-4 w-4 mr-2" />
-                  {isCalculating ? 'Calculating...' : items.length > 0 ? 'Recalculate All' : 'Calculate Payroll'}
-                </Button>
-                {(!settings || !socsoTable) && (
-                  <Alert variant="destructive" className="flex-1">
-                    <Info className="h-4 w-4" />
-                    <AlertDescription>
-                      {!settings && !socsoTable
-                        ? 'Payroll settings and SOCSO table are not configured. Please set them up in Payroll Settings before calculating.'
-                        : !settings
-                        ? 'Payroll settings are not configured. Please set them up in Payroll Settings before calculating.'
-                        : 'SOCSO contribution table is missing. Please contact your administrator.'}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </>
-            )}
-
-            {isDraft && items.length > 0 && !hasMemo && (
-              <>
-                <Button onClick={() => setShowFinalizeConfirm(true)} disabled={isFinalizing}>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  {isFinalizing ? 'Finalizing...' : 'Finalize'}
-                </Button>
-                <Button variant="destructive" onClick={() => setShowCancelConfirm(true)} disabled={isCancelling}>
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancel Run
-                </Button>
-              </>
-            )}
-
-            {run.status === 'finalized' && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  toast({ title: 'Payslips Sent', description: `Payslips sent to ${items.length} employee(s)` });
-                }}
-              >
-                <Send className="h-4 w-4 mr-2" />
-                Send to Employees
+        {/* Header row: back + status on left, actions on right */}
+        <div className="flex flex-col gap-3 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => navigate('/hr/payroll')}>
+                <ArrowLeft className="h-4 w-4 mr-2" /> Back
               </Button>
-            )}
+              <Badge variant={statusVariant(run.status) as any}>
+                {PAYROLL_STATUS_LABELS[run.status] || run.status}
+              </Badge>
+            </div>
 
-            {hasMemo && (
-              <Alert className="flex-1">
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  This run is part of a consolidated memo. Approval is managed on the Consolidated tab.
-                </AlertDescription>
-              </Alert>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Export dropdown — only when items exist */}
+              {hasItems && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleExportCSV}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportSocso}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      SOCSO/EIS TXT
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleExportEpf}>
+                      <FileText className="h-4 w-4 mr-2" />
+                      EPF TXT
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Draft actions: Add Employee + Calculate */}
+              {isDraft && !hasMemo && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setShowAddEmployee(true)}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Add Employee
+                  </Button>
+                  <Button size="sm" onClick={handleCalculateClick} disabled={isCalculating || missingSettings}>
+                    <Calculator className="h-4 w-4 mr-2" />
+                    {isCalculating ? 'Calculating...' : hasItems ? 'Recalculate All' : 'Calculate Payroll'}
+                  </Button>
+                </>
+              )}
+
+              {/* Draft finalize/cancel — only after items calculated */}
+              {isDraft && hasItems && !hasMemo && (
+                <>
+                  <Button size="sm" onClick={() => setShowFinalizeConfirm(true)} disabled={isFinalizing}>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {isFinalizing ? 'Finalizing...' : 'Finalize'}
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => setShowCancelConfirm(true)} disabled={isCancelling}>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Cancel Run
+                  </Button>
+                </>
+              )}
+
+              {/* Send to employees — only when posted */}
+              {isPosted && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    toast({ title: 'Payslips Sent', description: `Payslips sent to ${items.length} employee(s)` });
+                  }}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Send to Employees
+                </Button>
+              )}
+            </div>
           </div>
+
+          {/* Contextual alerts — full-width below header */}
+          {isDraft && !hasMemo && missingSettings && (
+            <Alert variant="destructive">
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                {!settings && !socsoTable
+                  ? 'Payroll settings and SOCSO table are not configured. Please set them up in Payroll Settings before calculating.'
+                  : !settings
+                  ? 'Payroll settings are not configured. Please set them up in Payroll Settings before calculating.'
+                  : 'SOCSO contribution table is missing. Please contact your administrator.'}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {hasMemo && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                This run is part of a consolidated memo. Approval is managed on the Consolidated tab.
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
 
         <PayrollMemoView run={run} />

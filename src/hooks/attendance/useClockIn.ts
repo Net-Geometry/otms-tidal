@@ -44,6 +44,28 @@ export function useClockIn() {
       if (!user?.id) throw new Error('Not authenticated');
       if (attachmentUrls.length === 0) throw new Error('At least one attachment is required');
 
+      // Look up employee's current shift assignment
+      let shiftId: string | null = null;
+      const { data: currentShift } = await db
+        .from('employee_shifts')
+        .select('shift_id')
+        .eq('employee_id', user.id)
+        .eq('is_current', true)
+        .maybeSingle();
+
+      if (currentShift?.shift_id) {
+        shiftId = currentShift.shift_id;
+      } else {
+        // Default to Regular Shift if no assignment exists
+        const { data: regularShift } = await db
+          .from('shifts')
+          .select('id')
+          .eq('code', 'REG')
+          .eq('is_active', true)
+          .maybeSingle();
+        shiftId = regularShift?.id ?? null;
+      }
+
       const now = nowTimestamp();
       const { error } = await db
         .from('attendance_records')
@@ -51,6 +73,7 @@ export function useClockIn() {
           employee_id: user.id,
           date: todayDateStr(),
           clock_in: now,
+          shift_id: shiftId,
           status: 'present',
           source: 'clock_in',
           attachment_urls: attachmentUrls,

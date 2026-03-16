@@ -23,12 +23,15 @@ export function useEmployeePayslips(options?: { year?: number }) {
             pay_period_month,
             pay_period_year,
             status,
-            companies:companies!payroll_runs_company_id_fkey(id, name)
+            companies:companies!payroll_runs_company_id_fkey(id, name, registration_no, address, phone)
           ),
           profiles:profiles!payroll_items_employee_id_fkey(
             id,
             employee_id,
             full_name,
+            ic_no,
+            position,
+            designation,
             department_id,
             departments(name),
             epf_no,

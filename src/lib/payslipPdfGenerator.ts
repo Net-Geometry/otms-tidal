@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import tidalLogo from '@/assets/tidal-logo.png';
 
 export interface PayslipData {
   company: {
@@ -231,7 +232,7 @@ export async function generatePayslipPDF(data: PayslipData): Promise<void> {
   doc.save(fileName);
 }
 
-// ===== FULL PAYROLL PAYSLIP (Phase 6 enhancement) =====
+// ===== FULL PAYROLL PAYSLIP =====
 
 export interface FullPayslipData {
   company: {
@@ -244,7 +245,9 @@ export interface FullPayslipData {
   employee: {
     name: string;
     employeeNo: string;
+    position: string;
     department: string;
+    icNo: string;
     epfNo: string;
     socsoNo: string;
     incomeTaxNo: string;
@@ -284,199 +287,281 @@ export async function generateFullPayslipPDF(data: FullPayslipData): Promise<voi
   const primary: [number, number, number] = [47, 182, 201];
   const black: [number, number, number] = [34, 34, 34];
   const gray: [number, number, number] = [119, 119, 119];
-  const border: [number, number, number] = [230, 230, 230];
   const lightBg: [number, number, number] = [232, 250, 251];
-
   const left = 24;
-  const right = 24;
+  const rightEdge = 210 - 24;
   const pw = 210;
-  const cw = pw - left - right;
   let y = 18;
 
-  // Header
-  drawLogoPlaceholder(doc, left, y, 30, data.company.name);
+  // ===== COMPANY HEADER =====
+  const logoImgSize = 26; // swirl image
+  const logoUrl = data.company.logo_url || tidalLogo;
+  const logoData = await loadImageFromUrl(logoUrl);
+  const logoCenterX = left + 17; // center of the logo area
+  if (logoData) {
+    try {
+      doc.addImage(logoData, 'PNG', logoCenterX - logoImgSize / 2, y, logoImgSize, logoImgSize);
+    } catch {
+      drawLogoPlaceholder(doc, left, y, 35, data.company.name);
+    }
+  } else {
+    drawLogoPlaceholder(doc, left, y, 35, data.company.name);
+  }
+  // Draw "TIDAL" and "group" text below the swirl
+  const textY = y + logoImgSize + 3;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(50, 80, 120);
+  doc.text('T I D A L', logoCenterX, textY, { align: 'center' });
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(140, 140, 140);
+  doc.text('group', logoCenterX, textY + 4, { align: 'center' });
 
-  const infoX = left + 45;
+  const infoX = left + 47; // after logo area (swirl + text)
+  const maxW = rightEdge - infoX;
+
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...black);
-  doc.text(data.company.name, infoX, y + 10);
+  doc.text(data.company.name.toUpperCase(), infoX, y + 8);
 
+  let hy = y + 14;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...gray);
   if (data.company.registration_no) {
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...gray);
-    doc.text(`(${data.company.registration_no})`, infoX, y + 17);
+    doc.text(`(${data.company.registration_no})`, infoX, hy);
+    hy += 4;
+  }
+  if (data.company.address) {
+    const addrLines = doc.splitTextToSize(data.company.address, maxW);
+    doc.text(addrLines, infoX, hy);
+    hy += addrLines.length * 4;
+  }
+  if (data.company.phone) {
+    doc.text(`Telephone No. ${data.company.phone}`, infoX, hy);
   }
 
-  // Employee info
-  y = 55;
+  // ===== EMPLOYEE NAME + PERIOD ROW =====
+  y = 68;
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...black);
   doc.text(data.employee.name, left, y);
 
-  y += 6;
+  // "(Employee No: XXX)" inline after name
+  const nameWidth = doc.getTextWidth(data.employee.name);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...gray);
-  doc.text(`Employee No: ${data.employee.employeeNo}`, left, y);
-  doc.text(`Period: ${data.period}`, pw - right, y, { align: 'right' });
+  doc.text(` (Employee No: ${data.employee.employeeNo})`, left + nameWidth + 1, y);
 
-  y += 7;
-  doc.text(`Department: ${data.employee.department}`, left, y);
+  // Period right-aligned
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...gray);
+  const periodLabel = 'Period: ';
+  const periodLabelW = doc.getTextWidth(periodLabel);
+  doc.text(periodLabel, rightEdge - doc.getTextWidth(data.period) - periodLabelW, y);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...black);
+  doc.text(data.period, rightEdge, y, { align: 'right' });
 
+  // ===== EMPLOYEE DETAILS (2-col) + NET PAY BOX =====
+  y += 10;
+  const detailY = y;
+
+  // Left column: Position, Dept, IC/Passport
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...black);
+  doc.text(`Position: ${data.employee.position}`, left, y);
   y += 5;
-  doc.setFontSize(9);
-  const ids = [
-    data.employee.epfNo && `EPF: ${data.employee.epfNo}`,
-    data.employee.socsoNo && `SOCSO: ${data.employee.socsoNo}`,
-    data.employee.incomeTaxNo && `Tax: ${data.employee.incomeTaxNo}`,
-  ].filter(Boolean).join('   |   ');
-  if (ids) doc.text(ids, left, y);
+  doc.text(`Dept: ${data.employee.department}`, left, y);
+  y += 5;
+  doc.text(`IC/Passport: ${data.employee.icNo || 'N/A'}`, left, y);
 
-  if (data.employee.bankName) {
-    y += 4;
-    doc.text(`Bank: ${data.employee.bankName}  A/C: ${data.employee.bankAccountNo}`, left, y);
-  }
+  // Right column: EPF No, SOCSO No, Income Tax No
+  const col2X = left + 75;
+  let ry = detailY;
+  doc.text(`EPF No: ${data.employee.epfNo || 'N/A'}`, col2X, ry);
+  ry += 5;
+  doc.text(`SOCSO No: ${data.employee.socsoNo || 'N/A'}`, col2X, ry);
+  ry += 5;
+  doc.text(`Income Tax No: ${data.employee.incomeTaxNo || 'N/A'}`, col2X, ry);
 
-  // NET PAY box
-  const boxW = 55, boxH = 22, boxX = pw - right - boxW, boxY = 55;
+  // NET PAY box (right side, aligned with employee details)
+  const boxW = 48;
+  const boxH = 20;
+  const boxX = rightEdge - boxW;
+  const boxY = detailY - 3;
   doc.setFillColor(...lightBg);
   doc.setDrawColor(...primary);
-  doc.setLineWidth(1.5);
+  doc.setLineWidth(1.2);
   doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'FD');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.setTextColor(...primary);
-  doc.text('NET PAY', boxX + boxW / 2, boxY + 8, { align: 'center' });
-  doc.setFontSize(14);
-  doc.setTextColor(...black);
-  doc.text(`RM ${fmt(data.item.net_salary)}`, boxX + boxW / 2, boxY + 17, { align: 'center' });
 
-  // === EARNINGS ===
-  y += 12;
-  y = drawSectionHeader(doc, 'Earnings', y, left, pw - right, primary, border);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...primary);
+  doc.text('NET PAY', boxX + boxW / 2, boxY + 7, { align: 'center' });
+
+  doc.setFontSize(12);
+  doc.setTextColor(...black);
+  doc.text(`RM ${fmt(data.item.net_salary)}`, boxX + boxW / 2, boxY + 15, { align: 'center' });
+
+  // ===== EMPLOYEE EARNINGS/REIMBURSEMENTS =====
+  y += 16;
+  y = drawPayslipSectionHeader(doc, 'Employee Earnings/Reimbursements', 'Current', y, left, rightEdge, primary);
 
   const earnings: [string, number][] = [];
   if (data.item.is_pro_rated) {
-    earnings.push(['Basic Salary (Pro-rated)', data.item.pro_rated_salary]);
+    earnings.push(['Basic (Pro-rated)', data.item.pro_rated_salary]);
   } else {
-    earnings.push(['Basic Salary', data.item.basic_salary]);
+    earnings.push(['Basic', data.item.basic_salary]);
   }
   if (data.item.ot_amount > 0) earnings.push(['Overtime Pay', data.item.ot_amount]);
   if (data.item.is_director && data.item.director_fee > 0) earnings.push(['Director Fee', data.item.director_fee]);
 
-  // Allowances (only shown if setting enabled)
   if (data.showAllowance) {
     for (const a of data.item.payroll_item_allowances || []) {
       if (a.amount > 0) earnings.push([a.allowance_type?.name || 'Allowance', a.amount]);
     }
   }
 
-  const totalEarnings = earnings.reduce((s, [, v]) => s + v, 0);
-
   for (const [label, amount] of earnings) {
-    y = drawRow(doc, label, amount, y, left, pw - right, black);
+    y = drawPayslipRow(doc, label, amount, y, left, rightEdge, black);
   }
-  y = drawTotalRow(doc, 'Total Earnings', totalEarnings, y, left, pw - right, primary, lightBg);
 
-  // === DEDUCTIONS ===
-  y += 4;
-  y = drawSectionHeader(doc, 'Deductions', y, left, pw - right, primary, border);
+  // Gross Pay total — bold black label, teal amount
+  y = drawPayslipTotalRow(doc, 'Gross Pay', data.item.gross_salary, y, left, rightEdge, black, primary);
 
-  const deductions: [string, number][] = [];
-  if (data.item.employee_epf > 0) deductions.push(['Employee EPF', data.item.employee_epf]);
-  if (data.item.employee_socso > 0) deductions.push(['Employee SOCSO', data.item.employee_socso]);
-  if (data.item.employee_eis > 0) deductions.push(['Employee EIS', data.item.employee_eis]);
-  if (data.item.pcb_amount > 0) deductions.push(['PCB / MTD', data.item.pcb_amount]);
-  // Dynamic deductions from junction table
+  // ===== EMPLOYEE DEDUCTIONS =====
+  y += 14;
+  y = drawPayslipSectionHeader(doc, 'Employee Deductions', 'Current', y, left, rightEdge, primary);
+
+  // Always show all statutory deductions (even if 0)
+  const deductions: [string, number][] = [
+    ['Employee EPF', Number(data.item.employee_epf) || 0],
+    ['Employee SOCSO', Number(data.item.employee_socso) || 0],
+    ['Tax', Number(data.item.pcb_amount) || 0],
+    ['Employee EIS', Number(data.item.employee_eis) || 0],
+  ];
+
   for (const d of data.item.payroll_item_deductions || []) {
-    if (d.amount > 0) {
-      const label = d.deduction_type?.name || 'Other';
-      deductions.push([label, d.amount]);
-    }
+    if (d.amount > 0) deductions.push([d.deduction_type?.name || 'Other Deduction', d.amount]);
   }
   if (data.item.unpaid_leave_deduction > 0) deductions.push(['Unpaid Leave', data.item.unpaid_leave_deduction]);
 
   const totalDed = deductions.reduce((s, [, v]) => s + v, 0);
 
   for (const [label, amount] of deductions) {
-    y = drawRow(doc, label, amount, y, left, pw - right, black);
+    y = drawPayslipRow(doc, label, amount, y, left, rightEdge, black);
   }
-  y = drawTotalRow(doc, 'Total Deductions', totalDed, y, left, pw - right, [220, 50, 50], [255, 240, 240]);
 
-  // === EMPLOYER CONTRIBUTIONS ===
-  y += 4;
-  y = drawSectionHeader(doc, 'Employer Contributions (Informational)', y, left, pw - right, gray, border);
+  // Total Deductions — bold black label, teal amount
+  y = drawPayslipTotalRow(doc, 'Total Deductions', totalDed, y, left, rightEdge, black, primary);
 
-  const employer: [string, number][] = [];
-  if (data.item.employer_epf > 0) employer.push(['Employer EPF', data.item.employer_epf]);
-  if (data.item.employer_socso > 0) employer.push(['Employer SOCSO', data.item.employer_socso]);
-  if (data.item.employer_eis > 0) employer.push(['Employer EIS', data.item.employer_eis]);
-  if (data.item.employer_hrdc > 0) employer.push(['HRDC', data.item.employer_hrdc]);
+  // ===== COMPANY CONTRIBUTIONS =====
+  y += 14;
+  y = drawPayslipSectionHeader(doc, 'Company Contributions', 'Current', y, left, rightEdge, primary);
+
+  // Always show all statutory contributions (even if 0)
+  const employer: [string, number][] = [
+    ["E'R EPF", Number(data.item.employer_epf) || 0],
+    ["E'R SOCSO", Number(data.item.employer_socso) || 0],
+    ["E'R EIS", Number(data.item.employer_eis) || 0],
+  ];
+  if (Number(data.item.employer_hrdc) > 0) employer.push(['HRDC', data.item.employer_hrdc]);
+
+  const totalContrib = employer.reduce((s, [, v]) => s + v, 0);
 
   for (const [label, amount] of employer) {
-    y = drawRow(doc, label, amount, y, left, pw - right, gray);
+    y = drawPayslipRow(doc, label, amount, y, left, rightEdge, black);
   }
 
-  // Footer
-  const footerY = 280;
-  doc.setFontSize(8);
+  // Total Contributions — bold black label, teal amount
+  y = drawPayslipTotalRow(doc, 'Total Contributions', totalContrib, y, left, rightEdge, black, primary);
+
+  // ===== FOOTER =====
+  const footerY = 272;
+  doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...gray);
-  doc.text(`Generated: ${new Date().toLocaleDateString()}`, left, footerY);
-  doc.text('This is a computer-generated payslip.', pw / 2, footerY, { align: 'center' });
+  doc.text('This payslip is computer generated. No signature is required.', pw / 2, footerY, { align: 'center' });
 
-  const fileName = `payslip_${data.employee.employeeNo}_${data.period.replace('/', '-')}.pdf`;
+  const printedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  doc.setFontSize(9);
+  const printedOnLabel = 'Printed on: ';
+  doc.setFont('helvetica', 'normal');
+  const labelW = doc.getTextWidth(printedOnLabel);
+  doc.setFont('helvetica', 'bold');
+  const dateW = doc.getTextWidth(printedDate);
+  const startX = (pw - labelW - dateW) / 2;
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...gray);
+  doc.text(printedOnLabel, startX, footerY + 10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...black);
+  doc.text(printedDate, startX + labelW, footerY + 10);
+
+  const fileName = `payslip_${data.employee.employeeNo}_${data.period.replace(/[\s/]/g, '_')}.pdf`;
   doc.save(fileName);
 }
 
-function fmt(n: number): string {
-  return Number(n || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function drawSectionHeader(
-  doc: jsPDF, title: string, y: number,
+// Section header with title on left and "Current" on right, teal underline
+function drawPayslipSectionHeader(
+  doc: jsPDF, title: string, subtitle: string, y: number,
   left: number, right: number,
-  color: [number, number, number], borderColor: [number, number, number]
+  color: [number, number, number]
 ): number {
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...color);
   doc.text(title, left, y);
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(34, 34, 34);
+  doc.text(subtitle, right, y, { align: 'right' });
+
   y += 2;
-  doc.setDrawColor(...borderColor);
+  doc.setDrawColor(34, 34, 34);
   doc.setLineWidth(0.3);
   doc.line(left, y, right, y);
-  return y + 6;
+  return y + 8;
 }
 
-function drawRow(
+// Regular data row
+function drawPayslipRow(
   doc: jsPDF, label: string, amount: number, y: number,
   left: number, right: number, color: [number, number, number]
 ): number {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...color);
-  doc.text(label, left + 2, y);
+  doc.text(label, left, y);
   doc.text(`RM ${fmt(amount)}`, right, y, { align: 'right' });
-  return y + 6;
+  return y + 7;
 }
 
-function drawTotalRow(
+// Bold total row — label in labelColor, amount in amountColor
+function drawPayslipTotalRow(
   doc: jsPDF, label: string, amount: number, y: number,
   left: number, right: number,
-  color: [number, number, number], bg: [number, number, number]
+  labelColor: [number, number, number], amountColor: [number, number, number]
 ): number {
-  doc.setFillColor(...bg);
-  doc.rect(left, y - 4, right - left, 8, 'F');
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...color);
-  doc.text(label, left + 2, y);
+  doc.setTextColor(...labelColor);
+  doc.text(label, left, y);
+  doc.setTextColor(...amountColor);
   doc.text(`RM ${fmt(amount)}`, right, y, { align: 'right' });
-  return y + 8;
+  return y + 7;
+}
+
+function fmt(n: number): string {
+  return Number(n || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Helper function to draw logo placeholder with company initials

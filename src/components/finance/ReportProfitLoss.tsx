@@ -91,6 +91,7 @@ export function ReportProfitLoss() {
   const [endDate, setEndDate] = useState(new Date().toISOString().slice(0, 10));
   const [companyId, setCompanyId] = useState('all');
   const [showZero, setShowZero] = useState(false);
+  const [detailLevel, setDetailLevel] = useState('all');
   const { data: companies = [] } = useCompanies();
 
   const report = useProfitAndLoss({
@@ -98,6 +99,7 @@ export function ReportProfitLoss() {
     endDate,
     companyId: companyId === 'all' ? undefined : companyId,
     showZero,
+    maxLevel: detailLevel === 'all' ? undefined : Number(detailLevel),
   });
 
   const data = report.data;
@@ -115,7 +117,7 @@ export function ReportProfitLoss() {
         <CardTitle className="text-base">Profit & Loss Statement</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-5 items-end">
+        <div className="grid gap-3 md:grid-cols-6 items-end">
           <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
 
@@ -130,6 +132,19 @@ export function ReportProfitLoss() {
                   {c.name}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={detailLevel} onValueChange={setDetailLevel}>
+            <SelectTrigger>
+              <SelectValue placeholder="Detail Level" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Levels</SelectItem>
+              <SelectItem value="1">Level 1</SelectItem>
+              <SelectItem value="2">Level 2</SelectItem>
+              <SelectItem value="3">Level 3</SelectItem>
+              <SelectItem value="4">Level 4</SelectItem>
             </SelectContent>
           </Select>
 

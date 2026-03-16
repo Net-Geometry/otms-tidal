@@ -171,7 +171,7 @@ export interface ReportSection {
   children: ReportSection[];
 }
 
-function buildReportTree(items: ReportLineItem[], showZero: boolean): ReportSection[] {
+function buildReportTree(items: ReportLineItem[], showZero: boolean, maxLevel?: number): ReportSection[] {
   const byId = new Map<string, ReportLineItem>();
   for (const item of items) byId.set(item.account_id, item);
 
@@ -191,10 +191,16 @@ function buildReportTree(items: ReportLineItem[], showZero: boolean): ReportSect
 
     return kids
       .map((item) => {
-        const children = build(item.account_id);
-        const subtotal = children.length > 0
-          ? children.reduce((s, c) => s + c.amount, 0)
+        // Always build full children to get correct subtotals
+        const fullChildren = build(item.account_id);
+        const subtotal = fullChildren.length > 0
+          ? fullChildren.reduce((s, c) => s + c.amount, 0)
           : item.amount;
+
+        // If maxLevel is set and this account is at or beyond maxLevel,
+        // hide children so this account appears as a leaf with the aggregated amount
+        const atMaxLevel = maxLevel !== undefined && item.level >= maxLevel;
+        const displayChildren = atMaxLevel ? [] : fullChildren;
 
         return {
           account: {
@@ -206,7 +212,7 @@ function buildReportTree(items: ReportLineItem[], showZero: boolean): ReportSect
             sort_order: item.sort_order,
           },
           amount: subtotal,
-          children,
+          children: displayChildren,
         };
       })
       .filter((section) => showZero || section.amount !== 0 || section.children.length > 0);
@@ -230,11 +236,11 @@ export interface ProfitAndLossResult {
   showZero: boolean;
 }
 
-export function useProfitAndLoss(params: ProfitAndLossParams & { showZero?: boolean }) {
+export function useProfitAndLoss(params: ProfitAndLossParams & { showZero?: boolean; maxLevel?: number }) {
   const db = supabase as any;
 
   return useQuery<ProfitAndLossResult>({
-    queryKey: ['finance-report', 'profit-loss', params.startDate, params.endDate, params.companyId || 'all', params.showZero ?? false],
+    queryKey: ['finance-report', 'profit-loss', params.startDate, params.endDate, params.companyId || 'all', params.showZero ?? false, params.maxLevel ?? 'all'],
     queryFn: async () => {
       // Fetch COA
       const { data: accounts, error: coaError } = await db
@@ -301,8 +307,8 @@ export function useProfitAndLoss(params: ProfitAndLossParams & { showZero?: bool
       }
 
       const showZero = params.showZero ?? false;
-      const revenue = buildReportTree(revenueItems, showZero);
-      const expenses = buildReportTree(expenseItems, showZero);
+      const revenue = buildReportTree(revenueItems, showZero, params.maxLevel);
+      const expenses = buildReportTree(expenseItems, showZero, params.maxLevel);
 
       const totalRevenue = revenue.reduce((s, r) => s + r.amount, 0);
       const totalExpenses = expenses.reduce((s, r) => s + r.amount, 0);
@@ -337,11 +343,11 @@ export interface BalanceSheetResult {
   showZero: boolean;
 }
 
-export function useBalanceSheet(params: BalanceSheetParams & { showZero?: boolean }) {
+export function useBalanceSheet(params: BalanceSheetParams & { showZero?: boolean; maxLevel?: number }) {
   const db = supabase as any;
 
   return useQuery<BalanceSheetResult>({
-    queryKey: ['finance-report', 'balance-sheet', params.asOfDate, params.companyId || 'all', params.showZero ?? false] as const,
+    queryKey: ['finance-report', 'balance-sheet', params.asOfDate, params.companyId || 'all', params.showZero ?? false, params.maxLevel ?? 'all'] as const,
     queryFn: async () => {
       // Fetch COA (all types)
       const { data: accounts, error: coaError } = await db
@@ -427,9 +433,9 @@ export function useBalanceSheet(params: BalanceSheetParams & { showZero?: boolea
       }
 
       const showZero = params.showZero ?? false;
-      const assets = buildReportTree(assetItems, showZero);
-      const liabilities = buildReportTree(liabilityItems, showZero);
-      const equity = buildReportTree(equityItems, showZero);
+      const assets = buildReportTree(assetItems, showZero, params.maxLevel);
+      const liabilities = buildReportTree(liabilityItems, showZero, params.maxLevel);
+      const equity = buildReportTree(equityItems, showZero, params.maxLevel);
 
       const totalAssets = assets.reduce((s, r) => s + r.amount, 0);
       const totalLiabilities = liabilities.reduce((s, r) => s + r.amount, 0);

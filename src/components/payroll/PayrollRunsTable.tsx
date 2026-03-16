@@ -22,6 +22,7 @@ const MONTHS = [
 
 function statusVariant(status: PayrollRunStatus) {
   if (status === 'finalized') return 'default';
+  if (status === 'posted') return 'secondary';
   if (status === 'cancelled') return 'destructive';
   return 'outline';
 }

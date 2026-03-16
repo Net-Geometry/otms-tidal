@@ -28,21 +28,27 @@ export default function MyPayslips() {
     const profile = item.profiles;
     if (!run || !profile) return;
 
+    const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     await generateFullPayslipPDF({
       company: {
         name: run.companies?.name || 'Company',
+        registration_no: run.companies?.registration_no || undefined,
+        address: run.companies?.address || undefined,
+        phone: run.companies?.phone || undefined,
       },
       employee: {
         name: profile.full_name || '',
         employeeNo: profile.employee_id || '',
+        position: profile.position || profile.designation || '',
         department: profile.departments?.name || '',
+        icNo: profile.ic_no || '',
         epfNo: profile.epf_no || '',
         socsoNo: profile.socso_no || '',
         incomeTaxNo: profile.income_tax_no || '',
         bankName: profile.bank_name || '',
         bankAccountNo: profile.bank_account_no || '',
       },
-      period: `${run.pay_period_month}/${run.pay_period_year}`,
+      period: `${monthNames[run.pay_period_month] || run.pay_period_month} ${run.pay_period_year}`,
       showAllowance: settings?.show_allowance_on_payslip ?? false,
       item,
     });

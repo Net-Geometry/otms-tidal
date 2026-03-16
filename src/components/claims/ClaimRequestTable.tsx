@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Claim, NextApproverOption } from '@/types/claims';
+import type { Claim } from '@/types/claims';
 import { getClaimStatusDisplay, getClaimApproverName } from '@/types/claims';
 import { StatusWithMetadata, getClaimApproverMetadata } from '@/components/StatusWithMetadata';
 import { ClaimDetailsSheet } from '@/components/claims/ClaimDetailsSheet';
@@ -109,12 +109,10 @@ export function ClaimRequestTable({
   role,
   enableBatch,
   onApprove,
-  onForward,
   onReject,
   onCancel,
   onPost,
   isApproving,
-  isForwarding,
   isRejecting,
   isCancelling,
   isPosting,
@@ -125,12 +123,10 @@ export function ClaimRequestTable({
   role: TableRole;
   enableBatch?: boolean;
   onApprove?: (requestIds: string[], remarks?: string) => Promise<void> | void;
-  onForward?: (requestIds: string[], nextApprover: NextApproverOption, remarks?: string, approverUserId?: string) => Promise<void> | void;
   onReject?: (requestIds: string[], remarks: string) => Promise<void> | void;
   onCancel?: (requestId: string, reason?: string) => Promise<void> | void;
   onPost?: (claimId: string, reference?: string, remarks?: string) => Promise<void> | void;
   isApproving?: boolean;
-  isForwarding?: boolean;
   isRejecting?: boolean;
   isCancelling?: boolean;
   isPosting?: boolean;
@@ -294,12 +290,10 @@ export function ClaimRequestTable({
         onOpenChange={setOpen}
         role={role}
         onApprove={onApprove}
-        onForward={onForward}
         onReject={onReject}
         onCancel={onCancel}
         onPost={onPost}
         isApproving={isApproving}
-        isForwarding={isForwarding}
         isRejecting={isRejecting}
         isCancelling={isCancelling}
         isPosting={isPosting}

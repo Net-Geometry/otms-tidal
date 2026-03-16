@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { ClaimApprovalActions } from '@/components/claims/ClaimApprovalActions';
-import type { Claim, NextApproverOption } from '@/types/claims';
+import type { Claim } from '@/types/claims';
 import { getClaimStatusDisplay, getClaimApproverName, isClaimFullyApproved } from '@/types/claims';
 import { formatCurrency } from '@/lib/otCalculations';
 import {
@@ -19,8 +19,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { supabase } from '@/integrations/supabase/client';
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react';
 
 type DetailsRole = 'employee' | 'supervisor' | 'hr' | 'finance' | 'director' | 'gm' | 'head_finance';
@@ -40,10 +38,6 @@ function canApprove(role: DetailsRole, req: Claim) {
   if (role === 'gm') return req.status === 'pending_gm';
   if (role === 'head_finance') return req.status === 'pending_head_finance';
   return false;
-}
-
-function canForward(role: DetailsRole, req: Claim) {
-  return role === 'finance' && req.status === 'pending_finance';
 }
 
 function canCancel(role: DetailsRole, req: Claim) {
@@ -66,12 +60,10 @@ export function ClaimDetailsSheet({
   onOpenChange,
   role,
   onApprove,
-  onForward,
   onReject,
   onCancel,
   onPost,
   isApproving,
-  isForwarding,
   isRejecting,
   isCancelling,
   isPosting,
@@ -81,12 +73,10 @@ export function ClaimDetailsSheet({
   onOpenChange: (open: boolean) => void;
   role: DetailsRole;
   onApprove?: (requestIds: string[], remarks?: string) => Promise<void> | void;
-  onForward?: (requestIds: string[], nextApprover: NextApproverOption, remarks?: string, approverUserId?: string) => Promise<void> | void;
   onReject?: (requestIds: string[], remarks: string) => Promise<void> | void;
   onCancel?: (requestId: string, reason?: string) => Promise<void> | void;
   onPost?: (claimId: string, reference?: string, remarks?: string) => Promise<void> | void;
   isApproving?: boolean;
-  isForwarding?: boolean;
   isRejecting?: boolean;
   isCancelling?: boolean;
   isPosting?: boolean;
@@ -96,12 +86,6 @@ export function ClaimDetailsSheet({
   const [postOpen, setPostOpen] = useState(false);
   const [postReference, setPostReference] = useState('');
   const [postRemarks, setPostRemarks] = useState('');
-  const [forwardOpen, setForwardOpen] = useState(false);
-  const [nextApprover, setNextApprover] = useState<NextApproverOption>('director');
-  const [forwardRemarks, setForwardRemarks] = useState('');
-  const [approverUserId, setApproverUserId] = useState<string>('');
-  const [approverCandidates, setApproverCandidates] = useState<{ id: string; full_name: string; employee_id: string }[]>([]);
-  const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
 
@@ -114,53 +98,6 @@ export function ClaimDetailsSheet({
     const ext = url.split('.').pop()?.split('?')[0]?.toLowerCase();
     return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext || '');
   };
-
-  // Fetch approver candidates when role changes
-  useEffect(() => {
-    if (!nextApprover) {
-      setApproverCandidates([]);
-      setApproverUserId('');
-      return;
-    }
-    let cancelled = false;
-    const fetchCandidates = async () => {
-      setLoadingCandidates(true);
-      const db = supabase as any;
-      const roleMap: Record<string, string> = {
-        director: 'director',
-        gm: 'gm',
-        head_finance: 'head_finance',
-      };
-      const targetRole = roleMap[nextApprover] || 'management';
-      const { data: roles, error: rolesErr } = await db
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', targetRole);
-      if (cancelled || rolesErr || !roles || roles.length === 0) {
-        if (!cancelled) {
-          setApproverCandidates([]);
-          setLoadingCandidates(false);
-        }
-        return;
-      }
-      const userIds = roles.map((r: any) => r.user_id);
-      const { data: profiles, error: profErr } = await db
-        .from('profiles')
-        .select('id, full_name, employee_id')
-        .in('id', userIds);
-      if (!cancelled && !profErr && profiles) {
-        setApproverCandidates(profiles);
-        if (profiles.length === 1) {
-          setApproverUserId(profiles[0].id);
-        } else {
-          setApproverUserId('');
-        }
-      }
-      if (!cancelled) setLoadingCandidates(false);
-    };
-    fetchCandidates();
-    return () => { cancelled = true; };
-  }, [nextApprover]);
 
   // Use the first claim as representative for shared info
   const request = claims[0] ?? null;
@@ -184,10 +121,8 @@ export function ClaimDetailsSheet({
 
   // For batch actions: check if any claim in batch supports the action
   const showApprove = claims.some((c) => canApprove(role, c));
-  const showForward = claims.some((c) => canForward(role, c));
   const showCancel = claims.some((c) => canCancel(role, c));
   const approvableIds = claims.filter((c) => canApprove(role, c)).map((c) => c.id);
-  const forwardableIds = claims.filter((c) => canForward(role, c)).map((c) => c.id);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -386,96 +321,6 @@ export function ClaimDetailsSheet({
               )}
             </div>
           </div>
-
-          {/* Finance Forward Action */}
-          {showForward && onForward && (
-            <div className="pt-2">
-              <Button variant="secondary" onClick={() => setForwardOpen(true)} disabled={!!isForwarding}>
-                Forward to Next Approver
-              </Button>
-
-              <Dialog open={forwardOpen} onOpenChange={setForwardOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Forward Claim</DialogTitle>
-                    <DialogDescription>
-                      Select the next approver for {forwardableIds.length > 1 ? `these ${forwardableIds.length} claims` : 'this claim'} after finance review.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Next Approver</Label>
-                      <Select value={nextApprover} onValueChange={(v) => setNextApprover(v as NextApproverOption)}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select next approver" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="director">Director</SelectItem>
-                          <SelectItem value="gm">General Manager (GM)</SelectItem>
-                          <SelectItem value="head_finance">Head of Finance</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {nextApprover && (
-                      <div className="space-y-2">
-                        <Label>Assign To</Label>
-                        {loadingCandidates ? (
-                          <div className="text-sm text-muted-foreground py-2">Loading...</div>
-                        ) : approverCandidates.length === 0 ? (
-                          <div className="text-sm text-muted-foreground py-2">
-                            No users with {nextApprover === 'director' ? 'Director' : nextApprover === 'gm' ? 'GM' : 'Head of Finance'} role found
-                          </div>
-                        ) : (
-                          <Select value={approverUserId} onValueChange={setApproverUserId}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select person..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {approverCandidates.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  {c.full_name} ({c.employee_id})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label>Remarks (Optional)</Label>
-                      <Textarea
-                        value={forwardRemarks}
-                        onChange={(e) => setForwardRemarks(e.target.value)}
-                        placeholder="Add remarks for the next approver..."
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setForwardOpen(false)} disabled={!!isForwarding}>
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={async () => {
-                        await onForward(
-                          forwardableIds,
-                          nextApprover,
-                          forwardRemarks.trim() || undefined,
-                          approverUserId || undefined,
-                        );
-                        setForwardRemarks('');
-                        setApproverUserId('');
-                        setForwardOpen(false);
-                        onOpenChange(false);
-                      }}
-                      disabled={!!isForwarding || !approverUserId}
-                    >
-                      {isForwarding ? 'Forwarding...' : 'Forward Claim'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          )}
 
           {showApprove && onApprove && onReject && (
             <div className="pt-2">

@@ -574,7 +574,7 @@ export function useClaimMemo(month: number, year: number) {
 
       const { data: current, error: fetchErr } = await db
         .from('claim_memos')
-        .select('id, status')
+        .select('*')
         .eq('id', memoId)
         .single();
 
@@ -598,10 +598,106 @@ export function useClaimMemo(month: number, year: number) {
         .eq('memo_id', memoId);
 
       if (claimsUpdateErr) throw claimsUpdateErr;
+
+      // ── Auto-create draft PV for claim memo payout ──
+      // Get company_id from the posting user's profile
+      const { data: userProfile } = await db
+        .from('profiles')
+        .select('company_id')
+        .eq('id', authData.user.id)
+        .single();
+
+      const companyId = userProfile?.company_id;
+      if (!companyId) return;
+
+      // Get company's default bank account
+      const { data: companyProfile } = await db
+        .from('finance_company_profiles')
+        .select('default_bank_account_id')
+        .eq('company_id', companyId)
+        .maybeSingle();
+
+      const bankAccountId = companyProfile?.default_bank_account_id;
+      if (!bankAccountId) {
+        console.warn('Skipping auto PV creation: no default bank account configured for company');
+        return;
+      }
+
+      // Get company name for pay_to
+      const { data: company } = await db
+        .from('companies')
+        .select('name')
+        .eq('id', companyId)
+        .single();
+
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const periodLabel = `${monthNames[current.pay_period_month - 1]} ${current.pay_period_year}`;
+
+      // Generate PV number
+      const paymentDate = now.slice(0, 10);
+      const { data: pvNumber, error: seqErr } = await db.rpc('finance_next_document_number', {
+        p_company_id: companyId,
+        p_prefix: 'PV',
+        p_doc_date: paymentDate,
+      });
+      if (seqErr) throw seqErr;
+
+      // Build PV line items breakdown
+      const claimTotal = Number(current.total_amount || 0);
+      const otTotal = Number(current.ot_total_amount || 0);
+      const allowanceTotal = Number(current.allowance_total_amount || 0);
+      const grandTotal = Number(current.grand_total || 0);
+
+      const pvLines: { line_date: string; description: string; amount: number; sort_order: number }[] = [];
+      let sort = 0;
+
+      if (claimTotal > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Claims', amount: claimTotal, sort_order: sort++ });
+      }
+      if (otTotal > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Overtime', amount: otTotal, sort_order: sort++ });
+      }
+      if (allowanceTotal > 0) {
+        pvLines.push({ line_date: paymentDate, description: 'Allowances', amount: allowanceTotal, sort_order: sort++ });
+      }
+
+      // Insert draft PV
+      const { data: pv, error: pvErr } = await db
+        .from('payment_vouchers')
+        .insert({
+          company_id: companyId,
+          pv_number: pvNumber,
+          supplier_id: null,
+          bank_account_id: bankAccountId,
+          payment_date: paymentDate,
+          payment_method: 'online_transfer',
+          pay_to: company?.name || 'Claims',
+          pay_for: `Claims & OT - ${periodLabel}`,
+          total_amount: grandTotal,
+          status: 'draft',
+          post_to_type: 'cashbook',
+          remarks: `Auto-generated from ${current.memo_number}`,
+          source_type: 'claim_memo',
+          source_id: memoId,
+        })
+        .select('id')
+        .single();
+
+      if (pvErr) throw pvErr;
+
+      // Insert PV lines
+      if (pvLines.length > 0 && pv?.id) {
+        const { error: linesErr } = await db
+          .from('payment_voucher_lines')
+          .insert(pvLines.map((line) => ({ pv_id: pv.id, ...line })));
+
+        if (linesErr) throw linesErr;
+      }
     },
     onSuccess: () => {
       invalidateAll(queryClient);
-      toast({ title: 'Posted', description: 'Claim memo posted successfully' });
+      queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      toast({ title: 'Posted', description: 'Claim memo posted — draft PV created' });
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

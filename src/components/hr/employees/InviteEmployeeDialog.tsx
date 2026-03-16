@@ -29,11 +29,15 @@ const inviteSchema = z.object({
   joining_date: z.string().min(1, 'Joining date is required'),
   work_location: z.string().uuid('Work location is required'),
   supervisor_id: z.string().uuid().optional().or(z.literal('')),
-  role: z.enum(['employee', 'supervisor', 'hr', 'management', 'admin']),
+  role: z.enum([
+    'employee', 'supervisor', 'hr', 'management', 'admin',
+    'finance', 'finance_admin', 'account_assistant', 'account_exec',
+    'assistant_manager', 'manager', 'dmd', 'sgm', 'director', 'gm', 'head_finance',
+  ]),
   is_ot_eligible: z.boolean().default(true),
 }).refine((data) => {
   // supervisor_id is required unless the user is admin or management
-  const requiresSupervisor = !['admin', 'management'].includes(data.role);
+  const requiresSupervisor = !['admin', 'management', 'director', 'gm', 'sgm', 'dmd'].includes(data.role);
   if (requiresSupervisor && !data.supervisor_id) {
     return false;
   }
@@ -97,7 +101,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
 
   // Watch role to determine if supervisor_id is required
   const selectedRole = form.watch('role');
-  const supervisorRequired = !['admin', 'management'].includes(selectedRole);
+  const supervisorRequired = !['admin', 'management', 'director', 'gm', 'sgm', 'dmd'].includes(selectedRole);
 
   const onSubmit = (data: InviteFormData) => {
     // Get position title from selected position
@@ -419,7 +423,7 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                     </FormControl>
                     <SelectContent>
                       {employees
-                        .filter(emp => emp.user_roles?.some(r => ['supervisor', 'hr', 'management', 'admin'].includes(r.role)))
+                        .filter(emp => emp.user_roles?.some(r => ['supervisor', 'hr', 'management', 'admin', 'manager', 'assistant_manager', 'sgm', 'gm', 'dmd', 'director', 'head_finance', 'finance_admin'].includes(r.role)))
                         .map((emp) => (
                           <SelectItem key={emp.id} value={emp.id}>
                             {emp.full_name} ({emp.employee_id})
@@ -448,8 +452,19 @@ export function InviteEmployeeDialog({ open, onOpenChange }: InviteEmployeeDialo
                     <SelectContent>
                       <SelectItem value="employee">Employee</SelectItem>
                       <SelectItem value="supervisor">Supervisor</SelectItem>
+                      <SelectItem value="assistant_manager">Assistant Manager</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="hr">HR</SelectItem>
+                      <SelectItem value="account_exec">Account Executive</SelectItem>
+                      <SelectItem value="account_assistant">Account Assistant</SelectItem>
+                      <SelectItem value="finance">Finance</SelectItem>
+                      <SelectItem value="finance_admin">Finance Admin</SelectItem>
+                      <SelectItem value="head_finance">Head of Finance</SelectItem>
                       <SelectItem value="management">Management</SelectItem>
+                      <SelectItem value="sgm">SGM</SelectItem>
+                      <SelectItem value="gm">GM</SelectItem>
+                      <SelectItem value="dmd">DMD</SelectItem>
+                      <SelectItem value="director">Director</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
