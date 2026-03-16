@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { CheckCircle2, Eye, PlusCircle } from 'lucide-react';
+import { Bot, CheckCircle2, Eye, PlusCircle } from 'lucide-react';
+import { BankStatementExtractDialog } from '@/components/finance/BankStatementExtractDialog';
+import { matchTransactions, type MatchResult } from '@/lib/bankStatementMatcher';
+import type { ExtractionResult } from '@/lib/bankStatementExtractor';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -44,7 +47,6 @@ import {
 import {
   BANK_RECONCILIATION_STATUS_LABELS,
   type BankReconciliation,
-  type BankReconciliationStatus,
 } from '@/types/finance';
 
 function formatMoney(value: number) {
@@ -133,6 +135,29 @@ export default function BankReconciliationPage() {
 
   const unreconciledCount = reconItems.filter((item) => !item.is_reconciled).length;
 
+  const [extractDialogOpen, setExtractDialogOpen] = useState(false);
+  const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
+  const [extractedTxns, setExtractedTxns] = useState<ExtractionResult | null>(null);
+
+  const handleExtracted = (result: ExtractionResult) => {
+    setExtractedTxns(result);
+    const matched = matchTransactions(result.transactions, reconItems);
+    setMatchResult(matched);
+  };
+
+  const handleAutoReconcile = async () => {
+    if (!matchResult || !detailId) return;
+    for (const [itemId] of matchResult.matches) {
+      await toggleReconciled.toggleReconciled({
+        reconciliationId: detailId,
+        itemId,
+        isReconciled: true,
+      });
+    }
+    setMatchResult(null);
+    setExtractedTxns(null);
+  };
+
   const handleToggle = async (itemId: string, checked: boolean) => {
     if (!detailId) return;
     await toggleReconciled.toggleReconciled({
@@ -159,9 +184,17 @@ export default function BankReconciliationPage() {
               : 'Loading...'
           }
           actions={
-            <Button variant="outline" onClick={() => setDetailId(null)}>
-              Back to List
-            </Button>
+            <div className="flex gap-2">
+              {reconData?.status === 'in_progress' && (
+                <Button variant="outline" onClick={() => setExtractDialogOpen(true)}>
+                  <Bot className="mr-2 h-4 w-4" />
+                  Extract Statement
+                </Button>
+              )}
+              <Button variant="outline" onClick={() => setDetailId(null)}>
+                Back to List
+              </Button>
+            </div>
           }
         >
           {reconData && (
@@ -195,6 +228,45 @@ export default function BankReconciliationPage() {
                   </CardContent>
                 </Card>
               </div>
+
+              {matchResult && extractedTxns && (
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-base">AI Match Results</CardTitle>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => { setMatchResult(null); setExtractedTxns(null); }}
+                      >
+                        Dismiss
+                      </Button>
+                      {matchResult.matches.size > 0 && (
+                        <Button
+                          size="sm"
+                          onClick={handleAutoReconcile}
+                          disabled={toggleReconciled.isToggling}
+                        >
+                          {toggleReconciled.isToggling ? 'Reconciling...' : `Auto-Reconcile ${matchResult.matches.size} Matches`}
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-2 text-sm md:grid-cols-3">
+                      <p className="text-green-600 font-medium">
+                        Matched: {matchResult.matches.size}
+                      </p>
+                      <p className="text-amber-600 font-medium">
+                        Unmatched (statement): {matchResult.unmatchedExtracted.length}
+                      </p>
+                      <p className="text-red-600 font-medium">
+                        Unmatched (GL): {matchResult.unmatchedItems.length}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Header info */}
               <Card>
@@ -248,7 +320,10 @@ export default function BankReconciliationPage() {
                         </TableHeader>
                         <TableBody>
                           {sortedItems.map((item) => (
-                            <TableRow key={item.id}>
+                            <TableRow
+                              key={item.id}
+                              className={matchResult?.matches.has(item.id) ? 'bg-green-50 dark:bg-green-950/20' : ''}
+                            >
                               <TableCell>
                                 <Checkbox
                                   checked={item.is_reconciled}
@@ -278,6 +353,11 @@ export default function BankReconciliationPage() {
                   )}
                 </CardContent>
               </Card>
+              <BankStatementExtractDialog
+                open={extractDialogOpen}
+                onOpenChange={setExtractDialogOpen}
+                onExtracted={handleExtracted}
+              />
             </>
           )}
         </PageLayout>

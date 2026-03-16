@@ -5,6 +5,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { PWAInstallSection } from '@/components/pwa/PWAInstallSection';
 import { NotificationSettings } from '@/components/pwa/NotificationSettings';
 import { HRSettingsSection } from '@/components/settings/HRSettingsSection';
+import { AISettingsSection } from '@/components/settings/AISettingsSection';
 
 /**
  * General Settings Page
@@ -51,6 +52,8 @@ export default function Settings() {
         <PWAInstallSection />
 
         <HRSettingsSection />
+
+        <AISettingsSection />
 
         <NotificationSettings />
 
