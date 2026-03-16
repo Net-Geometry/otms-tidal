@@ -82,6 +82,7 @@ function ManagementSidebar() {
     { path: '/management/approve-prf', label: 'Approve PRF', icon: CheckCircle },
     ...(canApprovePV ? [{ path: '/management/approve-pv', label: 'Approve PV', icon: CheckCircle }] : []),
     ...(canApprovePV ? [{ path: '/management/approve-ap-payment', label: 'Approve AP Payment', icon: CheckCircle }] : []),
+    ...(canApprovePV ? [{ path: '/management/approve-ar-payment', label: 'Approve AR Payment', icon: CheckCircle }] : []),
     { path: '/management/memo-approval', label: 'Approve Memos', icon: FileText },
   ];
 
