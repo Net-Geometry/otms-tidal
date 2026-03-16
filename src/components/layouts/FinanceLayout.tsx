@@ -141,7 +141,7 @@ function FinanceSidebar({ activeRole }: { activeRole: string | null }) {
       items: [
         { path: '/finance/ar/notes', label: 'AR Debit/Credit Notes', icon: FileText },
         { path: '/finance/ar/invoices', label: 'AR Invoices', icon: Receipt },
-        { path: '/finance/ar/official-receipts', label: 'AR Payment', icon: CreditCard },
+        { path: '/finance/ar/payments', label: 'AR Payment', icon: CreditCard },
       ],
     },
     financeSupplier: {
@@ -149,7 +149,7 @@ function FinanceSidebar({ activeRole }: { activeRole: string | null }) {
       items: [
         { path: '/finance/ap/notes', label: 'AP Debit/Credit Notes', icon: FileText },
         { path: '/finance/ap/invoices', label: 'AP Invoices', icon: Receipt },
-        { path: '/finance/ap/payment-vouchers', label: 'AP Payment', icon: CreditCard },
+        { path: '/finance/ap/payments', label: 'AP Payment', icon: CreditCard },
       ],
     },
     financeReports: {
