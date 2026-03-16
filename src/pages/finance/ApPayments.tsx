@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Eye, PlusCircle } from 'lucide-react';
+import { Eye, MoreHorizontal, Pencil, Send, CheckCircle, BookOpen, Trash2, PlusCircle } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -431,65 +438,70 @@ export default function ApPayments() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex flex-wrap justify-end gap-2">
-                            {payment.status === 'draft' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openEditDialog(payment)}
-                              >
-                                Edit
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
-                            )}
-                            {payment.status === 'draft' && canSubmitPost && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => submitApPayment.submitApPayment(payment.id)}
-                                disabled={submitApPayment.isSubmitting}
-                              >
-                                Submit
-                              </Button>
-                            )}
-                            {payment.status === 'draft' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => deleteApPayment.deleteApPayment(payment.id)}
-                                disabled={deleteApPayment.isDeleting}
-                              >
-                                Delete
-                              </Button>
-                            )}
-                            {payment.status === 'pending' && canApprove && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => approveApPayment.approveApPayment(payment.id)}
-                                disabled={approveApPayment.isApproving}
-                              >
-                                Approve
-                              </Button>
-                            )}
-                            {payment.status === 'approved' && canSubmitPost && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => postApPayment.postApPayment(payment.id)}
-                                disabled={postApPayment.isPosting}
-                              >
-                                Post to GL
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDetailPayment(payment)}
-                            >
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
-                            </Button>
-                          </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => setDetailPayment(payment)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
+                              {payment.status === 'draft' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => openEditDialog(payment)}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  {canSubmitPost && (
+                                    <DropdownMenuItem
+                                      onClick={() => submitApPayment.submitApPayment(payment.id)}
+                                      disabled={submitApPayment.isSubmitting}
+                                    >
+                                      <Send className="mr-2 h-4 w-4" />
+                                      Submit
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => deleteApPayment.deleteApPayment(payment.id)}
+                                    disabled={deleteApPayment.isDeleting}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {payment.status === 'pending' && canApprove && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => approveApPayment.approveApPayment(payment.id)}
+                                    disabled={approveApPayment.isApproving}
+                                  >
+                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                    Approve
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              {payment.status === 'approved' && canSubmitPost && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => postApPayment.postApPayment(payment.id)}
+                                    disabled={postApPayment.isPosting}
+                                  >
+                                    <BookOpen className="mr-2 h-4 w-4" />
+                                    Post to GL
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
