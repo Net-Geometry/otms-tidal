@@ -63,7 +63,6 @@ interface SalaryRow {
 }
 
 const SALARY_ROWS: SalaryRow[] = [
-  { label: 'Employee Count', key: 'employee_count' },
   // 1. Gross Salary
   { label: 'Total Gross Salary', key: 'total_gross_salary', countField: 'gross_salary' },
   // 1a. Total OT
@@ -109,20 +108,22 @@ const SALARY_ROWS: SalaryRow[] = [
   { label: 'Grand Total', key: 'computed_total_duit_keluar', isSubtotal: true, isComputed: true },
 ];
 
-// Count fields we need from payroll_items (includes new item-level fields)
-const COUNT_FIELDS = [
+// Fields that exist as columns on payroll_items
+const ITEM_COUNT_FIELDS = [
   'gross_salary', 'total_allowances', 'employee_epf', 'employer_epf',
   'employee_socso', 'employer_socso', 'employee_eis', 'employer_eis',
   'employer_hrdc', 'pcb_amount', 'is_director', 'total_deductions',
-  'zakat_amount', 'cp38_amount', 'sports_club', 'staff_loan', 'rental_deduction',
-  'other_deductions', 'net_director_fee', 'ot_amount', 'claims_amount',
+  'net_director_fee', 'ot_amount', 'claims_amount',
 ] as const;
 
-// Item-level fields to SUM (not on payroll_runs)
-const ITEM_SUM_FIELDS = [
-  'zakat_amount', 'cp38_amount', 'sports_club', 'staff_loan', 'rental_deduction',
-  'other_deductions', 'net_director_fee', 'ot_amount', 'claims_amount',
-] as const;
+// Map from our synthetic itemField keys to deduction_type codes
+const DEDUCTION_CODE_MAP: Record<string, string[]> = {
+  zakat_amount: ['ZA'],
+  cp38_amount: ['CP38'],
+  sports_club: ['SC'],
+  staff_loan_rental: ['MO'],       // Monthly deduction (staff loan / rental)
+  other_deductions: ['O', 'OD'],   // Other deductions
+};
 
 type ComponentCounts = Record<string, Record<string, number>>; // runId -> field -> count
 type ItemSums = Record<string, Record<string, number>>; // runId -> field -> sum
@@ -135,15 +136,17 @@ function useComponentCounts(runIds: string[]) {
     queryFn: async () => {
       if (runIds.length === 0) return { counts: {} as ComponentCounts, itemSums: {} as ItemSums };
 
+      // 1. Fetch payroll_items with real columns only
       const { data, error } = await db
         .from('payroll_items')
-        .select(`payroll_run_id, ${COUNT_FIELDS.join(', ')}`)
+        .select(`id, payroll_run_id, ${ITEM_COUNT_FIELDS.join(', ')}`)
         .in('payroll_run_id', runIds);
 
       if (error) throw error;
 
       const counts: ComponentCounts = {};
       const itemSums: ItemSums = {};
+      const itemIdToRunId: Record<string, string> = {};
       for (const id of runIds) {
         counts[id] = {};
         itemSums[id] = {};
@@ -151,10 +154,11 @@ function useComponentCounts(runIds: string[]) {
 
       for (const item of (data || []) as Record<string, unknown>[]) {
         const runId = item.payroll_run_id as string;
+        itemIdToRunId[item.id as string] = runId;
         if (!counts[runId]) counts[runId] = {};
         if (!itemSums[runId]) itemSums[runId] = {};
 
-        for (const field of COUNT_FIELDS) {
+        for (const field of ITEM_COUNT_FIELDS) {
           const val = Number(item[field] || 0);
           if (field === 'is_director') {
             if (item[field]) counts[runId][field] = (counts[runId][field] || 0) + 1;
@@ -163,21 +167,40 @@ function useComponentCounts(runIds: string[]) {
           }
         }
 
-        // Combined staff_loan + rental_deduction count
-        const staffLoan = Number(item.staff_loan || 0);
-        const rental = Number(item.rental_deduction || 0);
-        if (staffLoan > 0 || rental > 0) {
-          counts[runId]['staff_loan_rental'] = (counts[runId]['staff_loan_rental'] || 0) + 1;
-        }
-
-        // Sum item-level fields
-        for (const field of ITEM_SUM_FIELDS) {
+        // Sum item-level fields that exist on payroll_items
+        for (const field of ['net_director_fee', 'ot_amount', 'claims_amount'] as const) {
           const val = Number(item[field] || 0);
           itemSums[runId][field] = (itemSums[runId][field] || 0) + val;
         }
-        // Combined staff_loan + rental_deduction sum
-        itemSums[runId]['staff_loan_rental'] =
-          (itemSums[runId]['staff_loan_rental'] || 0) + staffLoan + rental;
+      }
+
+      // 2. Fetch deduction sums/counts from payroll_item_deductions
+      const itemIds = Object.keys(itemIdToRunId);
+      if (itemIds.length > 0) {
+        const { data: deductions, error: dedErr } = await db
+          .from('payroll_item_deductions')
+          .select('payroll_item_id, amount, deduction_type_id, deduction_types!inner(code)')
+          .in('payroll_item_id', itemIds);
+
+        if (!dedErr && deductions) {
+          for (const d of deductions as any[]) {
+            const runId = itemIdToRunId[d.payroll_item_id];
+            if (!runId) continue;
+            const code = d.deduction_types?.code;
+            if (!code) continue;
+            const amount = Number(d.amount || 0);
+
+            // Map deduction code to our synthetic field keys
+            for (const [fieldKey, codes] of Object.entries(DEDUCTION_CODE_MAP)) {
+              if (codes.includes(code)) {
+                itemSums[runId][fieldKey] = (itemSums[runId][fieldKey] || 0) + amount;
+                if (amount > 0) {
+                  counts[runId][fieldKey] = (counts[runId][fieldKey] || 0) + 1;
+                }
+              }
+            }
+          }
+        }
       }
 
       return { counts, itemSums };
@@ -345,8 +368,7 @@ export function ConsolidatedPayrollMemo() {
     return runs.reduce((sum, r) => sum + getRunValue(row, r), 0);
   }
 
-  function formatValue(key: string, value: number): string {
-    if (key === 'employee_count') return String(value);
+  function formatValue(value: number): string {
     return formatCurrency(value);
   }
 
@@ -503,11 +525,11 @@ export function ConsolidatedPayrollMemo() {
                   {companyColumns.map((c) => (
                     <React.Fragment key={`${c.id}-sub`}>
                       <TableHead className="text-right text-xs">Amount</TableHead>
-                      <TableHead className="text-center text-xs w-[50px]">#</TableHead>
+                      <TableHead className="text-center text-xs w-[50px]">Employee Count</TableHead>
                     </React.Fragment>
                   ))}
                   <TableHead className="text-right text-xs">Amount</TableHead>
-                  <TableHead className="text-center text-xs w-[50px]">#</TableHead>
+                  <TableHead className="text-center text-xs w-[50px]">Employee Count</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -522,21 +544,18 @@ export function ConsolidatedPayrollMemo() {
                     {companyColumns.map((c) => (
                       <React.Fragment key={`${c.id}-${row.key}`}>
                         <TableCell className="text-right">
-                          {formatValue(
-                            row.key,
-                            getRunValue(row, c.run)
-                          )}
+                          {formatValue(getRunValue(row, c.run))}
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground text-xs">
-                          {row.key === 'employee_count' ? '' : row.countField ? getComponentCount(c.run.id, row.countField) || '-' : ''}
+                          {row.countField ? getComponentCount(c.run.id, row.countField) || '-' : ''}
                         </TableCell>
                       </React.Fragment>
                     ))}
                     <TableCell className="text-right font-bold">
-                      {formatValue(row.key, getGrandTotal(row))}
+                      {formatValue(getGrandTotal(row))}
                     </TableCell>
                     <TableCell className="text-center text-muted-foreground text-xs font-bold">
-                      {row.key === 'employee_count' ? '' : row.countField ? getGrandCount(row.countField) || '-' : ''}
+                      {row.countField ? getGrandCount(row.countField) || '-' : ''}
                     </TableCell>
                   </TableRow>
                 ))}
