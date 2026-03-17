@@ -1676,7 +1676,8 @@ export function usePostPV() {
       if (voucher.journal_entry_id) throw new Error('Payment voucher is already posted to GL');
 
       const allocations = voucher.allocations || [];
-      if (!allocations.length) throw new Error('Payment voucher has no allocations');
+      const lines = voucher.lines || [];
+      if (!allocations.length && !lines.length) throw new Error('Payment voucher has no allocations or lines');
 
       const { data: tradePayables, error: tradePayablesError } = await db
         .from('chart_of_accounts')
@@ -1691,6 +1692,8 @@ export function usePostPV() {
       if (!bankGlAccountId) throw new Error('Selected bank account is not linked to a GL account');
 
       let totalAllocated = 0;
+
+      // Validate allocations if present (invoice-linked PVs)
       for (const allocation of allocations) {
         const invoice = allocation.ap_invoice;
         if (!invoice) throw new Error('Allocation references a missing invoice');
@@ -1708,6 +1711,12 @@ export function usePostPV() {
         }
 
         totalAllocated = roundMoney(totalAllocated + amount);
+      }
+
+      // For lines-only PVs (e.g. payroll), use the PV total_amount
+      if (!allocations.length) {
+        totalAllocated = roundMoney(toNumber(voucher.total_amount));
+        if (totalAllocated <= 0) throw new Error('Payment voucher total amount must be greater than zero');
       }
 
       const posting = await createGLPosting({
@@ -1745,6 +1754,7 @@ export function usePostPV() {
         .eq('id', voucher.id);
       if (voucherUpdateError) throw voucherUpdateError;
 
+      // Update AP invoice paid amounts (only for allocation-linked PVs)
       for (const allocation of allocations) {
         const invoice = allocation.ap_invoice;
         if (!invoice) continue;

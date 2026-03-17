@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Eye, MoreHorizontal, Pencil, Send, CheckCircle, BookOpen, Trash2, PlusCircle } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -9,20 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -30,48 +20,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useCompanies } from '@/hooks/hr/useCompanies';
-import { useBankAccounts } from '@/hooks/finance/useFinanceFoundation';
-import { useActiveRole } from '@/hooks/useActiveRole';
-import {
-  useApPayments,
-  useCreateApPayment,
-  useUpdateApPayment,
-  useSubmitApPayment,
-  useCheckApPayment,
-  useApproveApPayment,
-  usePostApPayment,
-  useDeleteApPayment,
-  usePaymentVouchers,
-} from '@/hooks/finance/useAccountsPayable';
+import { useAuth } from '@/hooks/useAuth';
 import {
   AP_PAYMENT_METHOD_LABELS,
-  AP_PAYMENT_STATUS_LABELS,
+  AP_PV_STATUS_LABELS,
   type ApPaymentMethod,
-  type ApPaymentStatus,
-  type ApPayment,
+  type ApPvStatus,
 } from '@/types/finance';
-
-interface ApPaymentFormState {
-  company_id: string;
-  bank_account_id: string;
-  payment_date: string;
-  payment_method: ApPaymentMethod;
-  reference_no: string;
-  remarks: string;
-  allocations: Record<string, string>; // pv_id → amount string
-}
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('en-MY', {
@@ -82,282 +50,202 @@ function formatMoney(value: number) {
   }).format(Number(value || 0));
 }
 
-function makeInitialForm(companyId: string): ApPaymentFormState {
-  return {
-    company_id: companyId,
-    bank_account_id: '',
-    payment_date: new Date().toISOString().slice(0, 10),
-    payment_method: 'online_transfer',
-    reference_no: '',
-    remarks: '',
-    allocations: {},
-  };
+function toNumber(value: unknown) {
+  return Number(value || 0);
+}
+
+interface ApPaymentPV {
+  id: string;
+  pv_number: string | null;
+  pay_to: string | null;
+  pay_for: string | null;
+  payment_date: string;
+  payment_method: ApPaymentMethod;
+  reference_no: string | null;
+  total_amount: number;
+  status: ApPvStatus;
+  remarks: string | null;
+  posted_at: string | null;
+  paid_at: string | null;
+  supplier: { supplier_name: string; supplier_code: string } | null;
+  bank_account: { account_code: string; account_name: string; bank_name: string } | null;
+  journal_entry: { entry_number: string; entry_date: string } | null;
+  lines: Array<{
+    id: string;
+    line_date: string;
+    description: string;
+    cheque_no: string | null;
+    amount: number;
+  }>;
+  allocations: Array<{
+    id: string;
+    allocated_amount: number;
+    ap_invoice: { id: string; invoice_number: string; total_amount: number } | null;
+  }>;
+}
+
+function useApPaymentPVs(filters: {
+  companyId?: string;
+  startDate?: string;
+  endDate?: string;
+  search?: string;
+}) {
+  const db = supabase as any;
+  const { profile } = useAuth();
+  const companyId = filters.companyId || profile?.company_id;
+
+  return useQuery({
+    queryKey: [
+      'ap-payment-pvs',
+      companyId || 'none',
+      filters.startDate || '',
+      filters.endDate || '',
+      filters.search || '',
+    ],
+    queryFn: async () => {
+      if (!companyId) return [];
+
+      let q = db
+        .from('payment_vouchers')
+        .select(`
+          *,
+          supplier:suppliers!payment_vouchers_supplier_id_fkey(supplier_code, supplier_name),
+          bank_account:bank_accounts!payment_vouchers_bank_account_id_fkey(account_code, account_name, bank_name),
+          journal_entry:journal_entries!payment_vouchers_journal_entry_id_fkey(entry_number, entry_date),
+          lines:payment_voucher_lines(*),
+          allocations:payment_voucher_allocations(
+            id,
+            allocated_amount,
+            ap_invoice:ap_invoices(id, invoice_number, total_amount)
+          )
+        `)
+        .eq('company_id', companyId)
+        .eq('post_to_type', 'ap_payment')
+        .in('status', ['paid', 'posted'])
+        .order('payment_date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (filters.startDate) q = q.gte('payment_date', filters.startDate);
+      if (filters.endDate) q = q.lte('payment_date', filters.endDate);
+
+      const search = (filters.search || '').trim();
+      if (search) {
+        q = q.or(
+          `pv_number.ilike.%${search}%,reference_no.ilike.%${search}%,pay_to.ilike.%${search}%`,
+        );
+      }
+
+      const { data, error } = await q;
+      if (error) throw error;
+
+      return ((data || []) as any[]).map((row) => ({
+        ...row,
+        total_amount: toNumber(row.total_amount),
+        lines: (row.lines || []).map((l: any) => ({ ...l, amount: toNumber(l.amount) })),
+        allocations: (row.allocations || []).map((a: any) => ({
+          ...a,
+          allocated_amount: toNumber(a.allocated_amount),
+        })),
+      })) as ApPaymentPV[];
+    },
+    enabled: !!companyId,
+    staleTime: 20 * 1000,
+  });
 }
 
 export default function ApPayments() {
-  const { toast } = useToast();
-  const { data: companies = [] } = useCompanies();
-  const bankAccounts = useBankAccounts();
-  const { activeRole } = useActiveRole();
-
-  const [companyFilter, setCompanyFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<'all' | ApPaymentStatus>('all');
+  const [companyFilter, setCompanyFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [detailPV, setDetailPV] = useState<ApPaymentPV | null>(null);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingPayment, setEditingPayment] = useState<ApPayment | null>(null);
-  const [detailPayment, setDetailPayment] = useState<ApPayment | null>(null);
-  const [form, setForm] = useState<ApPaymentFormState>(makeInitialForm(''));
+  const { data: companies = [] } = useCompanies();
 
-  const paymentsQuery = useApPayments({
-    companyId: companyFilter === 'all' ? undefined : companyFilter,
-    status: statusFilter === 'all' ? undefined : statusFilter,
-    search,
-    page,
+  const { data: rows = [], isLoading } = useApPaymentPVs({
+    companyId: companyFilter || undefined,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    search: search || undefined,
   });
 
-  const approvedPvs = usePaymentVouchers({
-    companyId: form.company_id || undefined,
-    status: 'approved',
-    page: 1,
-    pageSize: 200,
-  });
-
-  const createPayment = useCreateApPayment();
-  const updatePayment = useUpdateApPayment();
-  const submitApPayment = useSubmitApPayment();
-  const checkApPayment = useCheckApPayment();
-  const approveApPayment = useApproveApPayment();
-  const postApPayment = usePostApPayment();
-  const deleteApPayment = useDeleteApPayment();
-
-  useEffect(() => {
-    if (!companies.length) return;
-    if (!form.company_id) {
-      setForm((prev) => ({ ...prev, company_id: companies[0].id }));
-    }
-  }, [companies, form.company_id]);
-
-  const rows: ApPayment[] = (paymentsQuery.data?.data || []) as ApPayment[];
-  const total = paymentsQuery.data?.total || 0;
-  const pageSize = paymentsQuery.data?.pageSize || 20;
-  const totalPages = Math.ceil(total / pageSize);
-
-  const pvList = useMemo(() => {
-    return (approvedPvs.data?.rows || []).map((pv) => ({
-      ...pv,
-      total_amount: Number(pv.total_amount || 0),
-    }));
-  }, [approvedPvs.data]);
-
-  const pvById = useMemo(() => {
-    const map = new Map<string, (typeof pvList)[number]>();
-    for (const pv of pvList) {
-      map.set(pv.id, pv);
-    }
-    return map;
-  }, [pvList]);
-
-  const totalAllocated = useMemo(() => {
-    return Object.values(form.allocations).reduce((sum, value) => sum + Number(value || 0), 0);
-  }, [form.allocations]);
-
-  const filteredBankAccounts = useMemo(() => {
-    if (!form.company_id) return bankAccounts.bankAccounts;
-    return bankAccounts.bankAccounts.filter((account) => account.company_id === form.company_id);
-  }, [bankAccounts.bankAccounts, form.company_id]);
-
-  // Summary counts
-  const counts = useMemo(() => {
-    const result = { draft: 0, pending: 0, checked: 0, approved: 0, posted: 0 };
-    for (const row of rows) {
-      if (row.status in result) {
-        result[row.status as keyof typeof result]++;
-      }
-    }
-    return result;
-  }, [rows]);
-
-  const pageTotal = useMemo(() => {
-    return rows.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
-  }, [rows]);
-
-  const canApprove = ['dmd', 'assistant_manager', 'director', 'gm'].includes(activeRole || '');
-  const canSubmitPost = ['finance', 'finance_admin', 'account_assistant', 'account_exec', 'head_finance', 'admin'].includes(activeRole || '');
-
-  const openNewDialog = () => {
-    const defaultCompanyId =
-      companyFilter === 'all' ? companies[0]?.id || '' : companyFilter;
-
-    setEditingPayment(null);
-    setForm(makeInitialForm(defaultCompanyId));
-    setDialogOpen(true);
-  };
-
-  const openEditDialog = (payment: ApPayment) => {
-    const allocations: Record<string, string> = {};
-    for (const allocation of payment.allocations || []) {
-      allocations[allocation.pv_id] = String(allocation.allocated_amount || 0);
-    }
-
-    setEditingPayment(payment);
-    setForm({
-      company_id: payment.company_id,
-      bank_account_id: payment.bank_account_id,
-      payment_date: payment.payment_date,
-      payment_method: payment.payment_method,
-      reference_no: payment.reference_no || '',
-      remarks: payment.remarks || '',
-      allocations,
-    });
-    setDialogOpen(true);
-  };
-
-  const toggleAllocation = (pvId: string, checked: boolean) => {
-    setForm((prev) => {
-      const next = { ...prev.allocations };
-      if (checked) {
-        const pv = pvById.get(pvId);
-        next[pvId] = String((pv?.total_amount || 0).toFixed(2));
-      } else {
-        delete next[pvId];
-      }
-      return { ...prev, allocations: next };
-    });
-  };
-
-  const updateAllocationAmount = (pvId: string, amount: string) => {
-    setForm((prev) => ({
-      ...prev,
-      allocations: {
-        ...prev.allocations,
-        [pvId]: amount,
-      },
-    }));
-  };
-
-  const saveDraft = async () => {
-    if (!form.company_id) {
-      toast({ title: 'Company is required', variant: 'destructive' });
-      return;
-    }
-
-    if (!form.bank_account_id) {
-      toast({ title: 'Bank account is required', variant: 'destructive' });
-      return;
-    }
-
-    const allocations = Object.fromEntries(
-      Object.entries(form.allocations).filter(([, v]) => Number(v || 0) > 0),
-    );
-
-    if (!Object.keys(allocations).length) {
-      toast({ title: 'Add at least one allocation', variant: 'destructive' });
-      return;
-    }
-
-    const payload = {
-      id: editingPayment?.id,
-      company_id: form.company_id,
-      bank_account_id: form.bank_account_id,
-      payment_date: form.payment_date,
-      payment_method: form.payment_method,
-      reference_no: form.reference_no.trim() || undefined,
-      remarks: form.remarks.trim() || undefined,
-      allocations,
+  const totals = useMemo(() => {
+    const posted = rows.filter((r) => r.status === 'posted');
+    const paid = rows.filter((r) => r.status === 'paid');
+    return {
+      postedCount: posted.length,
+      paidCount: paid.length,
+      postedTotal: posted.reduce((sum, r) => sum + r.total_amount, 0),
+      paidTotal: paid.reduce((sum, r) => sum + r.total_amount, 0),
+      grandTotal: rows.reduce((sum, r) => sum + r.total_amount, 0),
     };
-
-    if (editingPayment) {
-      await updatePayment.updateApPayment({ ...payload, id: editingPayment.id });
-    } else {
-      await createPayment.createApPayment(payload);
-    }
-
-    setDialogOpen(false);
-    setEditingPayment(null);
-  };
+  }, [rows]);
 
   return (
     <AppLayout>
       <PageLayout
         title="AP Payments"
-        description="Record and manage accounts payable payments"
-        actions={
-          <Button onClick={openNewDialog}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New AP Payment
-          </Button>
-        }
+        description="Payment vouchers posted as AP Payments with GL entries."
       >
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-6">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Draft</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Posted to GL
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{counts.draft}</p>
+              <p className="text-2xl font-bold">{totals.postedCount}</p>
+              <p className="text-xs text-muted-foreground">{formatMoney(totals.postedTotal)}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Paid (Pending Post)
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{counts.pending}</p>
+              <p className="text-2xl font-bold">{totals.paidCount}</p>
+              <p className="text-xs text-muted-foreground">{formatMoney(totals.paidTotal)}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Checked</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Total Entries
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{counts.checked}</p>
+              <p className="text-2xl font-bold">{rows.length}</p>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Approved</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Grand Total
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">{counts.approved}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Posted</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{counts.posted}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Page Total</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{formatMoney(pageTotal)}</p>
+              <p className="text-2xl font-bold">{formatMoney(totals.grandTotal)}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filter Bar */}
+        {/* Filters */}
         <Card>
           <CardContent className="pt-6">
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-4">
               <Select
-                value={companyFilter}
-                onValueChange={(value) => {
-                  setCompanyFilter(value);
-                  setPage(1);
-                }}
+                value={companyFilter || 'default'}
+                onValueChange={(value) => setCompanyFilter(value === 'default' ? '' : value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Company" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Companies</SelectItem>
+                  <SelectItem value="default">My Company</SelectItem>
                   {companies.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       {company.name}
@@ -366,33 +254,24 @@ export default function ApPayments() {
                 </SelectContent>
               </Select>
 
-              <Select
-                value={statusFilter}
-                onValueChange={(value) => {
-                  setStatusFilter(value as 'all' | ApPaymentStatus);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {(Object.keys(AP_PAYMENT_STATUS_LABELS) as ApPaymentStatus[]).map((status) => (
-                    <SelectItem key={status} value={status}>
-                      {AP_PAYMENT_STATUS_LABELS[status]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                placeholder="Start Date"
+              />
 
               <Input
-                placeholder="Search payment number or reference"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                placeholder="End Date"
+              />
+
+              <Input
+                placeholder="Search PV number, reference, or payee"
                 value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => setSearch(e.target.value)}
               />
             </div>
           </CardContent>
@@ -404,464 +283,226 @@ export default function ApPayments() {
             <CardTitle className="text-base">AP Payment Register</CardTitle>
           </CardHeader>
           <CardContent>
-            {!rows.length && !paymentsQuery.isLoading ? (
+            {!rows.length && !isLoading ? (
               <div className="py-10 text-center text-sm text-muted-foreground">
-                No AP payments found.
+                No AP payment entries found. PVs posted as &quot;AP Payment&quot; will appear here.
               </div>
             ) : (
               <div className="rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Payment #</TableHead>
-                      <TableHead>Payment Date</TableHead>
-                      <TableHead>Bank Account</TableHead>
+                      <TableHead>PV No</TableHead>
+                      <TableHead>Pay To</TableHead>
+                      <TableHead>Pay For</TableHead>
+                      <TableHead>Date</TableHead>
                       <TableHead>Method</TableHead>
                       <TableHead>Reference</TableHead>
-                      <TableHead className="text-right">Total Amount</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>GL Entry</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((payment) => (
-                      <TableRow key={payment.id}>
+                    {rows.map((pv) => (
+                      <TableRow key={pv.id}>
                         <TableCell className="font-medium">
-                          {payment.payment_number || 'Draft'}
+                          {pv.pv_number || 'Draft'}
                         </TableCell>
                         <TableCell>
-                          {format(new Date(payment.payment_date), 'dd MMM yyyy')}
+                          {pv.pay_to || pv.supplier?.supplier_name || '-'}
+                        </TableCell>
+                        <TableCell>{pv.pay_for || '-'}</TableCell>
+                        <TableCell>
+                          {format(new Date(pv.payment_date), 'dd MMM yyyy')}
                         </TableCell>
                         <TableCell>
-                          {payment.bank_account
-                            ? `${payment.bank_account.account_code} - ${payment.bank_account.account_name}`
-                            : '-'}
+                          {AP_PAYMENT_METHOD_LABELS[pv.payment_method] || pv.payment_method}
                         </TableCell>
-                        <TableCell>{AP_PAYMENT_METHOD_LABELS[payment.payment_method]}</TableCell>
-                        <TableCell>{payment.reference_no || '-'}</TableCell>
-                        <TableCell className="text-right">
-                          {formatMoney(payment.total_amount)}
+                        <TableCell>{pv.reference_no || '-'}</TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {formatMoney(pv.total_amount)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={payment.status === 'posted' ? 'default' : 'secondary'}>
-                            {AP_PAYMENT_STATUS_LABELS[payment.status]}
+                          {pv.journal_entry ? (
+                            <span className="text-xs font-mono">{pv.journal_entry.entry_number}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={pv.status === 'posted' ? 'default' : 'secondary'}
+                          >
+                            {AP_PV_STATUS_LABELS[pv.status] || pv.status}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem onClick={() => setDetailPayment(payment)}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              {payment.status === 'draft' && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => openEditDialog(payment)}>
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  {canSubmitPost && (
-                                    <DropdownMenuItem
-                                      onClick={() => submitApPayment.submitApPayment(payment.id)}
-                                      disabled={submitApPayment.isSubmitting}
-                                    >
-                                      <Send className="mr-2 h-4 w-4" />
-                                      Submit
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => deleteApPayment.deleteApPayment(payment.id)}
-                                    disabled={deleteApPayment.isDeleting}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {payment.status === 'pending' && canApprove && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => checkApPayment.checkApPayment(payment.id)}
-                                    disabled={checkApPayment.isChecking}
-                                  >
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Check
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {payment.status === 'checked' && canApprove && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => approveApPayment.approveApPayment(payment.id)}
-                                    disabled={approveApPayment.isApproving}
-                                  >
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Approve
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {payment.status === 'approved' && canSubmitPost && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => postApPayment.postApPayment(payment.id)}
-                                    disabled={postApPayment.isPosting}
-                                  >
-                                    <BookOpen className="mr-2 h-4 w-4" />
-                                    Post to GL
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => setDetailPV(pv)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell colSpan={6} className="font-medium">
+                        Total
+                      </TableCell>
+                      <TableCell className="text-right font-bold tabular-nums">
+                        {formatMoney(totals.grandTotal)}
+                      </TableCell>
+                      <TableCell colSpan={3} />
+                    </TableRow>
+                  </TableFooter>
                 </Table>
-              </div>
-            )}
-
-            {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Page {page} of {totalPages}
-                </p>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => p - 1)}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => p + 1)}
-                  >
-                    Next
-                  </Button>
-                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* New / Edit Dialog */}
-        <Dialog
-          open={dialogOpen}
-          onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) setEditingPayment(null);
-          }}
-        >
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-6xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingPayment ? 'Edit AP Payment' : 'New AP Payment'}
-              </DialogTitle>
-              <DialogDescription>
-                Select approved payment vouchers and allocate payment amounts.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>Company</Label>
-                  <Select
-                    value={form.company_id || 'none'}
-                    onValueChange={(value) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        company_id: value === 'none' ? '' : value,
-                        allocations: {},
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select company" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Select company</SelectItem>
-                      {companies.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>
-                          {company.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Payment Date</Label>
-                  <Input
-                    type="date"
-                    value={form.payment_date}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, payment_date: event.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Bank Account</Label>
-                  <Select
-                    value={form.bank_account_id || 'none'}
-                    onValueChange={(value) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        bank_account_id: value === 'none' ? '' : value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select bank account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Select bank account</SelectItem>
-                      {filteredBankAccounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.account_code} - {account.account_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select
-                    value={form.payment_method}
-                    onValueChange={(value) =>
-                      setForm((prev) => ({ ...prev, payment_method: value as ApPaymentMethod }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(Object.keys(AP_PAYMENT_METHOD_LABELS) as ApPaymentMethod[]).map(
-                        (method) => (
-                          <SelectItem key={method} value={method}>
-                            {AP_PAYMENT_METHOD_LABELS[method]}
-                          </SelectItem>
-                        ),
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Reference No</Label>
-                  <Input
-                    value={form.reference_no}
-                    onChange={(event) =>
-                      setForm((prev) => ({ ...prev, reference_no: event.target.value }))
-                    }
-                    placeholder="Cheque no / transfer ref"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Remarks</Label>
-                <Textarea
-                  rows={2}
-                  value={form.remarks}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, remarks: event.target.value }))
-                  }
-                  placeholder="Optional notes"
-                />
-              </div>
-
-              {/* PV Allocation */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Approved Payment Vouchers</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!form.company_id ? (
-                    <p className="text-sm text-muted-foreground">
-                      Select company to load approved payment vouchers.
-                    </p>
-                  ) : !pvList.length ? (
-                    <p className="text-sm text-muted-foreground">
-                      No approved payment vouchers for this company.
-                    </p>
-                  ) : (
-                    <div className="rounded-md border">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[60px]">Use</TableHead>
-                            <TableHead>PV Number</TableHead>
-                            <TableHead>Supplier</TableHead>
-                            <TableHead className="text-right">PV Total</TableHead>
-                            <TableHead className="text-right">Allocate</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {pvList.map((pv) => {
-                            const checked = form.allocations[pv.id] != null;
-                            const allocatedValue = form.allocations[pv.id] || '';
-
-                            return (
-                              <TableRow key={pv.id}>
-                                <TableCell>
-                                  <Checkbox
-                                    checked={checked}
-                                    onCheckedChange={(value) =>
-                                      toggleAllocation(pv.id, value === true)
-                                    }
-                                  />
-                                </TableCell>
-                                <TableCell className="font-medium">
-                                  {pv.pv_number || pv.id}
-                                </TableCell>
-                                <TableCell>
-                                  {(pv as any).supplier?.supplier_name ||
-                                    (pv as any).supplier?.supplier_code ||
-                                    '-'}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatMoney(pv.total_amount)}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    className="ml-auto w-36"
-                                    disabled={!checked}
-                                    value={allocatedValue}
-                                    onChange={(event) =>
-                                      updateAllocationAmount(pv.id, event.target.value)
-                                    }
-                                  />
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <div className="text-right text-sm font-medium">
-                Total Allocated: {formatMoney(totalAllocated)}
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={saveDraft}
-                disabled={createPayment.isCreating || updatePayment.isSaving}
-              >
-                {createPayment.isCreating || updatePayment.isSaving ? 'Saving...' : 'Save Draft'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         {/* Detail Dialog */}
-        <Dialog open={!!detailPayment} onOpenChange={(open) => !open && setDetailPayment(null)}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+        <Dialog open={!!detailPV} onOpenChange={(open) => { if (!open) setDetailPV(null); }}>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>AP Payment Detail</DialogTitle>
-              <DialogDescription>Review payment details and PV allocation breakdown.</DialogDescription>
+              <DialogTitle>AP Payment — {detailPV?.pv_number || 'Draft'}</DialogTitle>
             </DialogHeader>
-
-            {!detailPayment ? null : (
-              <div className="space-y-4">
-                <div className="grid gap-2 text-sm md:grid-cols-2">
+            {detailPV && (
+              <div className="space-y-4 text-sm">
+                <div className="grid gap-2 md:grid-cols-2">
                   <p>
-                    <span className="text-muted-foreground">Payment No:</span>{' '}
-                    {detailPayment.payment_number || 'Draft'}
+                    <span className="text-muted-foreground">Pay To:</span>{' '}
+                    {detailPV.pay_to || detailPV.supplier?.supplier_name || '-'}
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Pay For:</span>{' '}
+                    {detailPV.pay_for || '-'}
                   </p>
                   <p>
                     <span className="text-muted-foreground">Payment Date:</span>{' '}
-                    {format(new Date(detailPayment.payment_date), 'dd MMM yyyy')}
-                  </p>
-                  <p>
-                    <span className="text-muted-foreground">Bank Account:</span>{' '}
-                    {detailPayment.bank_account
-                      ? `${detailPayment.bank_account.account_code} - ${detailPayment.bank_account.account_name}`
-                      : '-'}
+                    {format(new Date(detailPV.payment_date), 'dd MMM yyyy')}
                   </p>
                   <p>
                     <span className="text-muted-foreground">Method:</span>{' '}
-                    {AP_PAYMENT_METHOD_LABELS[detailPayment.payment_method]}
+                    {AP_PAYMENT_METHOD_LABELS[detailPV.payment_method] || detailPV.payment_method}
                   </p>
                   <p>
                     <span className="text-muted-foreground">Reference:</span>{' '}
-                    {detailPayment.reference_no || '-'}
+                    {detailPV.reference_no || '-'}
                   </p>
                   <p>
-                    <span className="text-muted-foreground">Status:</span>{' '}
-                    {AP_PAYMENT_STATUS_LABELS[detailPayment.status]}
+                    <span className="text-muted-foreground">Bank Account:</span>{' '}
+                    {detailPV.bank_account
+                      ? `${detailPV.bank_account.account_code} - ${detailPV.bank_account.account_name}`
+                      : '-'}
                   </p>
                   <p>
                     <span className="text-muted-foreground">Total Amount:</span>{' '}
-                    {formatMoney(detailPayment.total_amount)}
+                    <span className="font-medium">{formatMoney(detailPV.total_amount)}</span>
                   </p>
-                  {detailPayment.remarks && (
+                  <p>
+                    <span className="text-muted-foreground">Status:</span>{' '}
+                    <Badge variant={detailPV.status === 'posted' ? 'default' : 'secondary'}>
+                      {AP_PV_STATUS_LABELS[detailPV.status] || detailPV.status}
+                    </Badge>
+                  </p>
+                  {detailPV.journal_entry && (
                     <p>
-                      <span className="text-muted-foreground">Remarks:</span>{' '}
-                      {detailPayment.remarks}
+                      <span className="text-muted-foreground">GL Entry:</span>{' '}
+                      <span className="font-mono text-xs">{detailPV.journal_entry.entry_number}</span>
                     </p>
                   )}
                 </div>
 
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>PV Number</TableHead>
-                        <TableHead>Supplier</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(detailPayment.allocations || []).map((allocation) => (
-                        <TableRow key={allocation.id}>
-                          <TableCell>
-                            {allocation.payment_voucher?.pv_number || allocation.pv_id}
-                          </TableCell>
-                          <TableCell>
-                            {allocation.payment_voucher?.supplier?.supplier_name ||
-                              allocation.payment_voucher?.supplier?.supplier_code ||
-                              '-'}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatMoney(allocation.allocated_amount)}
-                          </TableCell>
+                {detailPV.remarks && (
+                  <div>
+                    <p className="text-muted-foreground">Remarks:</p>
+                    <p>{detailPV.remarks}</p>
+                  </div>
+                )}
+
+                {/* Invoice Allocations */}
+                {detailPV.allocations.length > 0 && (
+                  <>
+                    <Separator />
+                    <p className="font-semibold">Invoice Allocations</p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Invoice #</TableHead>
+                          <TableHead className="text-right">Allocated Amount</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {detailPV.allocations.map((alloc) => (
+                          <TableRow key={alloc.id}>
+                            <TableCell>
+                              {alloc.ap_invoice?.invoice_number || '-'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {formatMoney(alloc.allocated_amount)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+
+                {/* PV Lines */}
+                {detailPV.lines.length > 0 && (
+                  <>
+                    <Separator />
+                    <p className="font-semibold">Payment Lines</p>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Cheque No</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {detailPV.lines.map((line) => (
+                          <TableRow key={line.id}>
+                            <TableCell>
+                              {format(new Date(line.line_date), 'dd MMM yyyy')}
+                            </TableCell>
+                            <TableCell>{line.description}</TableCell>
+                            <TableCell>{line.cheque_no || '-'}</TableCell>
+                            <TableCell className="text-right">
+                              {formatMoney(line.amount)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </>
+                )}
+
+                {/* Trail */}
+                <Separator />
+                <div className="grid gap-2 md:grid-cols-2">
+                  {detailPV.paid_at && (
+                    <p>
+                      <span className="text-muted-foreground">Paid:</span>{' '}
+                      {format(new Date(detailPV.paid_at), 'dd MMM yyyy HH:mm')}
+                    </p>
+                  )}
+                  {detailPV.posted_at && (
+                    <p>
+                      <span className="text-muted-foreground">Posted:</span>{' '}
+                      {format(new Date(detailPV.posted_at), 'dd MMM yyyy HH:mm')}
+                    </p>
+                  )}
                 </div>
               </div>
             )}

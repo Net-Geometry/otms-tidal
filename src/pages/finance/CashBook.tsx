@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/table';
 import { FileDown } from 'lucide-react';
 import { useCashBook } from '@/hooks/finance/useCashBook';
+import { useCompanies } from '@/hooks/hr/useCompanies';
 import { GL_REFERENCE_TYPE_LABELS } from '@/types/finance';
 import { generateCashBookPdf } from '@/lib/financeReportPdfGenerator';
 
@@ -34,11 +35,15 @@ function formatMoney(amount: number) {
 }
 
 export default function CashBook() {
+  const [companyFilter, setCompanyFilter] = useState('');
   const [bankAccountId, setBankAccountId] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  const { data: companies = [] } = useCompanies();
+
   const cashBook = useCashBook({
+    companyId: companyFilter || undefined,
     bankAccountId: bankAccountId === 'all' ? undefined : bankAccountId,
     startDate: startDate || undefined,
     endDate: endDate || undefined,
@@ -100,7 +105,27 @@ export default function CashBook() {
         {/* Filters */}
         <Card>
           <CardContent className="pt-6">
-            <div className="grid gap-3 md:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-5">
+              <Select
+                value={companyFilter || 'default'}
+                onValueChange={(value) => {
+                  setCompanyFilter(value === 'default' ? '' : value);
+                  setBankAccountId('all');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">My Company</SelectItem>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select
                 value={bankAccountId}
                 onValueChange={(value) => setBankAccountId(value)}
@@ -137,6 +162,7 @@ export default function CashBook() {
                   variant="ghost"
                   size="sm"
                   onClick={() => {
+                    setCompanyFilter('');
                     setBankAccountId('all');
                     setStartDate('');
                     setEndDate('');
