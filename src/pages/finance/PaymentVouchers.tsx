@@ -13,6 +13,7 @@ import {
   Banknote,
   BookOpen,
   FileText,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
@@ -61,11 +62,13 @@ import { useBankAccounts, useSuppliers } from '@/hooks/finance/useFinanceFoundat
 import {
   useApInvoices,
   useApprovePV,
+  useChangePostType,
   useCheckPV,
   useCreatePaymentVoucher,
   useMarkPVPaid,
   usePaymentVouchers,
   usePostPV,
+  usePostTypeAudit,
   usePurchaseRequisitions,
   useSubmitPV,
   useUpdatePaymentVoucher,
@@ -75,9 +78,11 @@ import { useActiveRole } from '@/hooks/useActiveRole';
 import {
   AP_PAYMENT_METHOD_LABELS,
   AP_PV_STATUS_LABELS,
+  PV_POST_TO_LABELS,
   type ApPaymentMethod,
   type ApPvStatus,
   type PaymentVoucher,
+  type PvPostToType,
 } from '@/types/finance';
 
 interface PvLineRow {
@@ -150,6 +155,40 @@ const STATUS_VARIANT: Record<ApPvStatus, 'default' | 'secondary' | 'destructive'
   cancelled: 'destructive',
 };
 
+function PostTypeAuditSection({ pvId, currentPostType }: { pvId: string; currentPostType: PvPostToType }) {
+  const { data: auditLog = [] } = usePostTypeAudit(pvId);
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-semibold">Posted To</h4>
+      <div className="rounded-md border p-3 space-y-3">
+        <div className="flex items-center gap-2">
+          <Badge variant="default">{PV_POST_TO_LABELS[currentPostType]}</Badge>
+        </div>
+        {auditLog.length > 0 && (
+          <div className="space-y-1.5 pt-2 border-t">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Change History</p>
+            {auditLog.map((entry) => (
+              <div key={entry.id} className="flex items-center gap-2 text-xs text-muted-foreground">
+                <ArrowRightLeft className="h-3 w-3 shrink-0" />
+                <span>
+                  {PV_POST_TO_LABELS[entry.old_post_type as PvPostToType] || entry.old_post_type}
+                  {' → '}
+                  {PV_POST_TO_LABELS[entry.new_post_type as PvPostToType] || entry.new_post_type}
+                </span>
+                <span className="text-muted-foreground/60">
+                  {format(new Date(entry.created_at), 'dd MMM yyyy HH:mm')}
+                </span>
+                {entry.reason && <span className="italic">— {entry.reason}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PaymentVouchers() {
   const { toast } = useToast();
   const { data: companies = [] } = useCompanies();
@@ -201,6 +240,7 @@ export default function PaymentVouchers() {
   const approvePV = useApprovePV();
   const postPV = usePostPV();
   const { markPaid, isMarkingPaid } = useMarkPVPaid();
+  const { changePostType, isChanging: isChangingPostType } = useChangePostType();
 
   useEffect(() => {
     if (!companies.length) return;
@@ -638,6 +678,7 @@ export default function PaymentVouchers() {
                     {rows.map((voucher) => {
                       const actions = getRowActions(voucher);
                       const postActions = voucher.status === 'paid' && isAccountExec;
+                      const canChangePostType = voucher.status === 'posted' && isAccountExec && !!voucher.post_to_type;
 
                       return (
                         <TableRow
@@ -697,7 +738,7 @@ export default function PaymentVouchers() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                            {(actions.length > 0 || postActions) ? (
+                            {(actions.length > 0 || postActions || canChangePostType) ? (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -744,6 +785,38 @@ export default function PaymentVouchers() {
                                         <FileText className="mr-2 h-4 w-4" />
                                         Post to AP Credit Note
                                       </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  {canChangePostType && (
+                                    <>
+                                      <DropdownMenuSeparator />
+                                      {voucher.post_to_type !== 'cashbook' && (
+                                        <DropdownMenuItem
+                                          onClick={() => changePostType({ pvId: voucher.id, newPostType: 'cashbook' })}
+                                          disabled={isChangingPostType}
+                                        >
+                                          <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                          Change to Cashbook
+                                        </DropdownMenuItem>
+                                      )}
+                                      {voucher.post_to_type !== 'ap_payment' && (
+                                        <DropdownMenuItem
+                                          onClick={() => changePostType({ pvId: voucher.id, newPostType: 'ap_payment' })}
+                                          disabled={isChangingPostType}
+                                        >
+                                          <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                          Change to AP Payment
+                                        </DropdownMenuItem>
+                                      )}
+                                      {voucher.post_to_type !== 'ap_credit_note' && (
+                                        <DropdownMenuItem
+                                          onClick={() => changePostType({ pvId: voucher.id, newPostType: 'ap_credit_note' })}
+                                          disabled={isChangingPostType}
+                                        >
+                                          <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                          Change to AP Credit Note
+                                        </DropdownMenuItem>
+                                      )}
                                     </>
                                   )}
                                 </DropdownMenuContent>
@@ -1216,6 +1289,11 @@ export default function PaymentVouchers() {
                       </Table>
                     </div>
                   </div>
+                )}
+
+                {/* Post Type & Audit Trail */}
+                {detailVoucher.status === 'posted' && detailVoucher.post_to_type && (
+                  <PostTypeAuditSection pvId={detailVoucher.id} currentPostType={detailVoucher.post_to_type} />
                 )}
               </div>
             )}

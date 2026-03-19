@@ -23,6 +23,8 @@ export interface CashBookEntry {
   entry_number: string;
   description: string;
   reference_type: GLReferenceType;
+  reference_id: string | null;
+  source_doc: string | null;
   debit_amount: number;
   credit_amount: number;
   running_balance: number;
@@ -102,6 +104,7 @@ export function useCashBook(filters: CashBookFilters = {}) {
             entry_date,
             description,
             reference_type,
+            reference_id,
             company_id,
             is_reversed,
             created_at
@@ -131,6 +134,26 @@ export function useCashBook(filters: CashBookFilters = {}) {
           return createdA.localeCompare(createdB);
         });
 
+      // Batch-fetch source document numbers for payment_voucher references
+      const pvRefIds = [
+        ...new Set(
+          rows
+            .filter((r) => r.journal_entry.reference_type === 'payment_voucher' && r.journal_entry.reference_id)
+            .map((r) => r.journal_entry.reference_id as string)
+        ),
+      ];
+
+      const pvNumberMap = new Map<string, string>();
+      if (pvRefIds.length > 0) {
+        const { data: pvRows } = await db
+          .from('payment_vouchers')
+          .select('id, pv_number')
+          .in('id', pvRefIds);
+        for (const pv of pvRows || []) {
+          if (pv.pv_number) pvNumberMap.set(pv.id, pv.pv_number);
+        }
+      }
+
       // Compute running balance client-side
       let runningBalance = 0;
       const entries: CashBookEntry[] = rows.map((row) => {
@@ -138,12 +161,22 @@ export function useCashBook(filters: CashBookFilters = {}) {
         const credit = toNumber(row.credit_amount);
         runningBalance += debit - credit;
 
+        const refId = row.journal_entry.reference_id || null;
+        const refType = row.journal_entry.reference_type as GLReferenceType;
+
+        let sourceDoc: string | null = null;
+        if (refType === 'payment_voucher' && refId) {
+          sourceDoc = pvNumberMap.get(refId) || null;
+        }
+
         return {
           id: row.id,
           entry_date: row.journal_entry.entry_date,
           entry_number: row.journal_entry.entry_number,
           description: row.journal_entry.description || '',
-          reference_type: row.journal_entry.reference_type as GLReferenceType,
+          reference_type: refType,
+          reference_id: refId,
+          source_doc: sourceDoc,
           debit_amount: debit,
           credit_amount: credit,
           running_balance: runningBalance,

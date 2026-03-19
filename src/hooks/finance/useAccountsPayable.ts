@@ -6,22 +6,23 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { createGLPosting } from '@/hooks/finance/useGeneralLedger';
 import { AP_TAX_CODES } from '@/types/finance';
-import type {
-  ApInvoice,
-  ApInvoiceLine,
-  ApInvoiceStatus,
-  ApPaymentMethod,
-  ApPrfStatus,
-  ApPvStatus,
-  ApTaxCode,
-  ApUnitOfMeasure,
-  PaymentVoucher,
-  PaymentVoucherAllocation,
-  PaymentVoucherLine,
-  PrfType,
-  PurchaseRequisition,
-  PurchaseRequisitionItem,
-  PvPostToType,
+import {
+  PV_POST_TO_LABELS,
+  type ApInvoice,
+  type ApInvoiceLine,
+  type ApInvoiceStatus,
+  type ApPaymentMethod,
+  type ApPrfStatus,
+  type ApPvStatus,
+  type ApTaxCode,
+  type ApUnitOfMeasure,
+  type PaymentVoucher,
+  type PaymentVoucherAllocation,
+  type PaymentVoucherLine,
+  type PrfType,
+  type PurchaseRequisition,
+  type PurchaseRequisitionItem,
+  type PvPostToType,
 } from '@/types/finance';
 
 function toNumber(value: unknown) {
@@ -1719,23 +1720,27 @@ export function usePostPV() {
         if (totalAllocated <= 0) throw new Error('Payment voucher total amount must be greater than zero');
       }
 
+      const pvRef = voucher.pv_number || voucher.id;
+      const payFor = voucher.pay_for ? ` - ${voucher.pay_for}` : '';
+      const cbDescription = `Payment Voucher ${pvRef}${payFor}`;
+
       const posting = await createGLPosting({
         company_id: voucher.company_id,
         entry_date: voucher.payment_date,
-        description: `Payment voucher ${voucher.pv_number || voucher.id}`,
+        description: cbDescription,
         reference_type: 'payment_voucher',
         reference_id: voucher.id,
-        prefix: 'PV',
+        prefix: 'CB',
         lines: [
           {
             account_id: tradePayables.id,
-            description: voucher.remarks || `Payment voucher ${voucher.pv_number || voucher.id}`,
+            description: cbDescription,
             debit_amount: totalAllocated,
             credit_amount: 0,
           },
           {
             account_id: bankGlAccountId,
-            description: voucher.reference_no || voucher.remarks || `Payment voucher ${voucher.pv_number || voucher.id}`,
+            description: voucher.reference_no || cbDescription,
             debit_amount: 0,
             credit_amount: totalAllocated,
           },
@@ -1791,6 +1796,96 @@ export function usePostPV() {
     postPV: mutation.mutateAsync,
     isPosting: mutation.isPending,
   };
+}
+
+// ─── Change Post Type ────────────────────────────────────────────────────────
+
+export function useChangePostType() {
+  const db = supabase as any;
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (input: { pvId: string; newPostType: PvPostToType; reason?: string }) => {
+      // Fetch current PV
+      const { data: pv, error: pvError } = await db
+        .from('payment_vouchers')
+        .select('id, pv_number, status, post_to_type')
+        .eq('id', input.pvId)
+        .single();
+      if (pvError) throw pvError;
+
+      if (pv.status !== 'posted') throw new Error('Only posted payment vouchers can have their post type changed');
+      if (!pv.post_to_type) throw new Error('Payment voucher has no current post type');
+      if (pv.post_to_type === input.newPostType) return null;
+
+      const oldType = pv.post_to_type as string;
+
+      // Update PV post_to_type
+      const { error: updateError } = await db
+        .from('payment_vouchers')
+        .update({ post_to_type: input.newPostType })
+        .eq('id', input.pvId);
+      if (updateError) throw updateError;
+
+      // Insert audit record
+      const { error: auditError } = await db
+        .from('pv_post_type_audit')
+        .insert({
+          pv_id: input.pvId,
+          old_post_type: oldType,
+          new_post_type: input.newPostType,
+          changed_by: (await supabase.auth.getUser()).data.user?.id,
+          reason: input.reason?.trim() || null,
+        });
+      if (auditError) throw auditError;
+
+      return { pvNumber: pv.pv_number, oldType, newType: input.newPostType };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      if (result) {
+        toast({
+          title: 'Post type changed',
+          description: `${result.pvNumber} changed from ${PV_POST_TO_LABELS[result.oldType as PvPostToType] || result.oldType} to ${PV_POST_TO_LABELS[result.newType as PvPostToType] || result.newType}`,
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  return {
+    changePostType: mutation.mutate,
+    isChanging: mutation.isPending,
+  };
+}
+
+export function usePostTypeAudit(pvId: string | undefined) {
+  const db = supabase as any;
+
+  return useQuery({
+    queryKey: ['pv-post-type-audit', pvId || 'none'],
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('pv_post_type_audit')
+        .select('id, old_post_type, new_post_type, reason, created_at, changed_by')
+        .eq('pv_id', pvId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []) as {
+        id: string;
+        old_post_type: string;
+        new_post_type: string;
+        reason: string | null;
+        created_at: string;
+        changed_by: string;
+      }[];
+    },
+    enabled: !!pvId,
+    staleTime: 30 * 1000,
+  });
 }
 
 // ─── AP Payments ─────────────────────────────────────────────────────────────
