@@ -925,6 +925,7 @@ export interface PaymentVoucher {
   checked_by: string | null;
   created_at?: string;
   updated_at?: string;
+  company?: { id: string; name: string; code: string | null } | null;
   supplier?: Pick<Supplier, 'id' | 'supplier_code' | 'supplier_name'> | null;
   bank_account?: Pick<BankAccount, 'id' | 'account_code' | 'account_name' | 'bank_name' | 'gl_account_id'> | null;
   allocations?: PaymentVoucherAllocation[];

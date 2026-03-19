@@ -196,6 +196,11 @@ export default function PaymentVouchers() {
   const bankAccounts = useBankAccounts();
   const { data: prfData } = usePurchaseRequisitions({ status: 'approved' });
   const approvedPrfs = useMemo(() => prfData?.rows || [], [prfData]);
+  const companyMap = useMemo(() => {
+    const map = new Map<string, { name: string; code: string | null }>();
+    for (const c of companies) map.set(c.id, { name: c.name, code: c.code });
+    return map;
+  }, [companies]);
 
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ApPvStatus>('all');
@@ -665,6 +670,7 @@ export default function PaymentVouchers() {
                         </TableHead>
                       )}
                       <TableHead className="min-w-[120px]">PV No</TableHead>
+                      <TableHead className="min-w-[120px]">Company</TableHead>
                       <TableHead className="min-w-[160px]">Pay To</TableHead>
                       <TableHead className="min-w-[160px]">Pay For</TableHead>
                       <TableHead className="w-[100px]">Date</TableHead>
@@ -706,6 +712,9 @@ export default function PaymentVouchers() {
                             <span className="font-mono text-xs font-medium">
                               {voucher.pv_number || 'Draft'}
                             </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{companyMap.get(voucher.company_id)?.code || companyMap.get(voucher.company_id)?.name || '-'}</span>
                           </TableCell>
                           <TableCell>
                             <span className="text-sm">{voucher.pay_to || voucher.supplier?.supplier_name || '-'}</span>
@@ -1190,6 +1199,10 @@ export default function PaymentVouchers() {
                 {/* Key details grid */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-md border p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Company</span>
+                      <span className="font-medium">{companyMap.get(detailVoucher.company_id)?.name || '-'}</span>
+                    </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Pay To</span>
                       <span className="font-medium">{detailVoucher.pay_to || detailVoucher.supplier?.supplier_name || '-'}</span>
