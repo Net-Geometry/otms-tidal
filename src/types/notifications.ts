@@ -14,6 +14,10 @@ export interface NotificationPreferences {
   ot_pending_confirmation: boolean;
   /** Notifications when supervisor confirms OT request (employees) */
   ot_supervisor_confirmed: boolean;
+  /** AP notifications: PV, AP invoices, AP payments (finance role) */
+  finance_ap_notifications: boolean;
+  /** AR notifications: AR invoices, official receipts, AR payments (finance role) */
+  finance_ar_notifications: boolean;
   /** Global disable flag - when true, all notifications are disabled */
   all_disabled: boolean;
 }
@@ -27,6 +31,8 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   ot_requests_rejected: true,
   ot_pending_confirmation: true,
   ot_supervisor_confirmed: true,
+  finance_ap_notifications: true,
+  finance_ar_notifications: true,
   all_disabled: false,
 };
 
@@ -74,5 +80,17 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     label: 'OT Confirmed',
     description: 'Get notified when your supervisor confirms your OT request',
     roles: ['employee']
+  },
+  {
+    key: 'finance_ap_notifications',
+    label: 'AP Notifications',
+    description: 'Payment vouchers, AP invoices, and AP payment status updates',
+    roles: ['finance', 'admin', 'management']
+  },
+  {
+    key: 'finance_ar_notifications',
+    label: 'AR Notifications',
+    description: 'AR invoices, official receipts, and AR payment status updates',
+    roles: ['finance', 'admin', 'management']
   }
 ];

@@ -18,6 +18,7 @@ export interface EmployeeProfile {
   joining_date: string | null;
   deleted_at: string | null;
   date_of_birth?: string | null;
+  monthly_zakat: number;
   // Per-employee contribution rate overrides
   employee_epf_rate?: number | null;
   employer_epf_rate?: number | null;
@@ -46,6 +47,7 @@ export interface CalculatedItem {
   employer_eis: number;
   employer_hrdc: number;
   pcb_amount: number;
+  zakat_amount: number;
   total_allowances: number;
   total_deductions: number;
   net_salary: number;
@@ -82,6 +84,17 @@ export interface PcbDeductions {
   socsoEisMonthly: number;
 }
 
+export interface PcbOptions {
+  spouseIsDisabled?: boolean;
+  zakatMonthly?: number;
+}
+
+/** Round PCB up to the nearest RM5 (must end in 0 or 5). */
+export function roundPcbToNearest5(amount: number): number {
+  if (amount <= 0) return 0;
+  return Math.ceil(amount / 5) * 5;
+}
+
 /** LHDN 2026 marginal tax brackets: [upperLimit, rate] */
 const TAX_BRACKETS: [number, number][] = [
   [5000, 0],
@@ -100,7 +113,8 @@ export function calculatePcb(
   monthlyGross: number,
   category: number,
   qualifyingChildren: number,
-  deductions: PcbDeductions
+  deductions: PcbDeductions,
+  options: PcbOptions = {}
 ): number {
   const annualGross = monthlyGross * 12;
 
@@ -109,9 +123,10 @@ export function calculatePcb(
   const epfRelief = Math.min(deductions.epfMonthly * 12, 4000);
   const socsoEisRelief = Math.min(deductions.socsoEisMonthly * 12, 350);
   const spouseRelief = category === 2 ? 4000 : 0;
+  const disabledSpouseRelief = (category === 2 && options.spouseIsDisabled) ? 5000 : 0;
   const childRelief = qualifyingChildren * 2000;
 
-  const totalRelief = individualRelief + epfRelief + socsoEisRelief + spouseRelief + childRelief;
+  const totalRelief = individualRelief + epfRelief + socsoEisRelief + spouseRelief + disabledSpouseRelief + childRelief;
   const chargeableIncome = Math.max(0, annualGross - totalRelief);
 
   // Compute tax using marginal rate brackets
@@ -130,7 +145,16 @@ export function calculatePcb(
     tax = Math.max(0, tax - rebate);
   }
 
-  return round2(tax / 12);
+  let monthlyPcb = round2(tax / 12);
+
+  // Auto-deduct zakat from PCB (LHDN allows zakat rebate against tax)
+  const zakat = options.zakatMonthly || 0;
+  if (zakat > 0) {
+    monthlyPcb = Math.max(0, monthlyPcb - zakat);
+  }
+
+  // Round to nearest RM5 (must end in 0 or 5)
+  return roundPcbToNearest5(monthlyPcb);
 }
 
 /** Backward-compatible wrapper — Category 1, no dependents, no deductions */
@@ -165,7 +189,8 @@ export function calculateEmployee(
   socsoTable: SocsoContributionRow[],
   month: number,
   year: number,
-  qualifyingChildren: number = 0
+  qualifyingChildren: number = 0,
+  pcbOptions: PcbOptions = {}
 ): CalculatedItem {
   const workingDays = settings.working_days_per_month;
   const basicSalary = Number(profile.basic_salary) || 0;
@@ -266,6 +291,9 @@ export function calculateEmployee(
   const isDirector = profile.is_director || false;
   const directorFee = isDirector ? Number(profile.director_fee) || 0 : 0;
 
+  // Zakat from profile
+  const zakatMonthly = Number(profile.monthly_zakat) || 0;
+
   // PCB/MTD — full LHDN 2026 calculation with reliefs
   const pcbAmount = calculatePcb(
     grossSalary,
@@ -274,12 +302,16 @@ export function calculateEmployee(
     {
       epfMonthly: employeeEpf,
       socsoEisMonthly: employeeSocso + employeeEis,
+    },
+    {
+      ...pcbOptions,
+      zakatMonthly,
     }
   );
 
-  // Total deductions (employee portion)
+  // Total deductions (employee portion) — zakat is already reflected in PCB reduction
   const totalDeductions = round2(
-    employeeEpf + employeeSocso + employeeEis + pcbAmount
+    employeeEpf + employeeSocso + employeeEis + pcbAmount + zakatMonthly
   );
 
   // Net salary
@@ -305,6 +337,7 @@ export function calculateEmployee(
     employer_eis: employerEis,
     employer_hrdc: employerHrdc,
     pcb_amount: pcbAmount,
+    zakat_amount: zakatMonthly,
     total_allowances: 0,
     total_deductions: totalDeductions,
     net_salary: netSalary,
@@ -319,6 +352,8 @@ export function calculateEmployee(
       employer_epf_pct: round2(employerEpfRate * 100),
       employee_epf_pct: round2(employeeEpfRateRaw),
       pcb_amount: pcbAmount,
+      zakat_monthly: zakatMonthly,
+      spouse_is_disabled: pcbOptions.spouseIsDisabled || false,
       socso_scheme: settings.socso_scheme,
       age_at_payroll: employeeAge,
       is_above_60: isAbove60,

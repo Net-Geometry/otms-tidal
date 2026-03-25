@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 import { createGLPosting } from '@/hooks/finance/useGeneralLedger';
+import { createFinanceNotification } from '@/hooks/finance/useFinanceNotifications';
 import { AR_TAX_CODES } from '@/types/finance';
 import type {
   ArInvoice,
@@ -387,10 +388,12 @@ export function useSubmitArInvoice() {
 
       if (error) throw error;
       if (!data) throw new Error('AR invoice was already updated by another user');
+      return { invoice_number: invoiceNumber };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ar-invoices'] });
       toast({ title: 'Submitted', description: 'AR invoice submitted for approval' });
+      createFinanceNotification('ar_invoice_submitted', data.invoice_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -418,15 +421,17 @@ export function useApproveArInvoice() {
         })
         .eq('id', input.invoiceId)
         .eq('status', 'pending')
-        .select('id')
+        .select('id, invoice_number')
         .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Only pending AR invoices can be approved');
+      return data as { id: string; invoice_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ar-invoices'] });
       toast({ title: 'Approved', description: 'AR invoice approved' });
+      createFinanceNotification('ar_invoice_approved', data.invoice_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -512,11 +517,13 @@ export function usePostArInvoice() {
         })
         .eq('id', invoice.id);
       if (updateError) throw updateError;
+      return { invoice_number: invoice.invoice_number || invoice.id };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ar-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
       toast({ title: 'Posted', description: 'AR invoice posted to GL' });
+      createFinanceNotification('ar_invoice_posted', data.invoice_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -778,10 +785,12 @@ export function useSubmitOR() {
 
       if (error) throw error;
       if (!data) throw new Error('Official receipt was already updated by another user');
+      return { receipt_number: receiptNumber };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['official-receipts'] });
       toast({ title: 'Submitted', description: 'Official receipt submitted for approval' });
+      createFinanceNotification('or_submitted', data.receipt_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -809,15 +818,17 @@ export function useApproveOR() {
         })
         .eq('id', input.orId)
         .eq('status', 'pending')
-        .select('id')
+        .select('id, receipt_number')
         .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Only pending official receipts can be approved');
+      return data as { id: string; receipt_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['official-receipts'] });
       toast({ title: 'Approved', description: 'Official receipt approved' });
+      createFinanceNotification('or_approved', data.receipt_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -948,12 +959,15 @@ export function usePostOR() {
 
         if (invoiceUpdateError) throw invoiceUpdateError;
       }
+
+      return { receipt_number: receipt.receipt_number || receipt.id };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['official-receipts'] });
       queryClient.invalidateQueries({ queryKey: ['ar-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
       toast({ title: 'Posted', description: 'Official receipt posted to GL' });
+      createFinanceNotification('or_posted', data.receipt_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1184,15 +1198,19 @@ export function useSubmitArPayment() {
 
   const mutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db
+      const { data, error } = await db
         .from('ar_payments')
         .update({ status: 'pending', submitted_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id, payment_number')
+        .single();
       if (error) throw error;
+      return data as { id: string; payment_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
       toast({ title: 'Submitted', description: 'AR payment submitted for approval' });
+      createFinanceNotification('ar_payment_submitted', data.payment_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1212,15 +1230,19 @@ export function useApproveArPayment() {
 
   const mutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db
+      const { data, error } = await db
         .from('ar_payments')
         .update({ status: 'approved', approved_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id, payment_number')
+        .single();
       if (error) throw error;
+      return data as { id: string; payment_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
       toast({ title: 'Approved', description: 'AR payment approved' });
+      createFinanceNotification('ar_payment_approved', data.payment_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1240,10 +1262,12 @@ export function usePostArPayment() {
 
   const mutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error: updateError } = await db
+      const { data: payment, error: updateError } = await db
         .from('ar_payments')
         .update({ status: 'posted', posted_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id, payment_number')
+        .single();
       if (updateError) throw updateError;
 
       const { data: allocations, error: allocError } = await db
@@ -1269,11 +1293,14 @@ export function usePostArPayment() {
           .eq('id', alloc.ar_invoice_id);
         if (invoiceUpdateError) throw invoiceUpdateError;
       }
+
+      return payment as { id: string; payment_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ar-payments'] });
       queryClient.invalidateQueries({ queryKey: ['ar-invoices'] });
       toast({ title: 'Posted', description: 'AR payment posted' });
+      createFinanceNotification('ar_payment_posted', data.payment_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

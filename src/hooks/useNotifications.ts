@@ -23,7 +23,29 @@ export interface Notification {
     | 'claim_pending_review'
     | 'claim_approved'
     | 'claim_rejected'
-    | 'leave_weekly_summary';
+    | 'leave_weekly_summary'
+    | 'pv_submitted'
+    | 'pv_checked'
+    | 'pv_approved'
+    | 'pv_rejected'
+    | 'pv_paid'
+    | 'pv_posted'
+    | 'ap_invoice_submitted'
+    | 'ap_invoice_approved'
+    | 'ap_invoice_posted'
+    | 'ap_payment_submitted'
+    | 'ap_payment_checked'
+    | 'ap_payment_approved'
+    | 'ap_payment_posted'
+    | 'ar_invoice_submitted'
+    | 'ar_invoice_approved'
+    | 'ar_invoice_posted'
+    | 'or_submitted'
+    | 'or_approved'
+    | 'or_posted'
+    | 'ar_payment_submitted'
+    | 'ar_payment_approved'
+    | 'ar_payment_posted';
   created_at: string;
 }
 

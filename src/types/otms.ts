@@ -136,6 +136,8 @@ export interface Profile {
   marital_status: 'single' | 'married' | 'divorced' | 'widowed';
   /** PCB category: 1 (single), 2 (married spouse not working), 3 (married spouse working) */
   pcb_category: 1 | 2 | 3;
+  /** Monthly zakat amount — auto-deducted from PCB */
+  monthly_zakat: number;
   /** Foreign key to company_locations.id - UUID of the employee's work location */
   work_location: string | null;
   /** Malaysian state code (e.g., WPKL, KUL, JHR) - auto-synced from work_location */

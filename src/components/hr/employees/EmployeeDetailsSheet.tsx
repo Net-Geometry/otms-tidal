@@ -71,6 +71,7 @@ export function EmployeeDetailsSheet({
     is_studying: false,
     education_status: 'none' as 'none' | 'full_time_local' | 'degree_local_overseas',
     has_own_income: false,
+    is_dependant: true,
   });
 
   const { hasRole } = useAuth();
@@ -850,6 +851,38 @@ export function EmployeeDetailsSheet({
                     </div>
                   )}
                 </div>
+
+                {/* Monthly Zakat */}
+                <div className="grid gap-2">
+                  <Label htmlFor="monthly_zakat">Monthly Zakat (RM)</Label>
+                  {isEditing ? (
+                    <div className="space-y-1">
+                      <Input
+                        id="monthly_zakat"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.monthly_zakat || ''}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            monthly_zakat: e.target.value ? parseFloat(e.target.value) : 0,
+                          })
+                        }
+                        placeholder="0.00"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Auto-deducted from PCB
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-sm">
+                      {employee.monthly_zakat ? `RM ${Number(employee.monthly_zakat).toFixed(2)}` : (
+                        <span className="text-muted-foreground">None</span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Payroll Contribution Overrides */}
@@ -1057,6 +1090,7 @@ export function EmployeeDetailsSheet({
                         {dep.is_studying && <Badge variant="secondary" className="text-xs">Studying</Badge>}
                         {dep.education_status === 'full_time_local' && <Badge variant="secondary" className="text-xs">Full-time Local</Badge>}
                         {dep.education_status === 'degree_local_overseas' && <Badge variant="secondary" className="text-xs">Degree</Badge>}
+                        {dep.relationship === 'child' && dep.is_dependant === false && <Badge variant="destructive" className="text-xs">Not Dependant</Badge>}
                         {dep.relationship === 'spouse' && dep.has_own_income && <Badge variant="outline" className="text-xs">Has Income</Badge>}
                         {dep.relationship === 'spouse' && !dep.has_own_income && <Badge variant="secondary" className="text-xs">No Income</Badge>}
                       </div>
@@ -1155,7 +1189,7 @@ export function EmployeeDetailsSheet({
                         </label>
                       </div>
                     )}
-                    <div className="flex items-end gap-4 pb-1">
+                    <div className="flex items-end gap-4 pb-1 flex-wrap">
                       <label className="flex items-center gap-1.5 text-sm">
                         <input
                           type="checkbox"
@@ -1176,6 +1210,17 @@ export function EmployeeDetailsSheet({
                           Studying
                         </label>
                       )}
+                      {newDependent.relationship === 'child' && (
+                        <label className="flex items-center gap-1.5 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={newDependent.is_dependant}
+                            onChange={(e) => setNewDependent({ ...newDependent, is_dependant: e.target.checked })}
+                            className="h-4 w-4 rounded border-gray-300"
+                          />
+                          Dependant
+                        </label>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -1192,8 +1237,9 @@ export function EmployeeDetailsSheet({
                           is_studying: newDependent.is_studying,
                           education_status: newDependent.education_status,
                           has_own_income: newDependent.has_own_income,
+                          is_dependant: newDependent.is_dependant,
                         });
-                        setNewDependent({ relationship: 'child', name: '', date_of_birth: '', is_disabled: false, is_studying: false, education_status: 'none', has_own_income: false });
+                        setNewDependent({ relationship: 'child', name: '', date_of_birth: '', is_disabled: false, is_studying: false, education_status: 'none', has_own_income: false, is_dependant: true });
                         setShowAddDependent(false);
                       }}
                       disabled={!newDependent.name || addDependent.isPending}

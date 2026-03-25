@@ -2,7 +2,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { CheckCheck, Bell, CheckCircle, XCircle, Clock, AlertCircle, FileText, Receipt } from 'lucide-react';
+import { CheckCheck, Bell, CheckCircle, XCircle, Clock, AlertCircle, FileText, Receipt, CreditCard, DollarSign, Send, BookCheck } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -42,11 +42,50 @@ export function NotificationList() {
       case 'prf_rejected':
         return <XCircle className="h-4 w-4 text-red-500" />;
       case 'pv_pending_review':
+      case 'pv_submitted':
         return <Receipt className="h-4 w-4 text-blue-500" />;
+      case 'pv_checked':
+        return <BookCheck className="h-4 w-4 text-indigo-500" />;
       case 'pv_approved':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'pv_rejected':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'pv_paid':
+        return <DollarSign className="h-4 w-4 text-green-600" />;
+      case 'pv_posted':
+        return <Send className="h-4 w-4 text-emerald-500" />;
+      case 'ap_invoice_submitted':
+        return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'ap_invoice_approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'ap_invoice_posted':
+        return <Send className="h-4 w-4 text-emerald-500" />;
+      case 'ap_payment_submitted':
+        return <CreditCard className="h-4 w-4 text-blue-500" />;
+      case 'ap_payment_checked':
+        return <BookCheck className="h-4 w-4 text-indigo-500" />;
+      case 'ap_payment_approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'ap_payment_posted':
+        return <Send className="h-4 w-4 text-emerald-500" />;
+      case 'ar_invoice_submitted':
+        return <FileText className="h-4 w-4 text-blue-500" />;
+      case 'ar_invoice_approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'ar_invoice_posted':
+        return <Send className="h-4 w-4 text-emerald-500" />;
+      case 'or_submitted':
+        return <Receipt className="h-4 w-4 text-blue-500" />;
+      case 'or_approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'or_posted':
+        return <Send className="h-4 w-4 text-emerald-500" />;
+      case 'ar_payment_submitted':
+        return <CreditCard className="h-4 w-4 text-blue-500" />;
+      case 'ar_payment_approved':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'ar_payment_posted':
+        return <Send className="h-4 w-4 text-emerald-500" />;
       default:
         return <Bell className="h-4 w-4 text-muted-foreground" />;
     }

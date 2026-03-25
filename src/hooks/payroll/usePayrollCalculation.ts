@@ -33,7 +33,7 @@ export function usePayrollCalculation() {
       // Fetch employees for this company
       const { data: employees, error: empError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, monthly_zakat, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('company_id', input.companyId)
         .is('deleted_at', null);
 
@@ -44,10 +44,10 @@ export function usePayrollCalculation() {
 
       const employeeIds = (employees as EmployeeProfile[]).map((e) => e.id);
 
-      // Fetch dependents for qualifying children count
+      // Fetch dependents for qualifying children count and spouse OKU status
       const { data: allDependents } = await db
         .from('employee_dependents')
-        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying')
+        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying, is_dependant')
         .in('employee_id', employeeIds);
 
       const periodEnd = new Date(input.year, input.month, 0);
@@ -55,7 +55,7 @@ export function usePayrollCalculation() {
 
       function countQualifyingChildren(empId: string, endDateStr: string): number {
         const deps = (allDependents || []).filter(
-          (d: any) => d.employee_id === empId && d.relationship === 'child'
+          (d: any) => d.employee_id === empId && d.relationship === 'child' && d.is_dependant !== false
         );
         return deps.filter((d: any) => {
           if (!d.date_of_birth) return true;
@@ -67,6 +67,13 @@ export function usePayrollCalculation() {
         }).length;
       }
 
+      function getSpouseIsDisabled(empId: string): boolean {
+        const spouse = (allDependents || []).find(
+          (d: any) => d.employee_id === empId && d.relationship === 'spouse'
+        );
+        return spouse?.is_disabled === true;
+      }
+
       // Delete existing items for this run (recalculate)
       await db
         .from('payroll_items')
@@ -76,7 +83,8 @@ export function usePayrollCalculation() {
       // Calculate for each employee
       const items: CalculatedItem[] = (employees as EmployeeProfile[]).map((emp) => {
         const childCount = countQualifyingChildren(emp.id, periodEndStr);
-        return calculateEmployee(emp, input.settings, input.socsoTable, input.month, input.year, childCount);
+        const spouseIsDisabled = getSpouseIsDisabled(emp.id);
+        return calculateEmployee(emp, input.settings, input.socsoTable, input.month, input.year, childCount, { spouseIsDisabled });
       });
 
       // Insert all items
@@ -206,7 +214,7 @@ export function usePayrollCalculation() {
 
       const { data: profile, error: profileError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, monthly_zakat, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('id', input.employeeId)
         .single();
 
@@ -215,12 +223,12 @@ export function usePayrollCalculation() {
       // Fetch dependents for this employee
       const { data: empDependents } = await db
         .from('employee_dependents')
-        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying')
+        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying, is_dependant')
         .eq('employee_id', input.employeeId);
 
       const periodEnd = new Date(input.year, input.month, 0);
       const periodEndStr = `${input.year}-${String(input.month).padStart(2, '0')}-${String(periodEnd.getDate()).padStart(2, '0')}`;
-      const childDeps = (empDependents || []).filter((d: any) => d.relationship === 'child');
+      const childDeps = (empDependents || []).filter((d: any) => d.relationship === 'child' && d.is_dependant !== false);
       const childCount = childDeps.filter((d: any) => {
         if (!d.date_of_birth) return true;
         const age = getAgeAtDate(d.date_of_birth, periodEndStr);
@@ -230,13 +238,17 @@ export function usePayrollCalculation() {
         return false;
       }).length;
 
+      const spouse = (empDependents || []).find((d: any) => d.relationship === 'spouse');
+      const spouseIsDisabled = spouse?.is_disabled === true;
+
       const calculated = calculateEmployee(
         profile as EmployeeProfile,
         input.settings,
         input.socsoTable,
         input.month,
         input.year,
-        childCount
+        childCount,
+        { spouseIsDisabled }
       );
 
       // Delete existing item for this employee in this run
@@ -289,7 +301,7 @@ export function usePayrollCalculation() {
 
       const { data: profile, error: profileError } = await db
         .from('profiles')
-        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
+        .select('id, basic_salary, is_ot_eligible, ot_base, is_director, director_fee, epf_category, marital_status, pcb_category, company_id, joining_date, deleted_at, date_of_birth, monthly_zakat, employee_epf_rate, employer_epf_rate, employee_socso_rate, employer_socso_rate, employee_eis_rate, employer_eis_rate')
         .eq('id', input.employeeId)
         .single();
 
@@ -298,12 +310,12 @@ export function usePayrollCalculation() {
       // Fetch dependents for this employee
       const { data: addEmpDependents } = await db
         .from('employee_dependents')
-        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying')
+        .select('employee_id, relationship, date_of_birth, is_disabled, is_studying, is_dependant')
         .eq('employee_id', input.employeeId);
 
       const addPeriodEnd = new Date(input.year, input.month, 0);
       const addPeriodEndStr = `${input.year}-${String(input.month).padStart(2, '0')}-${String(addPeriodEnd.getDate()).padStart(2, '0')}`;
-      const addChildDeps = (addEmpDependents || []).filter((d: any) => d.relationship === 'child');
+      const addChildDeps = (addEmpDependents || []).filter((d: any) => d.relationship === 'child' && d.is_dependant !== false);
       const addChildCount = addChildDeps.filter((d: any) => {
         if (!d.date_of_birth) return true;
         const age = getAgeAtDate(d.date_of_birth, addPeriodEndStr);
@@ -313,13 +325,17 @@ export function usePayrollCalculation() {
         return false;
       }).length;
 
+      const addSpouse = (addEmpDependents || []).find((d: any) => d.relationship === 'spouse');
+      const addSpouseIsDisabled = addSpouse?.is_disabled === true;
+
       const calculated = calculateEmployee(
         profile as EmployeeProfile,
         input.settings,
         input.socsoTable,
         input.month,
         input.year,
-        addChildCount
+        addChildCount,
+        { spouseIsDisabled: addSpouseIsDisabled }
       );
 
       const { data: newItem, error: insertError } = await db

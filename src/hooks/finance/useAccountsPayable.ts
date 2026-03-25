@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { createGLPosting } from '@/hooks/finance/useGeneralLedger';
+import { createFinanceNotification } from '@/hooks/finance/useFinanceNotifications';
 import { AP_TAX_CODES } from '@/types/finance';
 import {
   PV_POST_TO_LABELS,
@@ -1004,10 +1005,12 @@ export function useSubmitApInvoice() {
 
       if (error) throw error;
       if (!data) throw new Error('AP invoice was already updated by another user');
+      return { invoice_number: invoiceNumber };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ap-invoices'] });
       toast({ title: 'Submitted', description: 'AP invoice submitted for approval' });
+      createFinanceNotification('ap_invoice_submitted', data.invoice_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1035,15 +1038,17 @@ export function useApproveApInvoice() {
         })
         .eq('id', input.invoiceId)
         .eq('status', 'pending')
-        .select('id')
+        .select('id, invoice_number')
         .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Only pending AP invoices can be approved');
+      return data as { id: string; invoice_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ap-invoices'] });
       toast({ title: 'Approved', description: 'AP invoice approved' });
+      createFinanceNotification('ap_invoice_approved', data.invoice_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1129,11 +1134,13 @@ export function usePostApInvoice() {
         })
         .eq('id', invoice.id);
       if (updateError) throw updateError;
+      return { invoice_number: invoice.invoice_number || invoice.id };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ap-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
       toast({ title: 'Posted', description: 'AP invoice posted to GL' });
+      createFinanceNotification('ap_invoice_posted', data.invoice_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1446,15 +1453,17 @@ export function useSubmitPV() {
         })
         .eq('id', input.pvId)
         .eq('status', 'draft')
-        .select('id')
+        .select('id, pv_number')
         .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Only draft payment vouchers can be submitted');
+      return data as { id: string; pv_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
       toast({ title: 'Submitted', description: 'Payment voucher submitted for approval' });
+      createFinanceNotification('pv_submitted', data.pv_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1482,15 +1491,17 @@ export function useCheckPV() {
         })
         .eq('id', input.pvId)
         .eq('status', 'pending')
-        .select('id')
+        .select('id, pv_number')
         .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Only pending payment vouchers can be checked');
+      return data as { id: string; pv_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
       toast({ title: 'Checked', description: 'Payment voucher checked and forwarded for approval' });
+      createFinanceNotification('pv_checked', data.pv_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1518,15 +1529,17 @@ export function useApprovePV() {
         })
         .eq('id', input.pvId)
         .eq('status', 'checked')
-        .select('id')
+        .select('id, pv_number')
         .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Only checked payment vouchers can be approved');
+      return data as { id: string; pv_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
       toast({ title: 'Approved', description: 'Payment voucher approved' });
+      createFinanceNotification('pv_approved', data.pv_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1576,10 +1589,14 @@ export function useRejectPV() {
 
       if (error) throw error;
       if (!data) throw new Error('Payment voucher was already updated by another user');
+
+      const { data: pv } = await db.from('payment_vouchers').select('pv_number').eq('id', input.pvId).single();
+      return pv as { pv_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
       toast({ title: 'Rejected', description: 'Payment voucher has been rejected' });
+      createFinanceNotification('pv_rejected', data?.pv_number || '');
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1615,14 +1632,19 @@ export function useMarkPVPaid() {
 
       if (error) throw error;
       if (!data?.length) throw new Error('No approved payment vouchers found to mark as paid');
-      return data;
+
+      const { data: pvs } = await db.from('payment_vouchers').select('pv_number').in('id', input.pvIds);
+      return { count: data.length, pvNumbers: (pvs || []).map((p: any) => p.pv_number) };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
       toast({
         title: 'Marked as Paid',
-        description: `${data.length} payment voucher(s) marked as paid`,
+        description: `${data.count} payment voucher(s) marked as paid`,
       });
+      for (const pvNum of data.pvNumbers) {
+        createFinanceNotification('pv_paid', pvNum);
+      }
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -1769,12 +1791,15 @@ export function usePostPV() {
 
         if (invoiceUpdateError) throw invoiceUpdateError;
       }
+
+      return { pv_number: voucher.pv_number || voucher.id };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
       queryClient.invalidateQueries({ queryKey: ['ap-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
       toast({ title: 'Posted', description: 'Payment voucher posted to GL' });
+      createFinanceNotification('pv_posted', data.pv_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -2066,15 +2091,19 @@ export function useSubmitApPayment() {
 
   const mutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db
+      const { data, error } = await db
         .from('ap_payments')
         .update({ status: 'pending', submitted_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id, payment_number')
+        .single();
       if (error) throw error;
+      return data as { id: string; payment_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
       toast({ title: 'Submitted', description: 'AP payment submitted for approval' });
+      createFinanceNotification('ap_payment_submitted', data.payment_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -2094,15 +2123,19 @@ export function useCheckApPayment() {
 
   const mutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db
+      const { data, error } = await db
         .from('ap_payments')
         .update({ status: 'checked', checked_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id, payment_number')
+        .single();
       if (error) throw error;
+      return data as { id: string; payment_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
       toast({ title: 'Checked', description: 'AP payment checked' });
+      createFinanceNotification('ap_payment_checked', data.payment_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -2122,15 +2155,19 @@ export function useApproveApPayment() {
 
   const mutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db
+      const { data, error } = await db
         .from('ap_payments')
         .update({ status: 'approved', approved_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id, payment_number')
+        .single();
       if (error) throw error;
+      return data as { id: string; payment_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
       toast({ title: 'Approved', description: 'AP payment approved' });
+      createFinanceNotification('ap_payment_approved', data.payment_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -2150,10 +2187,12 @@ export function usePostApPayment() {
 
   const mutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error: updateError } = await db
+      const { data: payment, error: updateError } = await db
         .from('ap_payments')
         .update({ status: 'posted', posted_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id, payment_number')
+        .single();
       if (updateError) throw updateError;
 
       const { data: allocations, error: allocError } = await db
@@ -2169,11 +2208,14 @@ export function usePostApPayment() {
           .eq('id', allocation.pv_id);
         if (pvError) throw pvError;
       }
+
+      return payment as { id: string; payment_number: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
       toast({ title: 'Posted', description: 'AP payment posted' });
+      createFinanceNotification('ap_payment_posted', data.payment_number);
     },
     onError: (error: Error) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

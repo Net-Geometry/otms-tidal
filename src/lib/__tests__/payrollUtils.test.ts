@@ -12,6 +12,7 @@ import {
   lookupSocso,
   calculateEmployee,
   getAgeAtDate,
+  roundPcbToNearest5,
   type EmployeeProfile,
 } from '@/lib/payrollUtils';
 
@@ -52,6 +53,7 @@ function makeProfile(overrides: Partial<EmployeeProfile> = {}): EmployeeProfile 
     company_id: 'company-001',
     joining_date: null,
     deleted_at: null,
+    monthly_zakat: 0,
     ...overrides,
   };
 }
@@ -171,40 +173,60 @@ describe('calculatePcb', () => {
       expect(calculatePcb(3000, 1, 0, noDed)).toBe(0);
     });
 
-    it('calculates correctly for RM5,000/mo (no deductions)', () => {
-      expect(calculatePcb(5000, 1, 0, noDed)).toBe(134.17);
+    it('calculates correctly for RM5,000/mo (no deductions), rounded to nearest RM5', () => {
+      // Raw: 134.17 → rounded up to 135
+      expect(calculatePcb(5000, 1, 0, noDed)).toBe(135);
     });
 
-    it('calculates correctly for RM10,000/mo (no deductions)', () => {
-      expect(calculatePcb(10000, 1, 0, noDed)).toBe(1012.5);
+    it('calculates correctly for RM10,000/mo (no deductions), rounded to nearest RM5', () => {
+      // Raw: 1012.5 → rounded up to 1015
+      expect(calculatePcb(10000, 1, 0, noDed)).toBe(1015);
     });
 
     it('calculates correctly for high income RM50,000/mo', () => {
-      expect(calculatePcb(50000, 1, 0, noDed)).toBe(11171.67);
+      // Raw: 11171.67 → 11175
+      expect(calculatePcb(50000, 1, 0, noDed)).toBe(11175);
     });
 
     it('calculates correctly for very high income RM200,000/mo', () => {
-      expect(calculatePcb(200000, 1, 0, noDed)).toBe(53808.33);
+      // Raw: 53808.33 → 53810
+      expect(calculatePcb(200000, 1, 0, noDed)).toBe(53810);
     });
   });
 
   describe('Category 1 with EPF/SOCSO/EIS deductions', () => {
     it('reduces tax via reliefs for standard employee at RM5,000', () => {
-      // epf=550, socso+eis=28.5
+      // epf=550, socso+eis=28.5, raw: 108.29 → 110
       const result = calculatePcb(5000, 1, 0, { epfMonthly: 550, socsoEisMonthly: 28.5 });
-      expect(result).toBe(108.29);
+      expect(result).toBe(110);
     });
   });
 
   describe('Category 2 — married, spouse not working', () => {
     it('applies spouse relief of RM4,000', () => {
+      // Raw: 88.29 → 90
       const result = calculatePcb(5000, 2, 0, { epfMonthly: 550, socsoEisMonthly: 28.5 });
-      expect(result).toBe(88.29);
+      expect(result).toBe(90);
     });
 
     it('applies RM800 rebate (double) for low chargeable income', () => {
-      // Low enough that rebate zeroes out tax
       expect(calculatePcb(2000, 2, 0, { epfMonthly: 220, socsoEisMonthly: 15 })).toBe(0);
+    });
+  });
+
+  describe('Category 2 — spouse disabled (OKU)', () => {
+    it('applies additional RM5,000 disabled spouse relief', () => {
+      const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
+      const withoutOku = calculatePcb(5000, 2, 0, ded);
+      const withOku = calculatePcb(5000, 2, 0, ded, { spouseIsDisabled: true });
+      expect(withOku).toBeLessThan(withoutOku);
+    });
+
+    it('does not apply disabled spouse relief for Category 1', () => {
+      const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
+      const without = calculatePcb(5000, 1, 0, ded);
+      const with_ = calculatePcb(5000, 1, 0, ded, { spouseIsDisabled: true });
+      expect(with_).toBe(without);
     });
   });
 
@@ -222,26 +244,45 @@ describe('calculatePcb', () => {
       const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
       const noKids = calculatePcb(5000, 1, 0, ded);
       const twoKids = calculatePcb(5000, 1, 2, ded);
-      expect(twoKids).toBe(88.29);
+      // Raw: 88.29 → 90
+      expect(twoKids).toBe(90);
       expect(twoKids).toBeLessThan(noKids);
     });
 
     it('Cat 2 with 3 children gets further reduction', () => {
       const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
+      // Raw: 58.29 → 60
       const result = calculatePcb(5000, 2, 3, ded);
-      expect(result).toBe(58.29);
+      expect(result).toBe(60);
+    });
+  });
+
+  describe('zakat auto-deduction from PCB', () => {
+    it('deducts zakat from PCB before rounding', () => {
+      const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
+      // Without zakat: raw 108.29, rounded = 110
+      const withoutZakat = calculatePcb(5000, 1, 0, ded);
+      expect(withoutZakat).toBe(110);
+      // With zakat RM50: raw 108.29 - 50 = 58.29, rounded = 60
+      const withZakat = calculatePcb(5000, 1, 0, ded, { zakatMonthly: 50 });
+      expect(withZakat).toBe(60);
+    });
+
+    it('PCB cannot go below 0 with large zakat', () => {
+      const ded = { epfMonthly: 550, socsoEisMonthly: 28.5 };
+      const result = calculatePcb(5000, 1, 0, ded, { zakatMonthly: 500 });
+      expect(result).toBe(0);
     });
   });
 
   describe('rebate rules', () => {
     it('applies RM400 rebate for Cat 1 when chargeable <= 35,000', () => {
-      // Very low income, tax fully offset by rebate
       expect(calculatePcb(1000, 1, 0, { epfMonthly: 110, socsoEisMonthly: 10 })).toBe(0);
     });
 
     it('does not apply rebate when chargeable > 35,000', () => {
-      // RM5000 no deductions: chargeable=51000 -> no rebate
-      expect(calculatePcb(5000, 1, 0, noDed)).toBe(134.17);
+      // RM5000 no deductions: chargeable=51000 -> no rebate, raw 134.17 → 135
+      expect(calculatePcb(5000, 1, 0, noDed)).toBe(135);
     });
   });
 
@@ -254,9 +295,33 @@ describe('calculatePcb', () => {
 
   describe('high income, no rebate', () => {
     it('computes correct PCB for RM30,000/mo with deductions', () => {
+      // Raw: 5921.88 → 5925
       const result = calculatePcb(30000, 1, 0, { epfMonthly: 3300, socsoEisMonthly: 40 });
-      expect(result).toBe(5921.88);
+      expect(result).toBe(5925);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// roundPcbToNearest5
+// ---------------------------------------------------------------------------
+
+describe('roundPcbToNearest5', () => {
+  it('rounds up to nearest 5', () => {
+    expect(roundPcbToNearest5(2218)).toBe(2220);
+    expect(roundPcbToNearest5(134.17)).toBe(135);
+    expect(roundPcbToNearest5(108.29)).toBe(110);
+  });
+
+  it('keeps exact multiples of 5 unchanged', () => {
+    expect(roundPcbToNearest5(100)).toBe(100);
+    expect(roundPcbToNearest5(2215)).toBe(2215);
+    expect(roundPcbToNearest5(5)).toBe(5);
+  });
+
+  it('returns 0 for zero or negative', () => {
+    expect(roundPcbToNearest5(0)).toBe(0);
+    expect(roundPcbToNearest5(-10)).toBe(0);
   });
 });
 
@@ -343,15 +408,15 @@ describe('calculateEmployee', () => {
     // HRDC: 5000 * 1% = 50
     expect(result.employer_hrdc).toBe(50);
 
-    // PCB: calculatePcb(5000, 1, 0, {epf:550, socsoEis:28.5}) = 108.29
-    expect(result.pcb_amount).toBe(108.29);
+    // PCB: calculatePcb(5000, 1, 0, {epf:550, socsoEis:28.5}) = 110 (rounded to nearest 5)
+    expect(result.pcb_amount).toBe(110);
 
     // Total deductions: employee_epf + employee_socso + employee_eis + pcb
-    // 550 + 18.5 + 10 + 108.29 = 686.79
-    expect(result.total_deductions).toBe(686.79);
+    // 550 + 18.5 + 10 + 110 = 688.5
+    expect(result.total_deductions).toBe(688.5);
 
-    // Net salary: 5000 - 686.79 = 4313.21
-    expect(result.net_salary).toBe(4313.21);
+    // Net salary: 5000 - 688.5 = 4311.5
+    expect(result.net_salary).toBe(4311.5);
 
     // Not a director
     expect(result.is_director).toBe(false);
@@ -428,8 +493,8 @@ describe('calculateEmployee', () => {
     expect(result.employer_eis).toBe(round2(5000 * 0.002));
     expect(result.employee_eis).toBe(round2(5000 * 0.002));
 
-    // PCB for 8000 with deductions: epf=880*2=1040 => 880, socso+eis=34.75
-    expect(result.pcb_amount).toBe(508.63);
+    // PCB for 8000 with deductions: epf=880, socso+eis=34.75, raw 508.63 → 510
+    expect(result.pcb_amount).toBe(510);
   });
 
   it('uses above_60 EPF rate when epf_category is above_60', () => {
@@ -518,6 +583,8 @@ describe('calculateEmployee', () => {
     expect(result.calculation_notes.calculated_at).toBeDefined();
     expect(result.calculation_notes.employer_epf_pct).toBe(13);
     expect(result.calculation_notes.employee_epf_pct).toBe(11);
+    expect(result.calculation_notes.zakat_monthly).toBe(0);
+    expect(result.calculation_notes.spouse_is_disabled).toBe(false);
   });
 });
 
