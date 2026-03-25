@@ -191,7 +191,7 @@ export default function CashBook() {
                   <SelectValue placeholder="Company" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">My Company</SelectItem>
+                  <SelectItem value="default">All Companies</SelectItem>
                   {companies.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       {company.code || company.name}
@@ -267,6 +267,7 @@ export default function CashBook() {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-[100px]">Date</TableHead>
+                      {!companyFilter && <TableHead>Company</TableHead>}
                       <TableHead className="min-w-[120px]">Entry #</TableHead>
                       <TableHead className="w-[130px]">Source Doc</TableHead>
                       <TableHead className="min-w-[200px]">Description</TableHead>
@@ -288,6 +289,11 @@ export default function CashBook() {
                             {format(new Date(entry.entry_date), 'dd MMM yyyy')}
                           </span>
                         </TableCell>
+                        {!companyFilter && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{entry.company_code}</span>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <span className="font-mono text-xs font-medium">
                             {entry.entry_number}

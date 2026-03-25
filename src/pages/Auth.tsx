@@ -85,9 +85,9 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">OTMS Login</CardTitle>
+          <CardTitle className="text-2xl font-bold">Tidal Portal Login</CardTitle>
           <CardDescription>
-            Enter your Employee ID and password to access the Overtime Management System
+            Enter your Employee ID and password to access Tidal Portal
           </CardDescription>
         </CardHeader>
         <CardContent>

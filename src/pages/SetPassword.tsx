@@ -70,7 +70,7 @@ export default function SetPassword() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Set Your Password</CardTitle>
           <CardDescription>
-            Choose a strong password for your OTMS account
+            Choose a strong password for your Tidal Portal account
           </CardDescription>
         </CardHeader>
         <CardContent>

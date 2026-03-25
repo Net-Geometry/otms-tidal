@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+
 import { createGLPosting } from '@/hooks/finance/useGeneralLedger';
 import { AR_TAX_CODES } from '@/types/finance';
 import type {
@@ -239,14 +239,13 @@ async function upsertArInvoice(db: any, input: UpsertArInvoiceInput): Promise<{ 
 
 export function useArInvoices(filters: ArInvoiceFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
   const page = filters.page || 1;
   const pageSize = filters.pageSize || 15;
 
   return useQuery({
     queryKey: [
       'ar-invoices',
-      filters.companyId || profile?.company_id || 'none',
+      filters.companyId || 'all',
       filters.status || 'all',
       filters.customerId || 'all',
       filters.startDate || '',
@@ -256,16 +255,7 @@ export function useArInvoices(filters: ArInvoiceFilters = {}) {
       pageSize,
     ],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) {
-        return {
-          rows: [] as ArInvoice[],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        };
-      }
+      const companyId = filters.companyId;
 
       let q = db
         .from('ar_invoices')
@@ -281,10 +271,10 @@ export function useArInvoices(filters: ArInvoiceFilters = {}) {
           `,
           { count: 'exact' },
         )
-        .eq('company_id', companyId)
         .order('invoice_date', { ascending: false })
         .order('created_at', { ascending: false });
 
+      if (companyId) q = q.eq('company_id', companyId);
       if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters.customerId && filters.customerId !== 'all') q = q.eq('customer_id', filters.customerId);
       if (filters.startDate) q = q.gte('invoice_date', filters.startDate);
@@ -313,7 +303,7 @@ export function useArInvoices(filters: ArInvoiceFilters = {}) {
         totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
+    enabled: true,
     staleTime: 20 * 1000,
   });
 }
@@ -566,30 +556,20 @@ export interface UpsertOfficialReceiptInput {
 
 export function useOfficialReceipts(filters: OfficialReceiptFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
   const page = filters.page || 1;
   const pageSize = filters.pageSize || 15;
 
   return useQuery({
     queryKey: [
       'official-receipts',
-      filters.companyId || profile?.company_id || 'none',
+      filters.companyId || 'all',
       filters.status || 'all',
       filters.search || '',
       page,
       pageSize,
     ],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) {
-        return {
-          rows: [] as OfficialReceipt[],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        };
-      }
+      const companyId = filters.companyId;
 
       let q = db
         .from('official_receipts')
@@ -605,10 +585,10 @@ export function useOfficialReceipts(filters: OfficialReceiptFilters = {}) {
           `,
           { count: 'exact' },
         )
-        .eq('company_id', companyId)
         .order('receipt_date', { ascending: false })
         .order('created_at', { ascending: false });
 
+      if (companyId) q = q.eq('company_id', companyId);
       if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
 
       const search = (filters.search || '').trim();
@@ -634,7 +614,7 @@ export function useOfficialReceipts(filters: OfficialReceiptFilters = {}) {
         totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
+    enabled: true,
     staleTime: 20 * 1000,
   });
 }

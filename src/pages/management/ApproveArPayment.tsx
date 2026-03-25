@@ -153,7 +153,7 @@ export default function ApproveArPayment() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right">
-                            <div className="flex flex-wrap justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2 flex-nowrap">
                               {tab === 'pending' && (
                                 <Button
                                   variant="outline"
@@ -166,10 +166,11 @@ export default function ApproveArPayment() {
                               )}
                               <Button
                                 variant="ghost"
-                                size="icon"
+                                size="sm"
                                 onClick={() => setDetailPayment(payment)}
                               >
-                                <Eye className="h-4 w-4" />
+                                <Eye className="mr-1 h-4 w-4" />
+                                View
                               </Button>
                             </div>
                           </TableCell>

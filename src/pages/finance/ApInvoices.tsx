@@ -123,6 +123,12 @@ export default function ApInvoices() {
   const chart = useChartOfAccounts({ accountType: 'expense', activity: 'active', search: '' });
   const projects = useProjects();
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((c: any) => map.set(c.id, c.code || c.name));
+    return map;
+  }, [companies]);
+
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ApInvoiceStatus>('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
@@ -424,6 +430,7 @@ export default function ApInvoices() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Invoice No</TableHead>
+                      {companyFilter === 'all' && <TableHead>Company</TableHead>}
                       <TableHead>Supplier</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Due Date</TableHead>
@@ -438,6 +445,11 @@ export default function ApInvoices() {
                     {rows.map((invoice) => (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-medium">{invoice.invoice_number || 'Draft'}</TableCell>
+                        {companyFilter === 'all' && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{companyMap.get(invoice.company_id) || '-'}</span>
+                          </TableCell>
+                        )}
                         <TableCell>{invoice.supplier?.supplier_name || '-'}</TableCell>
                         <TableCell>{format(new Date(invoice.invoice_date), 'dd MMM yyyy')}</TableCell>
                         <TableCell>{invoice.due_date ? format(new Date(invoice.due_date), 'dd MMM yyyy') : '-'}</TableCell>

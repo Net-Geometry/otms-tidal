@@ -91,6 +91,12 @@ export default function OfficialReceipts() {
   const { data: companies = [] } = useCompanies();
   const bankAccounts = useBankAccounts();
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((c: any) => map.set(c.id, c.code || c.name));
+    return map;
+  }, [companies]);
+
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ArReceiptStatus>('all');
   const [search, setSearch] = useState('');
@@ -357,6 +363,7 @@ export default function OfficialReceipts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Receipt No</TableHead>
+                      {companyFilter === 'all' && <TableHead>Company</TableHead>}
                       <TableHead>Received From</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Method</TableHead>
@@ -369,6 +376,11 @@ export default function OfficialReceipts() {
                     {rows.map((receipt) => (
                       <TableRow key={receipt.id}>
                         <TableCell className="font-medium">{receipt.receipt_number || 'Draft'}</TableCell>
+                        {companyFilter === 'all' && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{companyMap.get(receipt.company_id) || '-'}</span>
+                          </TableCell>
+                        )}
                         <TableCell>{receipt.received_from || receipt.customer?.customer_name || '-'}</TableCell>
                         <TableCell>{format(new Date(receipt.receipt_date), 'dd MMM yyyy')}</TableCell>
                         <TableCell>{AR_PAYMENT_METHOD_LABELS[receipt.payment_method]}</TableCell>

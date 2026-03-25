@@ -107,6 +107,12 @@ export default function ArPayments() {
   const canApprove = ['dmd', 'assistant_manager', 'director', 'gm'].includes(activeRole || '');
   const canSubmitPost = ['finance', 'finance_admin', 'account_assistant', 'account_exec', 'head_finance', 'admin'].includes(activeRole || '');
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((c: any) => map.set(c.id, c.code || c.name));
+    return map;
+  }, [companies]);
+
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ArPaymentStatus>('all');
   const [search, setSearch] = useState('');
@@ -382,6 +388,7 @@ export default function ArPayments() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Payment No</TableHead>
+                      {companyFilter === 'all' && <TableHead>Company</TableHead>}
                       <TableHead>Customer / Received From</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Bank Account</TableHead>
@@ -396,6 +403,11 @@ export default function ArPayments() {
                     {rows.map((payment) => (
                       <TableRow key={payment.id}>
                         <TableCell className="font-medium">{payment.payment_number || 'Draft'}</TableCell>
+                        {companyFilter === 'all' && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{companyMap.get(payment.company_id) || '-'}</span>
+                          </TableCell>
+                        )}
                         <TableCell>{payment.received_from || payment.customer?.customer_name || '-'}</TableCell>
                         <TableCell>{format(new Date(payment.payment_date), 'dd MMM yyyy')}</TableCell>
                         <TableCell>

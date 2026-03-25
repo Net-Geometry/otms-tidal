@@ -1,7 +1,7 @@
 // src/config/features.ts
 
 /**
- * Feature Flags for OTMS
+ * Feature Flags for Tidal Portal
  * Control visibility of experimental or upcoming features
  */
 

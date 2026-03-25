@@ -135,6 +135,12 @@ export default function ApDebitCreditNotes() {
   const chart = useChartOfAccounts({ accountType: 'expense', activity: 'active', search: '' });
   const projects = useProjects();
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((c: any) => map.set(c.id, c.code || c.name));
+    return map;
+  }, [companies]);
+
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ApDcnStatus>('all');
   const [noteTypeFilter, setNoteTypeFilter] = useState<'all' | ApDcnType>('all');
@@ -455,6 +461,7 @@ export default function ApDebitCreditNotes() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Note No</TableHead>
+                      {companyFilter === 'all' && <TableHead>Company</TableHead>}
                       <TableHead>Type</TableHead>
                       <TableHead>Supplier</TableHead>
                       <TableHead>Invoice Ref</TableHead>
@@ -468,6 +475,11 @@ export default function ApDebitCreditNotes() {
                     {rows.map((dcn) => (
                       <TableRow key={dcn.id}>
                         <TableCell className="font-medium">{dcn.note_number || 'Draft'}</TableCell>
+                        {companyFilter === 'all' && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{companyMap.get(dcn.company_id) || '-'}</span>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Badge variant="outline">
                             {AP_DCN_TYPE_LABELS[dcn.note_type]}

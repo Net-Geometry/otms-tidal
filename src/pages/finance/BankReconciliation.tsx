@@ -78,6 +78,12 @@ export default function BankReconciliationPage() {
   const { data: companies = [] } = useCompanies();
   const bankAccounts = useBankAccounts();
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((c: any) => map.set(c.id, c.code || c.name));
+    return map;
+  }, [companies]);
+
   const [companyFilter, setCompanyFilter] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<NewReconForm>(makeInitialForm(''));
@@ -416,6 +422,7 @@ export default function BankReconciliationPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Bank Account</TableHead>
+                      {companyFilter === 'all' && <TableHead>Company</TableHead>}
                       <TableHead>Statement Date</TableHead>
                       <TableHead className="text-right">Statement Balance</TableHead>
                       <TableHead className="text-right">Reconciled Balance</TableHead>
@@ -435,6 +442,11 @@ export default function BankReconciliationPage() {
                             </span>
                           )}
                         </TableCell>
+                        {companyFilter === 'all' && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{companyMap.get(recon.company_id) || '-'}</span>
+                          </TableCell>
+                        )}
                         <TableCell>{format(new Date(recon.statement_date), 'dd MMM yyyy')}</TableCell>
                         <TableCell className="text-right">{formatMoney(recon.statement_balance)}</TableCell>
                         <TableCell className="text-right">{formatMoney(recon.reconciled_balance)}</TableCell>

@@ -35,7 +35,7 @@ export function IOSInstaller() {
     {
       number: 4,
       title: 'Confirm and Add',
-      description: 'A dialog will appear showing "OTMS" as the app name with the app icon',
+      description: 'A dialog will appear showing "Tidal Portal" as the app name with the app icon',
       details: 'Verify the name looks correct, then tap the "Add" button in the top right',
     },
   ];
@@ -47,9 +47,9 @@ export function IOSInstaller() {
         <div className="flex gap-2 items-start">
           <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
-            <h4 className="font-semibold text-blue-900">Install OTMS on Your Device</h4>
+            <h4 className="font-semibold text-blue-900">Install Tidal Portal on Your Device</h4>
             <p className="text-blue-700 mt-1 text-xs">
-              iOS and iPad don't have automatic installation like Android. Follow these 4 simple steps to add OTMS to your home screen as an app.
+              iOS and iPad don't have automatic installation like Android. Follow these 4 simple steps to add Tidal Portal to your home screen as an app.
             </p>
           </div>
         </div>
@@ -103,7 +103,7 @@ export function IOSInstaller() {
           <div>
             <p className="text-xs font-semibold text-green-900">What Happens Next</p>
             <p className="text-xs text-green-700 mt-1">
-              After tapping "Add", OTMS will appear as an icon on your home screen. Tap it to launch the app in full-screen mode with quick access.
+              After tapping "Add", Tidal Portal will appear as an icon on your home screen. Tap it to launch the app in full-screen mode with quick access.
             </p>
           </div>
         </div>

@@ -855,14 +855,13 @@ async function upsertApInvoice(db: any, input: UpsertApInvoiceInput): Promise<{ 
 
 export function useApInvoices(filters: ApInvoiceFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
   const page = filters.page || 1;
   const pageSize = filters.pageSize || 15;
 
   return useQuery({
     queryKey: [
       'ap-invoices',
-      filters.companyId || profile?.company_id || 'none',
+      filters.companyId || 'all',
       filters.status || 'all',
       filters.supplierId || 'all',
       filters.startDate || '',
@@ -872,16 +871,7 @@ export function useApInvoices(filters: ApInvoiceFilters = {}) {
       pageSize,
     ],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) {
-        return {
-          rows: [] as ApInvoice[],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        };
-      }
+      const companyId = filters.companyId;
 
       let q = db
         .from('ap_invoices')
@@ -898,10 +888,10 @@ export function useApInvoices(filters: ApInvoiceFilters = {}) {
           `,
           { count: 'exact' },
         )
-        .eq('company_id', companyId)
         .order('invoice_date', { ascending: false })
         .order('created_at', { ascending: false });
 
+      if (companyId) q = q.eq('company_id', companyId);
       if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters.supplierId && filters.supplierId !== 'all') q = q.eq('supplier_id', filters.supplierId);
       if (filters.startDate) q = q.gte('invoice_date', filters.startDate);
@@ -930,7 +920,7 @@ export function useApInvoices(filters: ApInvoiceFilters = {}) {
         totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
+    enabled: true,
     staleTime: 20 * 1000,
   });
 }
@@ -1198,14 +1188,13 @@ export interface UpsertPaymentVoucherInput {
 
 export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
   const page = filters.page || 1;
   const pageSize = filters.pageSize || 15;
 
   return useQuery({
     queryKey: [
       'payment-vouchers',
-      filters.companyId || profile?.company_id || 'none',
+      filters.companyId || 'all',
       filters.status || 'all',
       filters.supplierId || 'all',
       filters.search || '',
@@ -1261,7 +1250,7 @@ export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
         totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
+    enabled: true,
     staleTime: 20 * 1000,
   });
 }

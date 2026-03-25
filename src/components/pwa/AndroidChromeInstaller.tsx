@@ -13,9 +13,9 @@ export function AndroidChromeInstaller() {
         <div className="flex gap-2 items-start">
           <Download className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
           <div>
-            <h4 className="font-semibold text-blue-900">Install OTMS App</h4>
+            <h4 className="font-semibold text-blue-900">Install Tidal Portal App</h4>
             <p className="text-blue-700 mt-1">
-              Your browser supports app installation. Use the Install button or browser menu to add OTMS to your device.
+              Your browser supports app installation. Use the Install button or browser menu to add Tidal Portal to your device.
             </p>
           </div>
         </div>
@@ -48,7 +48,7 @@ export function AndroidChromeInstaller() {
                 3
               </span>
               <div className="text-xs text-muted-foreground">
-                OTMS will be installed on your device
+                Tidal Portal will be installed on your device
               </div>
             </li>
           </ol>

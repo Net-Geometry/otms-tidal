@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+
 import { createGLPosting } from '@/hooks/finance/useGeneralLedger';
 import type {
   ApDcnLine,
@@ -89,14 +89,13 @@ export interface ApDcnFilters {
 
 export function useApDcnList(filters: ApDcnFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
   const page = filters.page || 1;
   const pageSize = filters.pageSize || 15;
 
   return useQuery({
     queryKey: [
       'ap-dcn',
-      filters.companyId || profile?.company_id || 'none',
+      filters.companyId || 'all',
       filters.status || 'all',
       filters.noteType || 'all',
       filters.supplierId || 'all',
@@ -105,16 +104,7 @@ export function useApDcnList(filters: ApDcnFilters = {}) {
       pageSize,
     ],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) {
-        return {
-          rows: [] as ApDebitCreditNote[],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        };
-      }
+      const companyId = filters.companyId;
 
       let q = db
         .from('ap_debit_credit_notes')
@@ -126,10 +116,10 @@ export function useApDcnList(filters: ApDcnFilters = {}) {
           `,
           { count: 'exact' },
         )
-        .eq('company_id', companyId)
         .order('note_date', { ascending: false })
         .order('created_at', { ascending: false });
 
+      if (companyId) q = q.eq('company_id', companyId);
       if (filters.status && filters.status !== 'all') q = q.eq('status', filters.status);
       if (filters.noteType && filters.noteType !== 'all') q = q.eq('note_type', filters.noteType);
       if (filters.supplierId && filters.supplierId !== 'all') q = q.eq('supplier_id', filters.supplierId);
@@ -157,7 +147,7 @@ export function useApDcnList(filters: ApDcnFilters = {}) {
         totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
+    enabled: true,
     staleTime: 20 * 1000,
   });
 }

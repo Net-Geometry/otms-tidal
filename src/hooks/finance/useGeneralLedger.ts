@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+
 import type { GLReferenceType, JournalEntry, JournalEntryLine } from '@/types/finance';
 
 function toNumber(value: unknown) {
@@ -125,14 +125,13 @@ export interface JournalEntryFilters {
 
 export function useJournalEntries(filters: JournalEntryFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
   const page = filters.page || 1;
   const pageSize = filters.pageSize || 20;
 
   return useQuery({
     queryKey: [
       'journal-entries',
-      filters.companyId || profile?.company_id || 'none',
+      filters.companyId || 'all',
       page,
       pageSize,
       filters.startDate || '',
@@ -142,16 +141,7 @@ export function useJournalEntries(filters: JournalEntryFilters = {}) {
       filters.search || '',
     ],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) {
-        return {
-          entries: [] as JournalEntry[],
-          total: 0,
-          page,
-          pageSize,
-          totalPages: 0,
-        };
-      }
+      const companyId = filters.companyId;
 
       let filteredEntryIds: string[] | null = null;
       if (filters.accountId) {
@@ -188,10 +178,10 @@ export function useJournalEntries(filters: JournalEntryFilters = {}) {
           `,
           { count: 'exact' },
         )
-        .eq('company_id', companyId)
         .order('entry_date', { ascending: false })
         .order('entry_number', { ascending: false });
 
+      if (companyId) q = q.eq('company_id', companyId);
       if (filters.startDate) q = q.gte('entry_date', filters.startDate);
       if (filters.endDate) q = q.lte('entry_date', filters.endDate);
       if (filters.referenceType && filters.referenceType !== 'all') q = q.eq('reference_type', filters.referenceType);
@@ -244,7 +234,7 @@ export function useJournalEntries(filters: JournalEntryFilters = {}) {
         totalPages: total > 0 ? Math.ceil(total / pageSize) : 0,
       };
     },
-    enabled: !!(filters.companyId || profile?.company_id),
+    enabled: true,
     staleTime: 20 * 1000,
   });
 }

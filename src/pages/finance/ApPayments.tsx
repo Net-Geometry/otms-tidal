@@ -33,7 +33,6 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanies } from '@/hooks/hr/useCompanies';
-import { useAuth } from '@/hooks/useAuth';
 import {
   AP_PAYMENT_METHOD_LABELS,
   AP_PV_STATUS_LABELS,
@@ -91,24 +90,22 @@ function useApPaymentPVs(filters: {
   search?: string;
 }) {
   const db = supabase as any;
-  const { profile } = useAuth();
-  const companyId = filters.companyId || profile?.company_id;
+  const companyId = filters.companyId; // undefined = all companies
 
   return useQuery({
     queryKey: [
       'ap-payment-pvs',
-      companyId || 'none',
+      companyId || 'all',
       filters.startDate || '',
       filters.endDate || '',
       filters.search || '',
     ],
     queryFn: async () => {
-      if (!companyId) return [];
-
       let q = db
         .from('payment_vouchers')
         .select(`
           *,
+          company:companies!payment_vouchers_company_id_fkey(id, name, code),
           supplier:suppliers!payment_vouchers_supplier_id_fkey(supplier_code, supplier_name),
           bank_account:bank_accounts!payment_vouchers_bank_account_id_fkey(account_code, account_name, bank_name),
           journal_entry:journal_entries!payment_vouchers_journal_entry_id_fkey(entry_number, entry_date),
@@ -119,11 +116,12 @@ function useApPaymentPVs(filters: {
             ap_invoice:ap_invoices(id, invoice_number, total_amount)
           )
         `)
-        .eq('company_id', companyId)
         .eq('post_to_type', 'ap_payment')
         .in('status', ['paid', 'posted'])
         .order('payment_date', { ascending: false })
         .order('created_at', { ascending: false });
+
+      if (companyId) q = q.eq('company_id', companyId);
 
       if (filters.startDate) q = q.gte('payment_date', filters.startDate);
       if (filters.endDate) q = q.lte('payment_date', filters.endDate);
@@ -148,7 +146,7 @@ function useApPaymentPVs(filters: {
         })),
       })) as ApPaymentPV[];
     },
-    enabled: !!companyId,
+    enabled: true,
     staleTime: 20 * 1000,
   });
 }
@@ -245,7 +243,7 @@ export default function ApPayments() {
                   <SelectValue placeholder="Company" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">My Company</SelectItem>
+                  <SelectItem value="default">All Companies</SelectItem>
                   {companies.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       {company.name}
@@ -293,6 +291,7 @@ export default function ApPayments() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>PV No</TableHead>
+                      {!companyFilter && <TableHead>Company</TableHead>}
                       <TableHead>Pay To</TableHead>
                       <TableHead>Pay For</TableHead>
                       <TableHead>Date</TableHead>
@@ -310,6 +309,11 @@ export default function ApPayments() {
                         <TableCell className="font-medium">
                           {pv.pv_number || 'Draft'}
                         </TableCell>
+                        {!companyFilter && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{(pv as any).company?.code || (pv as any).company?.name || '-'}</span>
+                          </TableCell>
+                        )}
                         <TableCell>
                           {pv.pay_to || pv.supplier?.supplier_name || '-'}
                         </TableCell>
@@ -353,7 +357,7 @@ export default function ApPayments() {
                   </TableBody>
                   <TableFooter>
                     <TableRow>
-                      <TableCell colSpan={6} className="font-medium">
+                      <TableCell colSpan={companyFilter ? 6 : 7} className="font-medium">
                         Total
                       </TableCell>
                       <TableCell className="text-right font-bold tabular-nums">

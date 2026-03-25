@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+
 import type { BankReconciliation, BankReconciliationItem } from '@/types/finance';
 
 function toNumber(value: unknown) {
@@ -29,30 +29,30 @@ export interface BankReconciliationFilters {
 
 export function useBankReconciliations(filters: BankReconciliationFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
 
   return useQuery({
     queryKey: [
       'bank-reconciliations',
-      filters.companyId || profile?.company_id || 'none',
+      filters.companyId || 'all',
     ],
     queryFn: async () => {
-      const companyId = filters.companyId || profile?.company_id;
-      if (!companyId) return [] as BankReconciliation[];
+      const companyId = filters.companyId;
 
-      const { data, error } = await db
+      let q = db
         .from('bank_reconciliations')
         .select(`
           *,
           bank_account:bank_accounts(id, account_code, account_name, bank_name)
         `)
-        .eq('company_id', companyId)
         .order('statement_date', { ascending: false });
 
+      if (companyId) q = q.eq('company_id', companyId);
+
+      const { data, error } = await q;
       if (error) throw error;
       return ((data || []) as any[]).map(normalizeReconciliation);
     },
-    enabled: !!(filters.companyId || profile?.company_id),
+    enabled: true,
     staleTime: 20 * 1000,
   });
 }

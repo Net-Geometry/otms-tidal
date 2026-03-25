@@ -111,7 +111,7 @@ self.addEventListener('push', (event: PushEvent) => {
 
   // Default notification data with fallback values
   let notificationData = {
-    title: 'OTMS Notification',
+    title: 'Tidal Portal',
     body: 'You have a new update',
     icon: '/icons/icon-512x512.png',
     badge: '/icons/icon-192x192.png', // Using 192x192 as badge since no dedicated badge icon

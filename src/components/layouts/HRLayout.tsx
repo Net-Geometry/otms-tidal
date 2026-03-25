@@ -114,7 +114,7 @@ function HRSidebar({ activeRole }: { activeRole: string | null }) {
           <div className="flex items-center gap-3">
             <img src={tidalLogo} alt="Tidal Group" className="h-8 w-auto object-contain" />
             {open && (
-              <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">OTMS</span>
+              <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Tidal Portal</span>
             )}
           </div>
           {open && (

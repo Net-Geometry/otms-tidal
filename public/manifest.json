@@ -1,7 +1,7 @@
 {
-  "name": "OTMS - Overtime Management",
-  "short_name": "OTMS",
-  "description": "Overtime Management System for efficient OT request submission and multi-stage approval workflow",
+  "name": "Tidal Portal",
+  "short_name": "Tidal Portal",
+  "description": "Tidal Portal - Integrated business management system",
   "start_url": "/",
   "display": "standalone",
   "scope": "/",

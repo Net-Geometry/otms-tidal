@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 /**
  * PWAInstallSection Component
  *
- * Provides a Settings page section for manually installing the OTMS PWA.
+ * Provides a Settings page section for manually installing the Tidal Portal PWA.
  * Serves as a secondary install path for users who dismissed the banner or want to install later.
  *
  * Features:
@@ -64,7 +64,7 @@ export const PWAInstallSection = () => {
           Install App
         </CardTitle>
         <CardDescription>
-          Install OTMS on your device for quick access and a native app experience.
+          Install Tidal Portal on your device for quick access and a native app experience.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -90,7 +90,7 @@ export const PWAInstallSection = () => {
               <li>Tap "Add" to confirm</li>
             </ol>
             <p className="text-xs mt-2">
-              Note: iOS doesn't support automatic installation. Follow the steps above to add OTMS to your home screen.
+              Note: iOS doesn't support automatic installation. Follow the steps above to add Tidal Portal to your home screen.
             </p>
           </div>
         ) : (

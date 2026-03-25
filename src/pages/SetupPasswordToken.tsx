@@ -162,7 +162,7 @@ export default function SetupPassword() {
         <CardHeader>
           <CardTitle>Set Your Password</CardTitle>
           <CardDescription>
-            Welcome to OTMS! Please create a secure password for your account.
+            Welcome to Tidal Portal! Please create a secure password for your account.
           </CardDescription>
         </CardHeader>
         <CardContent>

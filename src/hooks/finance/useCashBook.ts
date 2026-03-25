@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import type { BankAccount, GLReferenceType } from '@/types/finance';
 
 function toNumber(value: unknown) {
@@ -28,30 +27,33 @@ export interface CashBookEntry {
   debit_amount: number;
   credit_amount: number;
   running_balance: number;
+  company_id: string;
+  company_code: string;
 }
 
 export function useCashBook(filters: CashBookFilters = {}) {
   const db = supabase as any;
-  const { profile } = useAuth();
-  const companyId = filters.companyId || profile?.company_id;
+  const companyId = filters.companyId; // undefined = all companies
 
-  // Fetch bank accounts for the company (for the dropdown and to get gl_account_ids)
+  // Fetch bank accounts (for the dropdown and to get gl_account_ids)
   const bankAccountsQuery = useQuery({
-    queryKey: ['cash-book-bank-accounts', companyId || 'none'],
+    queryKey: ['cash-book-bank-accounts', companyId || 'all'],
     queryFn: async () => {
-      if (!companyId) return [] as BankAccount[];
-
-      const { data, error } = await db
+      let q = db
         .from('bank_accounts')
         .select(`
           *,
           companies:companies!bank_accounts_company_id_fkey(id, name, code),
           gl_account:chart_of_accounts!bank_accounts_gl_account_id_fkey(id, account_code, account_name)
         `)
-        .eq('company_id', companyId)
         .eq('is_active', true)
         .order('account_code', { ascending: true });
 
+      if (companyId) {
+        q = q.eq('company_id', companyId);
+      }
+
+      const { data, error } = await q;
       if (error) throw error;
 
       return ((data || []) as BankAccount[]).map((row) => ({
@@ -59,7 +61,6 @@ export function useCashBook(filters: CashBookFilters = {}) {
         current_balance: toNumber(row.current_balance),
       }));
     },
-    enabled: !!companyId,
     staleTime: 30 * 1000,
   });
 
@@ -80,14 +81,14 @@ export function useCashBook(filters: CashBookFilters = {}) {
   const entriesQuery = useQuery({
     queryKey: [
       'cash-book-entries',
-      companyId || 'none',
+      companyId || 'all',
       filters.bankAccountId || 'all',
       filters.startDate || '',
       filters.endDate || '',
       glAccountIds.join(','),
     ],
     queryFn: async () => {
-      if (!companyId || glAccountIds.length === 0) {
+      if (glAccountIds.length === 0) {
         return [] as CashBookEntry[];
       }
 
@@ -120,7 +121,7 @@ export function useCashBook(filters: CashBookFilters = {}) {
         .filter((row) => {
           const je = row.journal_entry;
           if (!je) return false;
-          if (je.company_id !== companyId) return false;
+          if (companyId && je.company_id !== companyId) return false;
           if (filters.startDate && je.entry_date < filters.startDate) return false;
           if (filters.endDate && je.entry_date > filters.endDate) return false;
           return true;
@@ -154,6 +155,13 @@ export function useCashBook(filters: CashBookFilters = {}) {
         }
       }
 
+      // Build company map from bank accounts
+      const companyMap = new Map<string, string>();
+      for (const bank of bankAccounts) {
+        const co = (bank as any).companies;
+        if (co?.id) companyMap.set(co.id, co.code || co.name || '');
+      }
+
       // Compute running balance client-side
       let runningBalance = 0;
       const entries: CashBookEntry[] = rows.map((row) => {
@@ -180,12 +188,14 @@ export function useCashBook(filters: CashBookFilters = {}) {
           debit_amount: debit,
           credit_amount: credit,
           running_balance: runningBalance,
+          company_id: row.journal_entry.company_id,
+          company_code: companyMap.get(row.journal_entry.company_id) || '',
         };
       });
 
       return entries;
     },
-    enabled: !!companyId && glAccountIds.length > 0,
+    enabled: glAccountIds.length > 0,
     staleTime: 20 * 1000,
   });
 

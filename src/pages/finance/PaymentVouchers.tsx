@@ -6,7 +6,6 @@ import {
   Plus,
   Trash2,
   Search,
-  MoreHorizontal,
   Send,
   CheckCircle2,
   ShieldCheck,
@@ -53,7 +52,6 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
@@ -195,7 +193,7 @@ export default function PaymentVouchers() {
   const suppliers = useSuppliers();
   const bankAccounts = useBankAccounts();
   const { data: prfData } = usePurchaseRequisitions({ status: 'approved' });
-  const approvedPrfs = useMemo(() => prfData?.rows || [], [prfData]);
+  const allApprovedPrfs = useMemo(() => prfData?.rows || [], [prfData]);
   const companyMap = useMemo(() => {
     const map = new Map<string, { name: string; code: string | null }>();
     for (const c of companies) map.set(c.id, { name: c.name, code: c.code });
@@ -208,7 +206,6 @@ export default function PaymentVouchers() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
-  const [selectedPvIds, setSelectedPvIds] = useState<string[]>([]);
   const { activeRole } = useActiveRole();
 
   const isFinanceAdmin = activeRole === 'finance_admin' || activeRole === 'admin';
@@ -220,6 +217,11 @@ export default function PaymentVouchers() {
   const [editingVoucher, setEditingVoucher] = useState<PaymentVoucher | null>(null);
   const [detailVoucher, setDetailVoucher] = useState<PaymentVoucher | null>(null);
   const [form, setForm] = useState<PvFormState>(makeInitialForm(''));
+
+  const approvedPrfs = useMemo(() => {
+    if (!form.company_id) return allApprovedPrfs;
+    return allApprovedPrfs.filter((prf: any) => prf.company_id === form.company_id);
+  }, [allApprovedPrfs, form.company_id]);
 
   const vouchers = usePaymentVouchers({
     companyId: companyFilter === 'all' ? undefined : companyFilter,
@@ -567,7 +569,7 @@ export default function PaymentVouchers() {
 
               <Select
                 value={statusFilter}
-                onValueChange={(value) => { setStatusFilter(value as 'all' | ApPvStatus); setSelectedPvIds([]); setPage(1); }}
+                onValueChange={(value) => { setStatusFilter(value as 'all' | ApPvStatus); setPage(1); }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Status" />
@@ -617,25 +619,6 @@ export default function PaymentVouchers() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Payment Voucher Register</CardTitle>
-              {isFinanceAdmin && selectedPvIds.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary">{selectedPvIds.length} selected</Badge>
-                  <Button
-                    size="sm"
-                    onClick={async () => {
-                      await markPaid({ pvIds: selectedPvIds });
-                      setSelectedPvIds([]);
-                    }}
-                    disabled={isMarkingPaid}
-                  >
-                    <Banknote className="mr-1.5 h-3.5 w-3.5" />
-                    {isMarkingPaid ? 'Processing...' : 'Mark as Paid'}
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setSelectedPvIds([])}>
-                    Clear
-                  </Button>
-                </div>
-              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -650,34 +633,15 @@ export default function PaymentVouchers() {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      {isFinanceAdmin && (
-                        <TableHead className="w-[44px] pl-4">
-                          <Checkbox
-                            checked={
-                              rows.filter((r) => r.status === 'approved').length > 0 &&
-                              rows.filter((r) => r.status === 'approved').every((r) => selectedPvIds.includes(r.id))
-                            }
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                const approvedIds = rows.filter((r) => r.status === 'approved').map((r) => r.id);
-                                setSelectedPvIds((prev) => [...new Set([...prev, ...approvedIds])]);
-                              } else {
-                                const approvedIds = new Set(rows.filter((r) => r.status === 'approved').map((r) => r.id));
-                                setSelectedPvIds((prev) => prev.filter((id) => !approvedIds.has(id)));
-                              }
-                            }}
-                          />
-                        </TableHead>
-                      )}
-                      <TableHead className="min-w-[120px]">PV No</TableHead>
-                      <TableHead className="min-w-[120px]">Company</TableHead>
-                      <TableHead className="min-w-[160px]">Pay To</TableHead>
-                      <TableHead className="min-w-[160px]">Pay For</TableHead>
-                      <TableHead className="w-[100px]">Date</TableHead>
-                      <TableHead className="w-[110px]">Method</TableHead>
-                      <TableHead className="text-right w-[120px]">Amount</TableHead>
-                      <TableHead className="w-[100px]">Status</TableHead>
-                      <TableHead className="text-right w-[80px]">Actions</TableHead>
+                      <TableHead>PV No</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Pay To</TableHead>
+                      <TableHead>Pay For</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Method</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -692,22 +656,6 @@ export default function PaymentVouchers() {
                           className="group cursor-pointer"
                           onClick={() => setDetailVoucher(voucher)}
                         >
-                          {isFinanceAdmin && (
-                            <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
-                              {voucher.status === 'approved' ? (
-                                <Checkbox
-                                  checked={selectedPvIds.includes(voucher.id)}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      setSelectedPvIds((prev) => [...prev, voucher.id]);
-                                    } else {
-                                      setSelectedPvIds((prev) => prev.filter((id) => id !== voucher.id));
-                                    }
-                                  }}
-                                />
-                              ) : null}
-                            </TableCell>
-                          )}
                           <TableCell>
                             <span className="font-mono text-xs font-medium">
                               {voucher.pv_number || 'Draft'}
@@ -725,8 +673,8 @@ export default function PaymentVouchers() {
                             </span>
                           </TableCell>
                           <TableCell>
-                            <span className="text-sm tabular-nums">
-                              {format(new Date(voucher.payment_date), 'dd MMM yyyy')}
+                            <span className="text-sm tabular-nums whitespace-nowrap">
+                              {format(new Date(voucher.payment_date), 'dd/MM/yy')}
                             </span>
                           </TableCell>
                           <TableCell>
@@ -747,99 +695,96 @@ export default function PaymentVouchers() {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                            {(actions.length > 0 || postActions || canChangePostType) ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-44">
-                                  <DropdownMenuItem onClick={() => setDetailVoucher(voucher)}>
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    View Details
-                                  </DropdownMenuItem>
-                                  {actions.length > 0 && <DropdownMenuSeparator />}
-                                  {actions.map((action) => (
+                            <div className="flex items-center justify-end gap-2 flex-nowrap">
+                              {actions.map((action) => (
+                                <Button
+                                  key={action.label}
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={action.onClick}
+                                  disabled={action.disabled}
+                                >
+                                  {action.label}
+                                </Button>
+                              ))}
+
+                              {postActions && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      Post
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
                                     <DropdownMenuItem
-                                      key={action.label}
-                                      onClick={action.onClick}
-                                      disabled={action.disabled}
+                                      onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'cashbook' })}
+                                      disabled={postPV.isPosting}
                                     >
-                                      {action.icon}
-                                      <span className="ml-2">{action.label}</span>
+                                      <BookOpen className="mr-2 h-4 w-4" />
+                                      Post to Cashbook
                                     </DropdownMenuItem>
-                                  ))}
-                                  {postActions && (
-                                    <>
-                                      <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'ap_payment' })}
+                                      disabled={postPV.isPosting}
+                                    >
+                                      <Banknote className="mr-2 h-4 w-4" />
+                                      Post to AP Payment
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'ap_credit_note' })}
+                                      disabled={postPV.isPosting}
+                                    >
+                                      <FileText className="mr-2 h-4 w-4" />
+                                      Post to AP Credit Note
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+
+                              {canChangePostType && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      Change Type
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-48">
+                                    {voucher.post_to_type !== 'cashbook' && (
                                       <DropdownMenuItem
-                                        onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'cashbook' })}
-                                        disabled={postPV.isPosting}
+                                        onClick={() => changePostType({ pvId: voucher.id, newPostType: 'cashbook' })}
+                                        disabled={isChangingPostType}
                                       >
-                                        <BookOpen className="mr-2 h-4 w-4" />
-                                        Post to Cashbook
+                                        <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                        Change to Cashbook
                                       </DropdownMenuItem>
+                                    )}
+                                    {voucher.post_to_type !== 'ap_payment' && (
                                       <DropdownMenuItem
-                                        onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'ap_payment' })}
-                                        disabled={postPV.isPosting}
+                                        onClick={() => changePostType({ pvId: voucher.id, newPostType: 'ap_payment' })}
+                                        disabled={isChangingPostType}
                                       >
-                                        <Banknote className="mr-2 h-4 w-4" />
-                                        Post to AP Payment
+                                        <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                        Change to AP Payment
                                       </DropdownMenuItem>
+                                    )}
+                                    {voucher.post_to_type !== 'ap_credit_note' && (
                                       <DropdownMenuItem
-                                        onClick={() => postPV.postPV({ pvId: voucher.id, postToType: 'ap_credit_note' })}
-                                        disabled={postPV.isPosting}
+                                        onClick={() => changePostType({ pvId: voucher.id, newPostType: 'ap_credit_note' })}
+                                        disabled={isChangingPostType}
                                       >
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        Post to AP Credit Note
+                                        <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                        Change to AP Credit Note
                                       </DropdownMenuItem>
-                                    </>
-                                  )}
-                                  {canChangePostType && (
-                                    <>
-                                      <DropdownMenuSeparator />
-                                      {voucher.post_to_type !== 'cashbook' && (
-                                        <DropdownMenuItem
-                                          onClick={() => changePostType({ pvId: voucher.id, newPostType: 'cashbook' })}
-                                          disabled={isChangingPostType}
-                                        >
-                                          <ArrowRightLeft className="mr-2 h-4 w-4" />
-                                          Change to Cashbook
-                                        </DropdownMenuItem>
-                                      )}
-                                      {voucher.post_to_type !== 'ap_payment' && (
-                                        <DropdownMenuItem
-                                          onClick={() => changePostType({ pvId: voucher.id, newPostType: 'ap_payment' })}
-                                          disabled={isChangingPostType}
-                                        >
-                                          <ArrowRightLeft className="mr-2 h-4 w-4" />
-                                          Change to AP Payment
-                                        </DropdownMenuItem>
-                                      )}
-                                      {voucher.post_to_type !== 'ap_credit_note' && (
-                                        <DropdownMenuItem
-                                          onClick={() => changePostType({ pvId: voucher.id, newPostType: 'ap_credit_note' })}
-                                          disabled={isChangingPostType}
-                                        >
-                                          <ArrowRightLeft className="mr-2 h-4 w-4" />
-                                          Change to AP Credit Note
-                                        </DropdownMenuItem>
-                                      )}
-                                    </>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => setDetailVoucher(voucher)}
-                              >
-                                <Eye className="h-4 w-4" />
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+
+                              <Button variant="ghost" size="sm" onClick={() => setDetailVoucher(voucher)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
                               </Button>
-                            )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -888,7 +833,7 @@ export default function PaymentVouchers() {
                   <Label>Company</Label>
                   <Select
                     value={form.company_id || 'none'}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, company_id: value === 'none' ? '' : value }))}
+                    onValueChange={(value) => setForm((prev) => ({ ...prev, company_id: value === 'none' ? '' : value, prf_id: '' }))}
                   >
                     <SelectTrigger><SelectValue placeholder="Select company" /></SelectTrigger>
                     <SelectContent>

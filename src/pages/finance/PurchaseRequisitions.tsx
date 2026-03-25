@@ -150,6 +150,12 @@ export default function PurchaseRequisitions() {
   const { data: companies = [] } = useCompanies();
   const chart = useChartOfAccounts({ accountType: 'expense', activity: 'active', search: '' });
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((c: any) => map.set(c.id, c.code || c.name));
+    return map;
+  }, [companies]);
+
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ApPrfStatus>('all');
   const [search, setSearch] = useState('');
@@ -432,6 +438,7 @@ export default function PurchaseRequisitions() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>PRF No</TableHead>
+                      {companyFilter === 'all' && <TableHead>Company</TableHead>}
                       <TableHead>Date</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Payable To</TableHead>
@@ -444,6 +451,11 @@ export default function PurchaseRequisitions() {
                     {rows.map((prf) => (
                       <TableRow key={prf.id}>
                         <TableCell className="font-medium">{prf.prf_number || 'Draft'}</TableCell>
+                        {companyFilter === 'all' && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{companyMap.get(prf.company_id) || '-'}</span>
+                          </TableCell>
+                        )}
                         <TableCell>{prf.prf_date ? format(new Date(prf.prf_date), 'dd MMM yyyy') : prf.created_at ? format(new Date(prf.created_at), 'dd MMM yyyy') : '-'}</TableCell>
                         <TableCell>{PRF_TYPE_LABELS[prf.prf_type] || 'Payment Request'}</TableCell>
                         <TableCell>{prf.payable_to || '-'}</TableCell>
@@ -1010,6 +1022,7 @@ export default function PurchaseRequisitions() {
               <div className="space-y-4">
                 <div className="grid gap-2 text-sm md:grid-cols-2">
                   <p><span className="text-muted-foreground">PRF No:</span> {detailPrf.prf_number || 'Draft'}</p>
+                  <p><span className="text-muted-foreground">Company:</span> {companyMap.get(detailPrf.company_id) || '-'}</p>
                   <p><span className="text-muted-foreground">Status:</span> {AP_PRF_STATUS_LABELS[detailPrf.status]}</p>
                   <p><span className="text-muted-foreground">Date:</span> {detailPrf.prf_date ? format(new Date(detailPrf.prf_date), 'dd MMM yyyy') : '-'}</p>
                   <p><span className="text-muted-foreground">Type:</span> {PRF_TYPE_LABELS[detailPrf.prf_type]}{detailPrf.prf_type === 'others' && detailPrf.prf_type_others ? ` - ${detailPrf.prf_type_others}` : ''}</p>

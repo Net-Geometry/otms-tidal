@@ -135,6 +135,12 @@ export default function ArDebitCreditNotes() {
   const chart = useChartOfAccounts({ accountType: 'revenue', activity: 'active', search: '' });
   const projects = useProjects();
 
+  const companyMap = useMemo(() => {
+    const map = new Map<string, string>();
+    companies.forEach((c: any) => map.set(c.id, c.code || c.name));
+    return map;
+  }, [companies]);
+
   const [companyFilter, setCompanyFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState<'all' | ArDcnStatus>('all');
   const [noteTypeFilter, setNoteTypeFilter] = useState<'all' | ArDcnType>('all');
@@ -458,6 +464,7 @@ export default function ArDebitCreditNotes() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Note No</TableHead>
+                      {companyFilter === 'all' && <TableHead>Company</TableHead>}
                       <TableHead>Type</TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Invoice Ref</TableHead>
@@ -471,6 +478,11 @@ export default function ArDebitCreditNotes() {
                     {rows.map((dcn) => (
                       <TableRow key={dcn.id}>
                         <TableCell className="font-medium">{dcn.note_number || 'Draft'}</TableCell>
+                        {companyFilter === 'all' && (
+                          <TableCell>
+                            <span className="text-xs text-muted-foreground">{companyMap.get(dcn.company_id) || '-'}</span>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <Badge variant="outline">
                             {AR_DCN_TYPE_LABELS[dcn.note_type]}

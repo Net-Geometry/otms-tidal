@@ -147,7 +147,7 @@ export function PWAInstallBanner() {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-green-900">App Installed Successfully!</h3>
-            <p className="text-xs text-green-700 mt-1">OTMS is ready to use with quick app access.</p>
+            <p className="text-xs text-green-700 mt-1">Tidal Portal is ready to use with quick app access.</p>
           </div>
         </div>
       </Card>
@@ -171,7 +171,7 @@ export function PWAInstallBanner() {
 
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-semibold text-foreground">
-              Install OTMS App
+              Install Tidal Portal App
             </h3>
             <p className="text-xs text-muted-foreground mt-1">
               {expandedInstructions

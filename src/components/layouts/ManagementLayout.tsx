@@ -114,7 +114,7 @@ function ManagementSidebar() {
           <img src={tidalLogo} alt="Tidal Group" className="h-9 w-auto object-contain" />
           {open && (
             <div className="flex flex-col">
-              <span className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">Net-Geometry</span>
+              <span className="text-[17px] font-bold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">Tidal Portal</span>
               <span className="text-[11px] font-medium text-slate-600 dark:text-slate-500 uppercase tracking-widest">Management</span>
             </div>
           )}
