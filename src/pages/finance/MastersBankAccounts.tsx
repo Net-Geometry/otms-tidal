@@ -76,6 +76,7 @@ export default function MastersBankAccounts() {
   const { data: companies = [] } = useCompanies();
   const coa = useChartOfAccounts({ accountType: 'asset', activity: 'active', search: '' });
   const [search, setSearch] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('all');
   const [includeInactive, setIncludeInactive] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null);
@@ -180,8 +181,8 @@ export default function MastersBankAccounts() {
       >
         <Card>
           <CardContent className="pt-6">
-            <div className="grid gap-3 md:grid-cols-5">
-              <div className="space-y-2 md:col-span-4">
+            <div className="grid gap-3 md:grid-cols-6">
+              <div className="space-y-2 md:col-span-3">
                 <Label htmlFor="bank-account-search">Search</Label>
                 <Input
                   id="bank-account-search"
@@ -190,7 +191,21 @@ export default function MastersBankAccounts() {
                   placeholder="Code, account name, bank, number, currency..."
                 />
               </div>
-              <div className="flex items-end gap-2 pb-1">
+              <div className="space-y-2">
+                <Label>Company</Label>
+                <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Companies" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Companies</SelectItem>
+                    {companies.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-end gap-2 pb-1 md:col-span-2">
                 <Checkbox
                   id="include-inactive-bank-accounts"
                   checked={includeInactive}
@@ -207,74 +222,82 @@ export default function MastersBankAccounts() {
             <CardTitle className="text-base">Bank Account Register</CardTitle>
           </CardHeader>
           <CardContent>
-            {!bankAccounts.bankAccounts.length ? (
-              <div className="py-8 text-center text-sm text-muted-foreground">No bank accounts found.</div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Account</TableHead>
-                      <TableHead>Bank</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>GL Link</TableHead>
-                      <TableHead className="text-right">Balance</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {bankAccounts.bankAccounts.map((bankAccount) => (
-                      <TableRow key={bankAccount.id}>
-                        <TableCell className="font-medium">{bankAccount.account_code}</TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <div>{bankAccount.account_name}</div>
-                            <div className="text-xs text-muted-foreground">{bankAccount.account_number}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>{bankAccount.bank_name}</TableCell>
-                        <TableCell>{FINANCE_BANK_ACCOUNT_TYPE_LABELS[bankAccount.account_type]}</TableCell>
-                        <TableCell>
-                          {bankAccount.gl_account ? `${bankAccount.gl_account.account_code} - ${bankAccount.gl_account.account_name}` : '-'}
-                        </TableCell>
-                        <TableCell className="text-right">{formatCurrency(Number(bankAccount.current_balance || 0))}</TableCell>
-                        <TableCell>
-                          <Badge variant={bankAccount.is_active ? 'default' : 'secondary'}>
-                            {bankAccount.is_active ? 'Active' : 'Inactive'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setEditingAccount(bankAccount);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            {bankAccount.is_active && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => bankAccounts.archiveBankAccount(bankAccount.id)}
-                                disabled={bankAccounts.isArchiving}
-                              >
-                                Archive
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
+            {(() => {
+              const filtered = companyFilter === 'all'
+                ? bankAccounts.bankAccounts
+                : bankAccounts.bankAccounts.filter((ba) => ba.company_id === companyFilter);
+
+              return !filtered.length ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">No bank accounts found.</div>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Code</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Account</TableHead>
+                        <TableHead>Bank</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>GL Link</TableHead>
+                        <TableHead className="text-right">Balance</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((bankAccount) => (
+                        <TableRow key={bankAccount.id}>
+                          <TableCell className="font-medium">{bankAccount.account_code}</TableCell>
+                          <TableCell className="text-xs">{(bankAccount as any).companies?.name || '-'}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div>{bankAccount.account_name}</div>
+                              <div className="text-xs text-muted-foreground">{bankAccount.account_number}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{bankAccount.bank_name}</TableCell>
+                          <TableCell>{FINANCE_BANK_ACCOUNT_TYPE_LABELS[bankAccount.account_type]}</TableCell>
+                          <TableCell>
+                            {bankAccount.gl_account ? `${bankAccount.gl_account.account_code} - ${bankAccount.gl_account.account_name}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-right">{formatCurrency(Number(bankAccount.current_balance || 0))}</TableCell>
+                          <TableCell>
+                            <Badge variant={bankAccount.is_active ? 'default' : 'secondary'}>
+                              {bankAccount.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingAccount(bankAccount);
+                                  setDialogOpen(true);
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              {bankAccount.is_active && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => bankAccounts.archiveBankAccount(bankAccount.id)}
+                                  disabled={bankAccounts.isArchiving}
+                                >
+                                  Archive
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
 
