@@ -31,7 +31,7 @@ export default function PettyCash() {
 
   const fundAccounts = useMemo(() => {
     return (coa.accounts || []).filter(
-      (a) => a.special_type === 'CH' && a.is_postable,
+      (a) => (a.special_type === 'CH' || a.system_tag === 'petty_cash') && a.is_postable,
     );
   }, [coa.accounts]);
 
