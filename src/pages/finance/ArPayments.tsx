@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Eye, MoreHorizontal, Pencil, Send, CheckCircle, BookOpen, Trash2, PlusCircle } from 'lucide-react';
+import { Eye, Pencil, CheckCircle, BookOpen, Trash2, PlusCircle } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -14,13 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -423,71 +417,66 @@ export default function ArPayments() {
                             {AR_PAYMENT_STATUS_LABELS[payment.status]}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1 flex-nowrap">
+                            {payment.status === 'pending' && canApprove && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => approveArPayment.approveArPayment(payment.id)}
+                                disabled={approveArPayment.isApproving}
+                              >
+                                Approve
                               </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem onClick={() => setDetailPayment(payment)}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              {payment.status === 'draft' && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => openEditDialog(payment)}>
-                                    <Pencil className="mr-2 h-4 w-4" />
-                                    Edit
-                                  </DropdownMenuItem>
-                                  {canSubmitPost && (
-                                    <DropdownMenuItem
-                                      onClick={() => submitArPayment.submitArPayment(payment.id)}
-                                      disabled={submitArPayment.isSubmitting}
-                                    >
-                                      <Send className="mr-2 h-4 w-4" />
-                                      Submit
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => deleteArPayment.deleteArPayment(payment.id)}
-                                    disabled={deleteArPayment.isDeleting}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {payment.status === 'pending' && canApprove && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => approveArPayment.approveArPayment(payment.id)}
-                                    disabled={approveArPayment.isApproving}
-                                  >
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Approve
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              {payment.status === 'approved' && canSubmitPost && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => postArPayment.postArPayment(payment.id)}
-                                    disabled={postArPayment.isPosting}
-                                  >
-                                    <BookOpen className="mr-2 h-4 w-4" />
-                                    Post to GL
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                            )}
+                            {payment.status === 'draft' && canSubmitPost && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => submitArPayment.submitArPayment(payment.id)}
+                                disabled={submitArPayment.isSubmitting}
+                              >
+                                Submit
+                              </Button>
+                            )}
+                            {payment.status === 'approved' && canSubmitPost && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => postArPayment.postArPayment(payment.id)}
+                                disabled={postArPayment.isPosting}
+                              >
+                                Post to GL
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setDetailPayment(payment)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {payment.status === 'draft' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEditDialog(payment)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteArPayment.deleteArPayment(payment.id)}
+                                  disabled={deleteArPayment.isDeleting}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
