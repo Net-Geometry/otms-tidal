@@ -76,8 +76,9 @@ export default function MyAttendance() {
   }, [records.data]);
 
   // Clock button state
-  const isDone = clockIn.hasClockIn && clockIn.hasClockOut;
-  const isClockOut = clockIn.hasClockIn && !clockIn.hasClockOut;
+  const isDone = clockIn.allDone;
+  const isClockOut = clockIn.hasOpenSession;
+  const canStartNew = clockIn.canStartNewSession;
 
   const timeStr = now.toLocaleTimeString('en-MY', {
     hour: '2-digit',
@@ -120,6 +121,21 @@ export default function MyAttendance() {
                 <UserCheck className="h-8 w-8 mb-1" />
                 <span className="text-sm font-semibold">Done</span>
               </div>
+            ) : canStartNew ? (
+              <button
+                onClick={() => setClockInOpen(true)}
+                className={cn(
+                  'w-36 h-36 md:w-40 md:h-40 rounded-full flex flex-col items-center justify-center',
+                  'border-4 border-blue-600 bg-blue-600 text-white',
+                  'hover:bg-blue-700 hover:border-blue-700 active:scale-95 transition-all',
+                  'shadow-lg shadow-blue-600/25',
+                  'min-h-[44px] cursor-pointer',
+                )}
+              >
+                <LogIn className="h-8 w-8 mb-1" />
+                <span className="text-xs font-semibold">Clock In</span>
+                <span className="text-[10px] opacity-80">Session {clockIn.sessions.length + 1}</span>
+              </button>
             ) : isClockOut ? (
               <button
                 onClick={() => clockIn.clockOut()}
@@ -152,19 +168,21 @@ export default function MyAttendance() {
               </button>
             )}
 
-            {/* Today status line */}
-            {clockIn.todayRecord && (
-              <p className="text-xs text-muted-foreground mt-4">
-                In: {clockIn.todayRecord.clock_in
-                  ? new Date(clockIn.todayRecord.clock_in).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: false })
-                  : '--:--'}
-                {clockIn.todayRecord.clock_out && (
-                  <>
-                    {' | Out: '}
-                    {new Date(clockIn.todayRecord.clock_out).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  </>
-                )}
-              </p>
+            {/* Today status line — show all sessions */}
+            {clockIn.sessions.length > 0 && (
+              <div className="text-xs text-muted-foreground mt-4 space-y-0.5 text-center">
+                {clockIn.sessions.map((s) => {
+                  const fmtTime = (ts: string) =>
+                    new Date(ts).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit', hour12: false });
+                  const label = clockIn.sessions.length > 1 ? `S${s.session_number} ` : '';
+                  return (
+                    <p key={s.id}>
+                      {label}In: {fmtTime(s.clock_in)}
+                      {s.clock_out && <> | Out: {fmtTime(s.clock_out)}</>}
+                    </p>
+                  );
+                })}
+              </div>
             )}
           </div>
         </Card>

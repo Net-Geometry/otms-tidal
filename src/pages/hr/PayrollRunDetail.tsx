@@ -25,6 +25,7 @@ import { PayrollMemoView } from '@/components/payroll/PayrollMemoView';
 import { PayrollItemsTable } from '@/components/payroll/PayrollItemsTable';
 import { EmployeePayrollForm } from '@/components/payroll/EmployeePayrollForm';
 import { AddEmployeeDialog } from '@/components/payroll/AddEmployeeDialog';
+import { GeneratePayslipsDialog } from '@/components/payroll/GeneratePayslipsDialog';
 import { usePayrollRun } from '@/hooks/payroll/usePayrollRun';
 import { usePayrollRuns } from '@/hooks/payroll/usePayrollRuns';
 import { usePayrollCalculation } from '@/hooks/payroll/usePayrollCalculation';
@@ -74,6 +75,7 @@ export default function PayrollRunDetail() {
   const [showRecalcConfirm, setShowRecalcConfirm] = useState(false);
   const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showPayslipDialog, setShowPayslipDialog] = useState(false);
 
   const handleCalculate = async () => {
     if (!run || !settings || !socsoTable) return;
@@ -169,40 +171,98 @@ export default function PayrollRunDetail() {
 
   const handleExportCSV = () => {
     if (!hasItems) return;
+
+    // Column order matches Tidal's payroll Excel template
     const headers = [
-      { key: 'net_salary', label: 'Net Salary' },
-      { key: 'employee_name', label: 'Employee' },
-      { key: 'employee_id_code', label: 'Employee ID' },
-      { key: 'department', label: 'Department' },
+      { key: 'no', label: 'No' },
+      { key: 'staff_id', label: 'Staff Id' },
+      { key: 'name', label: 'Name' },
       { key: 'basic_salary', label: 'Basic Salary' },
+      { key: 'ot_amount', label: 'OT' },
+      { key: 'allowance', label: 'Allowance' },
+      { key: 'claims', label: 'Claims' },
       { key: 'gross_salary', label: 'Gross Salary' },
-      { key: 'employee_epf', label: 'EPF (EE)' },
-      { key: 'employer_epf', label: 'EPF (ER)' },
-      { key: 'employee_socso', label: 'SOCSO (EE)' },
-      { key: 'employer_socso', label: 'SOCSO (ER)' },
-      { key: 'employee_eis', label: 'EIS (EE)' },
-      { key: 'employer_eis', label: 'EIS (ER)' },
-      { key: 'pcb_amount', label: 'PCB' },
-      { key: 'total_deductions', label: 'Total Deductions' },
-      { key: 'total_allowances', label: 'Total Allowances' },
+      // Employee deductions
+      { key: 'ee_epf', label: 'EPF' },
+      { key: 'ee_socso', label: 'SOCSO' },
+      { key: 'ee_eis', label: 'EIS' },
+      { key: 'zakat', label: 'Zakat' },
+      { key: 'pcb', label: 'PCB' },
+      { key: 'cp38', label: 'CP38' },
+      { key: 'club_membership', label: 'Club Membership' },
+      { key: 'staff_loan', label: 'Loan' },
+      { key: 'total_ee_deduction', label: 'Total Employee Deduction' },
+      // Net pay
+      { key: 'net_pay', label: 'Net Pay' },
+      // Employer contributions
+      { key: 'er_epf', label: 'EPF (ER)' },
+      { key: 'er_socso', label: 'SOCSO (ER)' },
+      { key: 'er_eis', label: 'EIS (ER)' },
+      { key: 'er_hrdc', label: 'HRDF' },
+      { key: 'total_er_contribution', label: 'Total Employer Contribution' },
+      // Total statutory (employer + employee combined)
+      { key: 'total_epf', label: 'Total EPF' },
+      { key: 'total_socso', label: 'Total SOCSO' },
+      { key: 'total_eis', label: 'Total EIS' },
+      { key: 'total_hrdc', label: 'Total HRDF' },
     ];
-    const data = items.map((item) => ({
-      net_salary: Number(item.net_salary || 0).toFixed(2),
-      employee_name: item.profiles?.full_name || item.employee_id,
-      employee_id_code: item.profiles?.employee_id || '',
-      department: item.profiles?.departments?.name || '',
-      basic_salary: Number(item.basic_salary || 0).toFixed(2),
-      gross_salary: Number(item.gross_salary || 0).toFixed(2),
-      employee_epf: Number(item.employee_epf || 0).toFixed(2),
-      employer_epf: Number(item.employer_epf || 0).toFixed(2),
-      employee_socso: Number(item.employee_socso || 0).toFixed(2),
-      employer_socso: Number(item.employer_socso || 0).toFixed(2),
-      employee_eis: Number(item.employee_eis || 0).toFixed(2),
-      employer_eis: Number(item.employer_eis || 0).toFixed(2),
-      pcb_amount: Number(item.pcb_amount || 0).toFixed(2),
-      total_deductions: Number(item.total_deductions || 0).toFixed(2),
-      total_allowances: Number(item.total_allowances || 0).toFixed(2),
-    }));
+
+    const fmt = (v: number | string | null | undefined) => Number(v || 0).toFixed(2);
+
+    // Helper to get deduction amount by code
+    const getDeduction = (item: any, code: string): number => {
+      const ded = (item.payroll_item_deductions || []).find(
+        (d: any) => d.deduction_type?.code === code
+      );
+      return Number(ded?.amount || 0);
+    };
+
+    const data = items.map((item, idx) => {
+      const eeEpf = Number(item.employee_epf || 0);
+      const eeSocso = Number(item.employee_socso || 0);
+      const eeEis = Number(item.employee_eis || 0);
+      const erEpf = Number(item.employer_epf || 0);
+      const erSocso = Number(item.employer_socso || 0);
+      const erEis = Number(item.employer_eis || 0);
+      const erHrdc = Number(item.employer_hrdc || 0);
+      const zakat = Number(item.zakat_amount || 0);
+      const pcb = Number(item.pcb_amount || 0);
+      const cp38 = getDeduction(item, 'cp38');
+      const club = getDeduction(item, 'sports_club');
+      const loan = getDeduction(item, 'staff_loan') + getDeduction(item, 'rental');
+      const totalErContribution = erEpf + erSocso + erEis + erHrdc;
+
+      return {
+        no: idx + 1,
+        staff_id: item.profiles?.employee_id || '',
+        name: item.profiles?.full_name || item.employee_id,
+        basic_salary: fmt(item.basic_salary),
+        ot_amount: fmt(item.ot_amount),
+        allowance: fmt(item.total_allowances),
+        claims: fmt(item.claims_amount),
+        gross_salary: fmt(item.gross_salary),
+        ee_epf: fmt(eeEpf),
+        ee_socso: fmt(eeSocso),
+        ee_eis: fmt(eeEis),
+        zakat: fmt(zakat),
+        pcb: fmt(pcb),
+        cp38: fmt(cp38),
+        club_membership: fmt(club),
+        staff_loan: fmt(loan),
+        total_ee_deduction: fmt(item.total_deductions),
+        net_pay: fmt(item.net_salary),
+        er_epf: fmt(erEpf),
+        er_socso: fmt(erSocso),
+        er_eis: fmt(erEis),
+        er_hrdc: fmt(erHrdc),
+        total_er_contribution: fmt(totalErContribution),
+        total_epf: fmt(eeEpf + erEpf),
+        total_socso: fmt(eeSocso + erSocso),
+        total_eis: fmt(eeEis + erEis),
+        total_hrdc: fmt(erHrdc),
+      };
+    });
+
     const companyName = run.companies?.name || 'Payroll';
     const filename = `${companyName}_Payroll_${run.pay_period_month}_${run.pay_period_year}`;
     exportToCSV(data, filename, headers, {
@@ -217,6 +277,7 @@ export default function PayrollRunDetail() {
     const companyName = run.companies?.name || 'Company';
     const txt = generateSocsoEisTxt({
       employerSocsoNo: run.companies?.socso_employer_no || '',
+      companyRegNo: run.companies?.registration_no || '',
       month: run.pay_period_month,
       year: run.pay_period_year,
       items,
@@ -230,6 +291,7 @@ export default function PayrollRunDetail() {
     const txt = generateEpfTxt({
       employerEpfNo: run.companies?.epf_employer_no || '',
       companyName,
+      companyRegNo: run.companies?.registration_no || '',
       month: run.pay_period_month,
       year: run.pay_period_year,
       items,
@@ -309,6 +371,18 @@ export default function PayrollRunDetail() {
                     Cancel Run
                   </Button>
                 </>
+              )}
+
+              {/* Generate Payslips — available when items exist */}
+              {hasItems && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPayslipDialog(true)}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Generate Payslips
+                </Button>
               )}
 
               {/* Send to employees — only when posted */}
@@ -446,6 +520,13 @@ export default function PayrollRunDetail() {
             existingEmployeeIds={items.map((i) => i.employee_id)}
           />
         )}
+
+        <GeneratePayslipsDialog
+          open={showPayslipDialog}
+          onOpenChange={setShowPayslipDialog}
+          items={items}
+          run={run}
+        />
 
         <AlertDialog open={showRecalcConfirm} onOpenChange={setShowRecalcConfirm}>
           <AlertDialogContent>

@@ -86,9 +86,27 @@ export function useEmployeeShifts(options?: { employeeId?: string }) {
     onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
   });
 
+  const toggleMultipleClockInMutation = useMutation({
+    mutationFn: async (input: { shiftAssignmentId: string; allow: boolean }) => {
+      const { error } = await db
+        .from('employee_shifts')
+        .update({ allow_multiple_clockin: input.allow })
+        .eq('id', input.shiftAssignmentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee-shifts'] });
+      queryClient.invalidateQueries({ queryKey: ['multiple-clockin-allowed'] });
+      toast({ title: 'Saved', description: 'Multiple clock-in setting updated' });
+    },
+    onError: (error: Error) => toast({ title: 'Error', description: error.message, variant: 'destructive' }),
+  });
+
   return {
     ...query,
     assignShift: assignShiftMutation.mutateAsync,
     isAssigning: assignShiftMutation.isPending,
+    toggleMultipleClockin: toggleMultipleClockInMutation.mutateAsync,
+    isTogglingMultipleClockin: toggleMultipleClockInMutation.isPending,
   };
 }

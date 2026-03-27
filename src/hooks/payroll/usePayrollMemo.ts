@@ -37,7 +37,7 @@ function invalidateAll(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ['consolidated-payroll-runs'] });
 }
 
-export function usePayrollMemo(month: number, year: number) {
+export function usePayrollMemo(month: number, year: number, options?: { memoNumberPrefix?: string }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const db = supabase as any;
@@ -104,8 +104,9 @@ export function usePayrollMemo(month: number, year: number) {
       // Aggregate totals
       const totals = aggregateRuns(runs as AggregatableRun[]);
 
-      // Generate memo number
-      const memoNumber = `MEMO-${year}-${String(month).padStart(2, '0')}`;
+      // Generate memo number using configurable prefix
+      const prefix = options?.memoNumberPrefix || 'MEMO';
+      const memoNumber = `${prefix}-${year}-${String(month).padStart(2, '0')}`;
 
       // Insert memo
       const { data: memoData, error: insertErr } = await db
@@ -218,6 +219,25 @@ export function usePayrollMemo(month: number, year: number) {
           .eq('memo_id', input.memoId);
 
         if (lockErr) throw lockErr;
+
+        // Notify directors (management role) about the submitted memo
+        const { data: directors } = await db
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'management');
+
+        if (directors && directors.length > 0) {
+          const memoNumber = `${month}/${year}`;
+          const notifications = (directors as { user_id: string }[]).map((d) => ({
+            user_id: d.user_id,
+            title: 'Payroll Memo Submitted for Approval',
+            message: `Payroll memo for period ${memoNumber} has been submitted by HR and requires your approval.`,
+            link: '/management/approve-payroll',
+            notification_type: 'payroll_memo_pending_director',
+            is_read: false,
+          }));
+          await db.from('notifications').insert(notifications);
+        }
       } else if ((input.role === 'management' || input.role === 'dmd') && current.status === 'pending_director') {
         if (!canTransitionMemo('pending_director', 'pending_finance', 'management')) {
           throw new Error('Cannot approve this memo as Director');

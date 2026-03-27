@@ -466,13 +466,12 @@ export async function generateFullPayslipPDF(data: FullPayslipData): Promise<voi
   y += 14;
   y = drawPayslipSectionHeader(doc, 'Company Contributions', 'Current', y, left, rightEdge, primary);
 
-  // Always show all statutory contributions (even if 0)
+  // Always show all statutory contributions (even if 0) — HRDC hidden from payslip
   const employer: [string, number][] = [
     ["E'R EPF", Number(data.item.employer_epf) || 0],
     ["E'R SOCSO", Number(data.item.employer_socso) || 0],
     ["E'R EIS", Number(data.item.employer_eis) || 0],
   ];
-  if (Number(data.item.employer_hrdc) > 0) employer.push(['HRDC', data.item.employer_hrdc]);
 
   const totalContrib = employer.reduce((s, [, v]) => s + v, 0);
 

@@ -21,10 +21,10 @@ export function EventBlock({ holiday, onClick, isFullDay = false }: EventBlockPr
     : isCompany
       ? "from-indigo-500 to-indigo-600 border-indigo-400 dark:border-indigo-500"
       : isPublicHoliday
-        ? "from-red-500 to-red-600 border-red-400 dark:border-red-500"
+        ? "from-green-600 to-green-700 border-green-500 dark:border-green-600"
         : isStateHoliday
           ? "from-yellow-500 to-yellow-600 border-yellow-400 dark:border-yellow-500"
-          : "from-red-500 to-red-600 border-red-400 dark:border-red-500";
+          : "from-green-600 to-green-700 border-green-500 dark:border-green-600";
 
   const textClass = "text-white dark:text-white";
 

@@ -61,6 +61,7 @@ export interface PayrollSettings {
   working_days_per_month: number;
   payroll_cutoff_day: number;
   show_allowance_on_payslip: boolean;
+  memo_number_prefix: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -131,7 +132,7 @@ export interface PayrollRun {
   updated_at: string;
 
   // Joined relations
-  companies?: { id: string; name: string; code?: string; socso_employer_no?: string; epf_employer_no?: string };
+  companies?: { id: string; name: string; code?: string; socso_employer_no?: string; epf_employer_no?: string; registration_no?: string };
   payroll_items?: PayrollItem[];
 }
 
@@ -210,6 +211,7 @@ export interface PayrollItem {
   employer_hrdc: number;
 
   pcb_amount: number;
+  zakat_amount: number;
 
   total_allowances: number;
   total_deductions: number;

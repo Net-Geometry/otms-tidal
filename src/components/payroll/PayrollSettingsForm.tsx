@@ -34,6 +34,7 @@ export function PayrollSettingsForm() {
         working_days_per_month: settings.working_days_per_month,
         payroll_cutoff_day: settings.payroll_cutoff_day,
         show_allowance_on_payslip: settings.show_allowance_on_payslip,
+        memo_number_prefix: settings.memo_number_prefix,
       });
     }
   }, [settings]);
@@ -183,6 +184,21 @@ export function PayrollSettingsForm() {
                 max="31"
               />
             </div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="text-sm font-semibold">Memo</h4>
+          <div className="space-y-1">
+            <Label className="text-xs">Memo Number Prefix</Label>
+            <Input
+              value={form.memo_number_prefix ?? 'MEMO'}
+              onChange={(e) => set('memo_number_prefix', e.target.value)}
+              placeholder="e.g. MEMO, TIDAL/MEMO"
+            />
+            <p className="text-xs text-muted-foreground">
+              Generated as: {form.memo_number_prefix || 'MEMO'}-2026-03
+            </p>
           </div>
         </div>
 

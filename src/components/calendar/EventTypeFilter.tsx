@@ -26,7 +26,7 @@ export function EventTypeFilter({ filters, onChange }: EventTypeFilterProps) {
   };
 
   const filtersList: Array<{ id: string; key: keyof EventTypeFilters; label: string; color: string }> = [
-    { id: "public", key: "public", label: "Public", color: "from-red-500 to-red-600" },
+    { id: "public", key: "public", label: "Public", color: "from-green-600 to-green-700" },
     { id: "state", key: "state", label: "State", color: "from-yellow-500 to-yellow-600" },
     { id: "company", key: "company", label: "Company", color: "from-indigo-500 to-indigo-600" },
     { id: "leave", key: "leave", label: "Leave", color: "from-emerald-500 to-emerald-600" },

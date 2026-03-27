@@ -5,7 +5,7 @@ export function CalendarLegend() {
     <Card className="p-4 rounded-lg shadow-sm bg-card border border-border">
       <div className="grid grid-cols-2 md:flex md:flex-wrap md:gap-6 gap-3 items-center justify-center">
         <div className="flex items-center gap-2 md:gap-3">
-          <div className="w-6 h-6 md:w-8 md:h-8 rounded-md bg-gradient-to-br from-[#FEE2E2] to-[#FECACA] dark:from-[#7F1D1D] dark:to-[#991B1B] border border-red-200 dark:border-red-800 shadow-sm flex-shrink-0" />
+          <div className="w-6 h-6 md:w-8 md:h-8 rounded-md bg-gradient-to-br from-[#DCFCE7] to-[#BBF7D0] dark:from-[#14532D] dark:to-[#166534] border border-green-200 dark:border-green-800 shadow-sm flex-shrink-0" />
           <span className="text-foreground font-medium">Public Holiday</span>
         </div>
         <div className="flex items-center gap-2 md:gap-3">

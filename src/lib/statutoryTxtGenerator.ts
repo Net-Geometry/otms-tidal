@@ -6,8 +6,15 @@ function toCents(amount: number, minWidth = 6): string {
   return String(cents).padStart(minWidth, '0');
 }
 
+/** Strip dashes from IC number and prepend 11 zeros */
+function formatIcNo(icNo: string | null | undefined): string {
+  const cleaned = (icNo || '').replace(/-/g, '');
+  return '0'.repeat(11) + cleaned;
+}
+
 export interface SocsoExportContext {
   employerSocsoNo: string;
+  companyRegNo: string;
   month: number;
   year: number;
   items: PayrollItem[];
@@ -20,6 +27,7 @@ export function generateSocsoEisTxt(ctx: SocsoExportContext): string {
   for (const item of ctx.items) {
     const socsoNo = item.profiles?.socso_no || '';
     const name = item.profiles?.full_name || '';
+    const icNo = formatIcNo(item.profiles?.ic_no);
     const netSalary = Number(item.net_salary || 0);
     const erSocso = Number(item.employer_socso || 0);
     const eeSocso = Number(item.employee_socso || 0);
@@ -29,8 +37,8 @@ export function generateSocsoEisTxt(ctx: SocsoExportContext): string {
     // Skip employees with no SOCSO contributions
     if (erSocso === 0 && eeSocso === 0 && erEis === 0 && eeEis === 0) continue;
 
-    // Line 1: employer SOCSO no + spaces + member SOCSO no + employee name
-    lines.push(`${ctx.employerSocsoNo}  ${socsoNo}${name}`);
+    // Line 1: employer SOCSO no + spaces + member IC (11 zeros + IC no dashes) + employee name
+    lines.push(`${ctx.employerSocsoNo}  ${icNo}${socsoNo}${name}`);
 
     // Line 2: MM|YYYY|NetSalary|ErSOCSO|EeSOCSO|ErEIS|EeEIS (all in cents)
     lines.push(
@@ -44,6 +52,7 @@ export function generateSocsoEisTxt(ctx: SocsoExportContext): string {
 export interface EpfExportContext {
   employerEpfNo: string;
   companyName: string;
+  companyRegNo: string;
   month: number;
   year: number;
   items: PayrollItem[];
@@ -67,9 +76,9 @@ export function generateEpfTxt(ctx: EpfExportContext): string {
     totalEeEpf += Number(item.employee_epf || 0);
   }
 
-  // 00 - Header
+  // 00 - Header (includes company registration number)
   lines.push(
-    `00EPF MONTHLY FORM A${paymentCode}${String(epfItems.length).padStart(6, '0')}${toCents(totalErEpf, 10)}${toCents(totalEeEpf, 10)}${ctx.employerEpfNo}`
+    `00EPF MONTHLY FORM A${paymentCode}${String(epfItems.length).padStart(6, '0')}${toCents(totalErEpf, 10)}${toCents(totalEeEpf, 10)}${ctx.employerEpfNo}${ctx.companyRegNo}`
   );
 
   // 01 - Sub-header
@@ -77,10 +86,10 @@ export function generateEpfTxt(ctx: EpfExportContext): string {
     `01${ctx.employerEpfNo}${mm}${ctx.year}${ctx.companyName}`
   );
 
-  // 02 - Employee records
+  // 02 - Employee records — IC with dashes removed, prefixed with 11 zeros
   for (const item of epfItems) {
     const epfNo = (item.profiles?.epf_no || '').padEnd(8, ' ');
-    const icNo = (item.profiles?.ic_no || '').padEnd(12, ' ');
+    const icNo = formatIcNo(item.profiles?.ic_no);
     const name = (item.profiles?.full_name || '').padEnd(40, ' ');
     const staffId = (item.profiles?.employee_id || '').padEnd(10, ' ');
     const erEpf = Number(item.employer_epf || 0);

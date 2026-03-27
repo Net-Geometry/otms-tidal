@@ -7,6 +7,7 @@ import { PageLayout } from '@/components/ui/page-layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle, ClipboardList, DollarSign, Download, Search, Settings2 } from 'lucide-react';
 import { exportToCSV } from '@/lib/exportUtils';
 import { ClaimRequestTable } from '@/components/claims/ClaimRequestTable';
@@ -19,22 +20,45 @@ export default function Claims() {
   const [section, setSection] = useState<'requests' | 'types'>('requests');
   const [tab, setTab] = useState<ClaimApprovalTab>('pending');
   const [search, setSearch] = useState('');
+  const [claimTypeFilter, setClaimTypeFilter] = useState<string>('all');
 
   const approval = useClaimApproval({ role: 'hr', tab });
 
+  // Get unique claim types for filter dropdown
+  const claimTypes = useMemo(() => {
+    const types = new Map<string, string>();
+    for (const r of approval.data || []) {
+      const id = r.claim_type_id || '';
+      const name = r.claim_type?.name || '';
+      if (id && name) types.set(id, name);
+    }
+    return Array.from(types.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [approval.data]);
+
   const filtered = useMemo(() => {
+    let rows = approval.data || [];
+
+    // Filter by claim type
+    if (claimTypeFilter !== 'all') {
+      rows = rows.filter((r) => r.claim_type_id === claimTypeFilter);
+    }
+
+    // Filter by search text
     const q = search.trim().toLowerCase();
-    if (!q) return approval.data || [];
-    return (approval.data || []).filter((r) => {
-      const name = r.profiles?.full_name || '';
-      const type = r.claim_type?.name || '';
-      return (
-        r.ticket_number?.toLowerCase().includes(q) ||
-        name.toLowerCase().includes(q) ||
-        type.toLowerCase().includes(q)
-      );
-    });
-  }, [approval.data, search]);
+    if (q) {
+      rows = rows.filter((r) => {
+        const name = r.profiles?.full_name || '';
+        const type = r.claim_type?.name || '';
+        return (
+          r.ticket_number?.toLowerCase().includes(q) ||
+          name.toLowerCase().includes(q) ||
+          type.toLowerCase().includes(q)
+        );
+      });
+    }
+
+    return rows;
+  }, [approval.data, search, claimTypeFilter]);
 
   const { data: stats } = useQuery({
     queryKey: ['claims-hr-stats'],
@@ -111,6 +135,17 @@ export default function Claims() {
                         className="pl-9"
                       />
                     </div>
+                    <Select value={claimTypeFilter} onValueChange={setClaimTypeFilter}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="All Types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        {claimTypes.map(([id, name]) => (
+                          <SelectItem key={id} value={id}>{name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {filtered.length > 0 && (
                       <Button
                         variant="outline"

@@ -68,12 +68,6 @@ export function EmployeePayslipCard({ item, onDownload }: EmployeePayslipCardPro
             <span className="text-muted-foreground">EIS (ER):</span>{' '}
             <span>{formatCurrency(Number(item.employer_eis))}</span>
           </div>
-          {Number(item.employer_hrdc) > 0 && (
-            <div>
-              <span className="text-muted-foreground">HRDC:</span>{' '}
-              <span>{formatCurrency(Number(item.employer_hrdc))}</span>
-            </div>
-          )}
           {item.payroll_item_deductions && item.payroll_item_deductions.length > 0 && (
             <>
               {item.payroll_item_deductions.map((d) => (

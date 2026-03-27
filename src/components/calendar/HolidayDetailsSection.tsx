@@ -50,7 +50,7 @@ export function HolidayDetailsSection({ selectedDate, holidays }: HolidayDetails
                 ? 'from-orange-500 to-orange-600'
                 : isStateHoliday
                 ? 'from-yellow-500 to-yellow-600'
-                : 'from-red-500 to-red-600';
+                : 'from-green-600 to-green-700';
 
               return (
                 <div key={holiday.id} className={`flex items-start gap-4 p-4 rounded-lg bg-gradient-to-r ${bgColor} border hover:shadow-md transition-shadow duration-200`}>

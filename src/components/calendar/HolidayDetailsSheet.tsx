@@ -112,7 +112,7 @@ export function HolidayDetailsSheet({
                         ? "from-orange-500 to-orange-600"
                         : isStateHoliday
                           ? "from-yellow-500 to-yellow-600"
-                          : "from-red-500 to-red-600";
+                          : "from-green-600 to-green-700";
 
                   const badgeElement = isPersonalLeave
                     ? <span>{`Personal Leave${holiday.leave_type ? ` (${holiday.leave_type})` : ''}${holiday.leave_status ? ` - ${holiday.leave_status}` : ''}`}</span>

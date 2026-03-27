@@ -13,7 +13,7 @@ export function usePayrollRun(runId: string | undefined) {
         .from('payroll_runs')
         .select(`
           *,
-          companies:companies!payroll_runs_company_id_fkey(id, name, code, socso_employer_no, epf_employer_no)
+          companies:companies!payroll_runs_company_id_fkey(id, name, code, socso_employer_no, epf_employer_no, registration_no)
         `)
         .eq('id', runId)
         .single();

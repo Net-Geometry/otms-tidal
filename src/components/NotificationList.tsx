@@ -86,6 +86,8 @@ export function NotificationList() {
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'ar_payment_posted':
         return <Send className="h-4 w-4 text-emerald-500" />;
+      case 'payroll_memo_pending_director':
+        return <FileText className="h-4 w-4 text-amber-500" />;
       default:
         return <Bell className="h-4 w-4 text-muted-foreground" />;
     }

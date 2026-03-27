@@ -88,6 +88,16 @@ export interface AttendanceRecord {
     filename: string;
     status: AttendanceImportStatus;
   };
+  attendance_sessions?: AttendanceSession[];
+}
+
+export interface AttendanceSession {
+  id: string;
+  attendance_record_id: string;
+  session_number: number;
+  clock_in: string;
+  clock_out: string | null;
+  created_at?: string;
 }
 
 export interface AttendanceImport {

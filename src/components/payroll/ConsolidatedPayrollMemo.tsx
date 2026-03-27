@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { FilePlus, Info } from 'lucide-react';
 import { useConsolidatedPayrollRuns } from '@/hooks/payroll/useConsolidatedPayrollRuns';
 import { usePayrollMemo } from '@/hooks/payroll/usePayrollMemo';
+import { usePayrollSettings } from '@/hooks/payroll/usePayrollSettings';
 import { useActiveRole } from '@/hooks/useActiveRole';
 import { isFinanceRole } from '@/lib/financeRoles';
 import { MemoApprovalActions } from './MemoApprovalActions';
@@ -96,6 +97,10 @@ const SALARY_ROWS: SalaryRow[] = [
   { label: 'Employer EIS', key: 'total_employer_eis', countField: 'employer_eis' },
   // B) Total Employer Contribution
   { label: 'Total Employer Contribution', key: 'computed_total_employer_contribution', isSubtotal: true, isComputed: true },
+  // C) Total Payable (Employer + Employee combined)
+  { label: 'Total Payable to EPF', key: 'computed_total_payable_epf', isSubtotal: true, isComputed: true },
+  { label: 'Total Payable to SOCSO', key: 'computed_total_payable_socso', isSubtotal: true, isComputed: true },
+  { label: 'Total Payable to EIS', key: 'computed_total_payable_eis', isSubtotal: true, isComputed: true },
   // 12. Total Allowances
   { label: 'Total Allowances', key: 'total_allowances', countField: 'total_allowances' },
   // 13. Phone Allowance (breakdown)
@@ -284,6 +289,7 @@ export function ConsolidatedPayrollMemo() {
 
   const { data: runs = [], isLoading: runsLoading } =
     useConsolidatedPayrollRuns(month, year);
+  const { settings } = usePayrollSettings();
 
   const {
     memo,
@@ -300,7 +306,7 @@ export function ConsolidatedPayrollMemo() {
     isResubmitting,
     postMemo,
     isPosting,
-  } = usePayrollMemo(month, year);
+  } = usePayrollMemo(month, year, { memoNumberPrefix: settings?.memo_number_prefix });
 
   const { activeRole } = useActiveRole();
   const approvalRole = deriveApprovalRole(activeRole);
@@ -350,6 +356,15 @@ export function ConsolidatedPayrollMemo() {
         Number(run.total_employer_eis || 0) +
         Number(run.total_hrdc || 0)
       );
+    }
+    if (key === 'computed_total_payable_epf') {
+      return Number(run.total_employer_epf || 0) + Number(run.total_employee_epf || 0);
+    }
+    if (key === 'computed_total_payable_socso') {
+      return Number(run.total_employer_socso || 0) + Number(run.total_employee_socso || 0);
+    }
+    if (key === 'computed_total_payable_eis') {
+      return Number(run.total_employer_eis || 0) + Number(run.total_employee_eis || 0);
     }
     if (key === 'computed_total_duit_keluar') {
       const grossSalary = Number(run.total_gross_salary || 0);

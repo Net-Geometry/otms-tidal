@@ -81,20 +81,36 @@ function AttendanceCard({
       )}
 
       {/* Bottom row: in/out times + late info */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <div className="flex items-center gap-3">
-          <span>
-            <span className="font-medium text-foreground">In</span> {fmtTime(record.clock_in)}
-          </span>
-          <span>
-            <span className="font-medium text-foreground">Out</span> {fmtTime(record.clock_out)}
-          </span>
-        </div>
-        {record.is_late && (
-          <span className="text-red-600 dark:text-red-400 font-medium">
-            +{record.late_minutes || 0}m late
-          </span>
-        )}
+      <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+        {(record.attendance_sessions && record.attendance_sessions.length > 0)
+          ? record.attendance_sessions
+              .sort((a, b) => a.session_number - b.session_number)
+              .map((s) => {
+                const label = record.attendance_sessions!.length > 1 ? `S${s.session_number} ` : '';
+                return (
+                  <div key={s.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span><span className="font-medium text-foreground">{label}In</span> {fmtTime(s.clock_in)}</span>
+                      <span><span className="font-medium text-foreground">Out</span> {fmtTime(s.clock_out)}</span>
+                    </div>
+                    {s.session_number === 1 && record.is_late && (
+                      <span className="text-red-600 dark:text-red-400 font-medium">+{record.late_minutes || 0}m late</span>
+                    )}
+                  </div>
+                );
+              })
+          : (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span><span className="font-medium text-foreground">In</span> {fmtTime(record.clock_in)}</span>
+                <span><span className="font-medium text-foreground">Out</span> {fmtTime(record.clock_out)}</span>
+              </div>
+              {record.is_late && (
+                <span className="text-red-600 dark:text-red-400 font-medium">+{record.late_minutes || 0}m late</span>
+              )}
+            </div>
+          )
+        }
       </div>
     </button>
   );
@@ -141,8 +157,7 @@ export function AttendanceTable({
               <TableHead>Date</TableHead>
               {showEmployee && <TableHead>Employee</TableHead>}
               <TableHead>Shift</TableHead>
-              <TableHead>In</TableHead>
-              <TableHead>Out</TableHead>
+              <TableHead>Sessions</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Late (min)</TableHead>
             </TableRow>
@@ -167,8 +182,19 @@ export function AttendanceTable({
                   </TableCell>
                 )}
                 <TableCell>{r.shift?.name || (r.shift_id ? r.shift_id : '--')}</TableCell>
-                <TableCell>{fmtTime(r.clock_in)}</TableCell>
-                <TableCell>{fmtTime(r.clock_out)}</TableCell>
+                <TableCell>
+                  {(r.attendance_sessions && r.attendance_sessions.length > 0)
+                    ? r.attendance_sessions
+                        .sort((a, b) => a.session_number - b.session_number)
+                        .map((s) => (
+                          <div key={s.id} className="text-xs">
+                            {r.attendance_sessions!.length > 1 && <span className="text-muted-foreground">S{s.session_number} </span>}
+                            {fmtTime(s.clock_in)} - {fmtTime(s.clock_out)}
+                          </div>
+                        ))
+                    : <span>{fmtTime(r.clock_in)} - {fmtTime(r.clock_out)}</span>
+                  }
+                </TableCell>
                 <TableCell>
                   <Badge variant={statusVariant(r.status) as any}>{String(r.status).replace(/_/g, ' ')}</Badge>
                 </TableCell>

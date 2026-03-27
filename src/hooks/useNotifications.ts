@@ -45,7 +45,8 @@ export interface Notification {
     | 'or_posted'
     | 'ar_payment_submitted'
     | 'ar_payment_approved'
-    | 'ar_payment_posted';
+    | 'ar_payment_posted'
+    | 'payroll_memo_pending_director';
   created_at: string;
 }
 

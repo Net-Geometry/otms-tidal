@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ export function EmployeeShiftAssignment() {
   const [employeeId, setEmployeeId] = useState<string>('');
   const [shiftId, setShiftId] = useState<string>('');
   const [effectiveDate, setEffectiveDate] = useState<string>('');
+  const [allowMultiple, setAllowMultiple] = useState(false);
 
   const assignments = useEmployeeShifts({ employeeId: employeeId || undefined });
 
@@ -81,14 +83,21 @@ export function EmployeeShiftAssignment() {
         </div>
 
         <div className="flex items-center justify-between gap-2">
-          <div className="text-sm text-muted-foreground">
-            Assign a new shift effective from the selected date (previous current shift will be closed).
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              Assign a new shift effective from the selected date.
+            </div>
+            <label className="flex items-center gap-1.5 text-sm shrink-0">
+              <Checkbox checked={allowMultiple} onCheckedChange={(v) => setAllowMultiple(!!v)} />
+              Allow Multiple Clock-in
+            </label>
           </div>
           <Button
             disabled={!canAssign}
             onClick={async () => {
-              await assignments.assignShift({ employeeId, shiftId, effectiveDate });
+              await assignments.assignShift({ employeeId, shiftId, effectiveDate, allowMultipleClockin: allowMultiple });
               setShiftId('');
+              setAllowMultiple(false);
             }}
           >
             {assignments.isAssigning ? 'Saving...' : 'Assign'}
@@ -109,6 +118,7 @@ export function EmployeeShiftAssignment() {
                   <TableHead>Effective</TableHead>
                   <TableHead>End</TableHead>
                   <TableHead>Shift</TableHead>
+                  <TableHead>Multiple Clock-in</TableHead>
                   <TableHead>Current</TableHead>
                 </TableRow>
               </TableHeader>
@@ -118,6 +128,19 @@ export function EmployeeShiftAssignment() {
                     <TableCell className="font-mono text-xs">{r.effective_date}</TableCell>
                     <TableCell className="font-mono text-xs">{r.end_date || '—'}</TableCell>
                     <TableCell className="font-medium">{r.shift?.name || r.shift_id}</TableCell>
+                    <TableCell>
+                      {r.is_current ? (
+                        <Checkbox
+                          checked={!!r.allow_multiple_clockin}
+                          onCheckedChange={(checked) =>
+                            assignments.toggleMultipleClockin({ shiftAssignmentId: r.id, allow: !!checked })
+                          }
+                          disabled={assignments.isTogglingMultipleClockin}
+                        />
+                      ) : (
+                        r.allow_multiple_clockin ? <Badge variant="outline" className="text-xs">Yes</Badge> : null
+                      )}
+                    </TableCell>
                     <TableCell>
                       {r.is_current ? <Badge>Current</Badge> : <Badge variant="secondary">Past</Badge>}
                     </TableCell>

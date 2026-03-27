@@ -31,7 +31,8 @@ export function useAttendanceRecords(filter?: AttendanceRecordsFilter) {
             departments(name)
           ),
           shift:shifts(*),
-          attendance_imports:attendance_imports(id, filename, status)
+          attendance_imports:attendance_imports(id, filename, status),
+          attendance_sessions(id, session_number, clock_in, clock_out)
         `)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
