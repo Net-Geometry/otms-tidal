@@ -450,7 +450,7 @@ export default function ArInvoices() {
                           {formatMoney(Number(invoice.total_amount || 0) - Number(invoice.paid_amount || 0))}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex flex-wrap justify-end gap-2">
+                          <div className="flex items-center justify-end gap-1 flex-nowrap">
                             {invoice.status === 'draft' && (
                               <Button variant="outline" size="sm" onClick={() => openEditDialog(invoice)}>
                                 Edit
@@ -487,8 +487,7 @@ export default function ArInvoices() {
                               </Button>
                             )}
                             <Button variant="ghost" size="sm" onClick={() => setDetailInvoice(invoice)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
+                              <Eye className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
