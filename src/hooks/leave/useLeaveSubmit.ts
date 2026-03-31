@@ -41,6 +41,27 @@ async function fetchLeaveType(leaveTypeId: string): Promise<LeaveType> {
   return data as LeaveType;
 }
 
+/**
+ * Calculate projected entitled days for a monthly-accrual leave type.
+ * Projects forward from current entitled_days to the month of the leave date.
+ */
+function projectEntitledDays(
+  currentEntitled: number,
+  monthlyRate: number,
+  maxDays: number,
+  leaveStartDate: string
+): number {
+  const now = new Date();
+  const leaveDate = parseISO(leaveStartDate);
+  const currentMonth = now.getFullYear() * 12 + now.getMonth();
+  const leaveMonth = leaveDate.getFullYear() * 12 + leaveDate.getMonth();
+  const monthsAhead = Math.max(0, leaveMonth - currentMonth);
+
+  if (monthsAhead === 0) return currentEntitled;
+
+  return Math.min(currentEntitled + monthlyRate * monthsAhead, maxDays);
+}
+
 async function getHolidayDateSet(startDate: string, endDate: string, userState?: string | null) {
   const db = supabase as any;
   const { data, error } = await db
@@ -219,19 +240,54 @@ export function useLeaveSubmit() {
         }
       }
 
+      // Pending + approved leave days for stacking protection (monthly accrual only)
+      let pendingApprovedDays = 0;
+      if (leaveType.accrual_type === 'monthly') {
+        const { data: pendingLeaves, error: pendingError } = await db
+          .from('leave_requests')
+          .select('total_days')
+          .eq('employee_id', user.id)
+          .eq('leave_type_id', input.leave_type_id)
+          .not('status', 'in', '(rejected,cancelled)')
+          .gte('start_date', `${year}-01-01`)
+          .lte('start_date', `${year}-12-31`);
+
+        if (pendingError) throw pendingError;
+        pendingApprovedDays = (pendingLeaves || []).reduce(
+          (sum: number, r: any) => sum + Number(r.total_days || 0),
+          0
+        );
+      }
+
       const isUnlimitedType = ['unpaid', 'replacement', 'emergency', 'half_day'].includes(leaveType.code);
       if (!isUnlimitedType) {
         if (!balanceRow) {
           throw new Error(`Leave balance for ${leaveType.name} is not initialized for ${year}. Please contact HR.`);
         }
 
+        const isMonthly = leaveType.accrual_type === 'monthly';
+        const entitledDays = isMonthly
+          ? projectEntitledDays(
+              Number(balanceRow.entitled_days || 0),
+              Number(leaveType.monthly_accrual_rate || 0),
+              Number(leaveType.default_days || 0),
+              input.start_date
+            )
+          : Number(balanceRow.entitled_days || 0);
+
         const remaining =
-          Number(balanceRow.entitled_days || 0) +
+          entitledDays +
           Number(balanceRow.carried_forward || 0) +
           Number(balanceRow.adjustment || 0) -
-          Number(balanceRow.used_days || 0);
+          Number(balanceRow.used_days || 0) -
+          (isMonthly ? pendingApprovedDays : 0);
 
         if (remaining < totalDays) {
+          if (isMonthly) {
+            throw new Error(
+              `Insufficient ${leaveType.name} balance. Projected balance at ${format(toDate(input.start_date), 'MMM yyyy')}: ${remaining.toFixed(1)} day(s)`
+            );
+          }
           throw new Error(`Insufficient ${leaveType.name} balance. Remaining: ${remaining.toFixed(1)} day(s)`);
         }
       }
