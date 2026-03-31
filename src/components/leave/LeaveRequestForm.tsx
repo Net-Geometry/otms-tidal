@@ -44,6 +44,23 @@ function computeBusinessDays(startDate: string, endDate: string, holidayDates?: 
   return total;
 }
 
+function projectEntitledDays(
+  currentEntitled: number,
+  monthlyRate: number,
+  maxDays: number,
+  leaveStartDate: string
+): number {
+  const now = new Date();
+  const leaveDate = parseISO(leaveStartDate);
+  const currentMonth = now.getFullYear() * 12 + now.getMonth();
+  const leaveMonth = leaveDate.getFullYear() * 12 + leaveDate.getMonth();
+  const monthsAhead = Math.max(0, leaveMonth - currentMonth);
+
+  if (monthsAhead === 0) return currentEntitled;
+
+  return Math.min(currentEntitled + monthlyRate * monthsAhead, maxDays);
+}
+
 export function LeaveRequestForm({
   leaveTypes,
   balances,
@@ -95,6 +112,28 @@ export function LeaveRequestForm({
   const remainingPreview = selectedBalance ? Number(selectedBalance.remaining || 0) : null;
   const isUnlimitedType = !!selectedType && ['unpaid', 'replacement', 'emergency', 'half_day'].includes(selectedType.code);
 
+  const projectedRemaining = useMemo(() => {
+    if (!selectedType || !selectedBalance || !watched.start_date) return null;
+    if (selectedType.accrual_type !== 'monthly') return null;
+
+    const projected = projectEntitledDays(
+      Number(selectedBalance.entitled_days || 0),
+      Number(selectedType.monthly_accrual_rate || 0),
+      Number(selectedType.default_days || 0),
+      watched.start_date
+    );
+
+    const currentEntitled = Number(selectedBalance.entitled_days || 0);
+    if (projected <= currentEntitled) return null; // no projection needed
+
+    return (
+      projected +
+      Number(selectedBalance.carried_forward || 0) +
+      Number(selectedBalance.adjustment || 0) -
+      Number(selectedBalance.used_days || 0)
+    );
+  }, [selectedType, selectedBalance, watched.start_date]);
+
   const handleSubmit = async (values: LeaveRequestFormValues) => {
     const lt = leaveTypeById.get(values.leave_type_id);
     if (!lt) {
@@ -134,9 +173,15 @@ export function LeaveRequestForm({
       return;
     }
 
-    if (!isUnlimitedType && remainingPreview != null && remainingPreview < totalDaysPreview) {
-      form.setError('leave_type_id', { message: `Insufficient balance (remaining ${remainingPreview.toFixed(1)} day(s))` });
-      return;
+    if (!isUnlimitedType) {
+      const effectiveRemaining = projectedRemaining ?? remainingPreview;
+      if (effectiveRemaining != null && effectiveRemaining < totalDaysPreview) {
+        const label = projectedRemaining != null
+          ? `Insufficient projected balance (${effectiveRemaining.toFixed(1)} day(s) at ${format(parseISO(values.start_date), 'MMM yyyy')})`
+          : `Insufficient balance (remaining ${effectiveRemaining.toFixed(1)} day(s))`;
+        form.setError('leave_type_id', { message: label });
+        return;
+      }
     }
 
     await onSubmit(values);
@@ -175,6 +220,13 @@ export function LeaveRequestForm({
                     <div className="text-xs text-muted-foreground">
                       {isUnlimitedType ? (
                         <span>Unlimited / not balance-restricted</span>
+                      ) : projectedRemaining != null ? (
+                        <span>
+                          Current: {remainingPreview != null ? remainingPreview.toFixed(1) : '0.0'} day(s)
+                          {' | '}
+                          Projected at {format(parseISO(watched.start_date), 'MMM yyyy')}:{' '}
+                          {projectedRemaining.toFixed(1)} day(s)
+                        </span>
                       ) : (
                         <span>
                           Remaining: {remainingPreview != null ? remainingPreview.toFixed(1) : 'Not initialized'} day(s)
