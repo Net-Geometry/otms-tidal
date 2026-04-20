@@ -380,11 +380,18 @@ export async function generateApAgingPdf(input: {
   asOfDate: string;
   companyName?: string;
   rows: Array<{
-    code: string;
-    name: string;
+    supplier_code: string;
+    supplier_name: string;
+    invoice_number: string;
+    status: 'outstanding' | 'partially_paid' | 'paid';
+    original_amount: number;
+    paid_amount: number;
+    outstanding_amount: number;
+    payment_date: string | null;
+    payment_ref: string | null;
     buckets: { current: number; days30: number; days60: number; days90plus: number; total: number };
   }>;
-  totals: { current: number; days30: number; days60: number; days90plus: number; total: number };
+  totals: { current: number; days30: number; days60: number; days90plus: number; total: number; paid_total: number; original_total: number };
 }) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   createHeader(
@@ -393,29 +400,49 @@ export async function generateApAgingPdf(input: {
     `As at ${input.asOfDate}${input.companyName ? ` | ${input.companyName}` : ''}`
   );
 
+  const statusLabel = (s: string) =>
+    s === 'partially_paid' ? 'Partial' : s === 'paid' ? 'Paid' : 'Outstanding';
+
   autoTable(doc, {
     startY: 30,
-    head: [['Supplier Code', 'Supplier Name', 'Current (0-30)', '31-60', '61-90', '90+', 'Total']],
+    head: [['Supplier', 'Invoice', 'Status', 'Original', 'Paid', 'Outstanding', 'Current', '31-60', '61-90', '90+', 'Pay Date', 'PV']],
     body: [
       ...input.rows.map((row) => [
-        row.code,
-        row.name,
+        `${row.supplier_code} ${row.supplier_name}`,
+        row.invoice_number,
+        statusLabel(row.status),
+        fmt(row.original_amount),
+        fmt(row.paid_amount),
+        fmt(row.outstanding_amount),
         fmt(row.buckets.current),
         fmt(row.buckets.days30),
         fmt(row.buckets.days60),
         fmt(row.buckets.days90plus),
-        fmt(row.buckets.total),
+        row.payment_date || '',
+        row.payment_ref || '',
       ]),
-      ['', 'TOTAL', fmt(input.totals.current), fmt(input.totals.days30), fmt(input.totals.days60), fmt(input.totals.days90plus), fmt(input.totals.total)],
+      [
+        'TOTAL', '', '',
+        fmt(input.totals.original_total),
+        fmt(input.totals.paid_total),
+        fmt(input.totals.total),
+        fmt(input.totals.current),
+        fmt(input.totals.days30),
+        fmt(input.totals.days60),
+        fmt(input.totals.days90plus),
+        '', '',
+      ],
     ],
-    styles: { fontSize: 8 },
+    styles: { fontSize: 7 },
     headStyles: { fillColor: [15, 118, 110] },
     columnStyles: {
-      2: { halign: 'right' },
       3: { halign: 'right' },
       4: { halign: 'right' },
       5: { halign: 'right' },
       6: { halign: 'right' },
+      7: { halign: 'right' },
+      8: { halign: 'right' },
+      9: { halign: 'right' },
     },
     didParseCell: (data: any) => {
       if (data.section !== 'body') return;

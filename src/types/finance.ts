@@ -889,7 +889,9 @@ export interface PaymentVoucherLine {
   cheque_no: string | null;
   amount: number;
   sort_order: number;
+  gl_account_id: string | null;
   created_at?: string;
+  gl_account?: Pick<ChartOfAccount, 'id' | 'account_code' | 'account_name'> | null;
 }
 
 export type PvSourceType = 'payroll_memo' | 'claim_memo';
@@ -921,6 +923,8 @@ export interface PaymentVoucher {
   source_id: string | null;
   prf_id: string | null;
   attachment_urls: string[];
+  priority: 'normal' | 'urgent';
+  target_approval_level: 'fa' | 'asst_mgr' | 'dmd';
   checked_at: string | null;
   checked_by: string | null;
   created_at?: string;

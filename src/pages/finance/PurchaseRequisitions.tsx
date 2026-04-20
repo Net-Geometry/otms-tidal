@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Eye, FileText as FileTextIcon, PlusCircle, Trash2 } from 'lucide-react';
+import { AlertTriangle, Eye, FileText as FileTextIcon, MoreHorizontal, PlusCircle, Trash2 } from 'lucide-react';
 import { FileUpload } from '@/components/ot/FileUpload';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
@@ -16,6 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -38,7 +45,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useCompanies } from '@/hooks/hr/useCompanies';
-import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
 import {
   useApprovePRF,
   useCancelPRF,
@@ -64,7 +70,6 @@ interface PrfItemFormState {
   id: string;
   doc_date: string;
   description: string;
-  gl_account_id: string;
   project_site: string;
   amount: string;
 }
@@ -76,6 +81,7 @@ interface PrfFormState {
   payable_to: string;
   payment_via: string;
   prf_date: string;
+  priority: 'normal' | 'urgent';
   items: PrfItemFormState[];
   advance_date_received: string;
   advance_form_no: string;
@@ -110,7 +116,6 @@ function makeItemRow(): PrfItemFormState {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     doc_date: '',
     description: '',
-    gl_account_id: '',
     project_site: '',
     amount: '0',
   };
@@ -124,6 +129,7 @@ function makeInitialForm(companyId: string): PrfFormState {
     payable_to: '',
     payment_via: '',
     prf_date: new Date().toISOString().slice(0, 10),
+    priority: 'normal',
     items: [makeItemRow()],
     advance_date_received: '',
     advance_form_no: '',
@@ -148,7 +154,6 @@ function makeInitialForm(companyId: string): PrfFormState {
 export default function PurchaseRequisitions() {
   const { toast } = useToast();
   const { data: companies = [] } = useCompanies();
-  const chart = useChartOfAccounts({ accountType: 'expense', activity: 'active', search: '' });
 
   const companyMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -208,11 +213,6 @@ export default function PurchaseRequisitions() {
     setRejectRemarks('');
   };
 
-  const postingAccounts = useMemo(
-    () => chart.accounts.filter((account) => account.is_active && account.is_postable),
-    [chart.accounts],
-  );
-
   const totals = useMemo(
     () => form.items.reduce((sum, item) => sum + Number(item.amount || 0), 0),
     [form.items],
@@ -248,11 +248,11 @@ export default function PurchaseRequisitions() {
       payable_to: prf.payable_to || '',
       payment_via: prf.payment_via || '',
       prf_date: prf.prf_date || '',
+      priority: (prf.priority as 'normal' | 'urgent') || 'normal',
       items: (prf.items || []).map((item) => ({
         id: item.id,
         doc_date: item.doc_date || '',
         description: item.description,
-        gl_account_id: item.gl_account_id,
         project_site: item.project_site || '',
         amount: String(item.amount || 0),
       })),
@@ -300,14 +300,14 @@ export default function PurchaseRequisitions() {
       .map((item) => ({
         doc_date: item.doc_date || null,
         description: item.description.trim(),
-        gl_account_id: item.gl_account_id,
+        gl_account_id: null,
         quantity: 1,
         unit: 'unit' as const,
         unit_price: Number(item.amount || 0),
         project_id: null as string | null,
         project_site: item.project_site.trim() || null,
       }))
-      .filter((item) => item.description && item.gl_account_id && item.unit_price > 0);
+      .filter((item) => item.description && item.unit_price > 0);
 
     if (!form.company_id) {
       toast({ title: 'Company is required', variant: 'destructive' });
@@ -315,7 +315,7 @@ export default function PurchaseRequisitions() {
     }
 
     if (!preparedItems.length) {
-      toast({ title: 'Add at least one valid item with description, account, and amount', variant: 'destructive' });
+      toast({ title: 'Add at least one valid item with description and amount', variant: 'destructive' });
       return;
     }
 
@@ -327,6 +327,7 @@ export default function PurchaseRequisitions() {
       payable_to: form.payable_to.trim() || null,
       payment_via: form.payment_via.trim() || null,
       prf_date: form.prf_date || null,
+      priority: form.priority,
       advance_date_received: form.advance_date_received || null,
       advance_form_no: form.advance_form_no.trim() || null,
       advance_amount: Number(form.advance_amount || 0),
@@ -449,8 +450,18 @@ export default function PurchaseRequisitions() {
                   </TableHeader>
                   <TableBody>
                     {rows.map((prf) => (
-                      <TableRow key={prf.id}>
-                        <TableCell className="font-medium">{prf.prf_number || 'Draft'}</TableCell>
+                      <TableRow key={prf.id} className={prf.priority === 'urgent' ? 'bg-amber-50/40 dark:bg-amber-950/20' : undefined}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-1.5">
+                            {prf.priority === 'urgent' && (
+                              <AlertTriangle
+                                className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                                aria-label="Urgent"
+                              />
+                            )}
+                            <span>{prf.prf_number || 'Draft'}</span>
+                          </div>
+                        </TableCell>
                         {companyFilter === 'all' && (
                           <TableCell>
                             <span className="text-xs text-muted-foreground">{companyMap.get(prf.company_id) || '-'}</span>
@@ -475,119 +486,122 @@ export default function PurchaseRequisitions() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex flex-wrap justify-end gap-2">
-                            {/* Draft: Edit, Submit, Cancel (admin) */}
-                            {prf.status === 'draft' && isAdmin && (
-                              <Button variant="outline" size="sm" onClick={() => openEditDialog(prf)}>
-                                Edit
-                              </Button>
-                            )}
-                            {prf.status === 'draft' && isAdmin && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => submitPRF.submitPRF({ prfId: prf.id })}
-                                disabled={submitPRF.isSubmitting}
-                              >
-                                Submit
-                              </Button>
-                            )}
-                            {prf.status === 'draft' && isAdmin && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => cancelPRF.cancelPRF({ prfId: prf.id })}
-                                disabled={cancelPRF.isCancelling}
-                              >
-                                Cancel
-                              </Button>
-                            )}
+                          {(() => {
+                            // Progressive disclosure: collapse status/role-specific actions into a
+                            // single kebab menu so the Urgent badge and status chips breathe.
+                            const draftAdmin = prf.status === 'draft' && isAdmin;
+                            const preparedMgmt = prf.status === 'prepared' && isManagement;
+                            const verifiedAsstMgr = prf.status === 'verified' && isAsstMgr;
+                            const checkedDmd = prf.status === 'checked' && isDmd;
+                            const rejectedAdmin = prf.status === 'rejected' && isAdmin;
+                            const hasActions =
+                              draftAdmin || preparedMgmt || verifiedAsstMgr || checkedDmd || rejectedAdmin;
 
-                            {/* Prepared: Verify, Reject (management) */}
-                            {prf.status === 'prepared' && isManagement && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => verifyPRF.verifyPRF({ prfId: prf.id })}
-                                disabled={verifyPRF.isVerifying}
-                              >
-                                Verify
-                              </Button>
-                            )}
-                            {prf.status === 'prepared' && isManagement && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openRejectDialog(prf.id)}
-                              >
-                                Reject
-                              </Button>
-                            )}
+                            return (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" aria-label="Row actions">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">Row actions</span>
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                  {draftAdmin && (
+                                    <>
+                                      <DropdownMenuItem onSelect={() => openEditDialog(prf)}>
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onSelect={() => submitPRF.submitPRF({ prfId: prf.id })}
+                                        disabled={submitPRF.isSubmitting}
+                                      >
+                                        Submit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onSelect={() => cancelPRF.cancelPRF({ prfId: prf.id })}
+                                        disabled={cancelPRF.isCancelling}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        Cancel
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
 
-                            {/* Verified: Check, Reject (assistant_manager) */}
-                            {prf.status === 'verified' && isAsstMgr && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => checkPRF.checkPRF({ prfId: prf.id })}
-                                disabled={checkPRF.isChecking}
-                              >
-                                Check
-                              </Button>
-                            )}
-                            {prf.status === 'verified' && isAsstMgr && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openRejectDialog(prf.id)}
-                              >
-                                Reject
-                              </Button>
-                            )}
+                                  {preparedMgmt && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onSelect={() => verifyPRF.verifyPRF({ prfId: prf.id })}
+                                        disabled={verifyPRF.isVerifying}
+                                      >
+                                        Verify
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onSelect={() => openRejectDialog(prf.id)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        Reject
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
 
-                            {/* Checked: Approve, Reject (dmd) */}
-                            {prf.status === 'checked' && isDmd && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => approvePRF.approvePRF({ prfId: prf.id })}
-                                disabled={approvePRF.isApproving}
-                              >
-                                Approve
-                              </Button>
-                            )}
-                            {prf.status === 'checked' && isDmd && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openRejectDialog(prf.id)}
-                              >
-                                Reject
-                              </Button>
-                            )}
+                                  {verifiedAsstMgr && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onSelect={() => checkPRF.checkPRF({ prfId: prf.id })}
+                                        disabled={checkPRF.isChecking}
+                                      >
+                                        Check
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onSelect={() => openRejectDialog(prf.id)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        Reject
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
 
-                            {/* Rejected: Edit, Resubmit (admin) */}
-                            {prf.status === 'rejected' && isAdmin && (
-                              <Button variant="outline" size="sm" onClick={() => openEditDialog(prf)}>
-                                Edit
-                              </Button>
-                            )}
-                            {prf.status === 'rejected' && isAdmin && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => resubmitPRF.resubmitPRF({ prfId: prf.id })}
-                                disabled={resubmitPRF.isResubmitting}
-                              >
-                                Resubmit
-                              </Button>
-                            )}
+                                  {checkedDmd && (
+                                    <>
+                                      <DropdownMenuItem
+                                        onSelect={() => approvePRF.approvePRF({ prfId: prf.id })}
+                                        disabled={approvePRF.isApproving}
+                                      >
+                                        Approve
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onSelect={() => openRejectDialog(prf.id)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        Reject
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
 
-                            <Button variant="ghost" size="sm" onClick={() => setDetailPrf(prf)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View
-                            </Button>
-                          </div>
+                                  {rejectedAdmin && (
+                                    <>
+                                      <DropdownMenuItem onSelect={() => openEditDialog(prf)}>
+                                        Edit
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onSelect={() => resubmitPRF.resubmitPRF({ prfId: prf.id })}
+                                        disabled={resubmitPRF.isResubmitting}
+                                      >
+                                        Resubmit
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+
+                                  {hasActions && <DropdownMenuSeparator />}
+
+                                  <DropdownMenuItem onSelect={() => setDetailPrf(prf)}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            );
+                          })()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -670,6 +684,24 @@ export default function PurchaseRequisitions() {
                 </div>
               </div>
 
+              {/* Priority: Normal / Urgent */}
+              <div className="flex items-center gap-3 rounded-md border bg-amber-50/50 p-3 dark:bg-amber-950/20">
+                <Checkbox
+                  id="prf_urgent"
+                  checked={form.priority === 'urgent'}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => ({ ...prev, priority: checked ? 'urgent' : 'normal' }))
+                  }
+                />
+                <AlertTriangle className={`h-4 w-4 ${form.priority === 'urgent' ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                <Label htmlFor="prf_urgent" className="cursor-pointer font-medium">
+                  Mark as Urgent
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  Approvers will see an urgent label and be notified accordingly.
+                </span>
+              </div>
+
               {/* Type: Payment Request / Claim / Others */}
               <div className="space-y-2">
                 <Label>Type</Label>
@@ -731,7 +763,6 @@ export default function PurchaseRequisitions() {
                       <TableRow>
                         <TableHead className="w-[130px]">Doc. Date</TableHead>
                         <TableHead>Description</TableHead>
-                        <TableHead className="w-[200px]">GL Account</TableHead>
                         <TableHead className="w-[160px]">Project/Site</TableHead>
                         <TableHead className="w-[140px] text-right">Amount (RM)</TableHead>
                         <TableHead className="w-[50px]" />
@@ -755,24 +786,6 @@ export default function PurchaseRequisitions() {
                               onChange={(e) => updateItem(item.id, 'description', e.target.value)}
                               placeholder="Description"
                             />
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={item.gl_account_id || 'none'}
-                              onValueChange={(value) => updateItem(item.id, 'gl_account_id', value === 'none' ? '' : value)}
-                            >
-                              <SelectTrigger className="h-8">
-                                <SelectValue placeholder="Account" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Select account</SelectItem>
-                                {postingAccounts.map((account) => (
-                                  <SelectItem key={account.id} value={account.id}>
-                                    {account.account_code} - {account.account_name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
                           </TableCell>
                           <TableCell>
                             <Input
@@ -1020,8 +1033,18 @@ export default function PurchaseRequisitions() {
 
             {!detailPrf ? null : (
               <div className="space-y-4">
+                {detailPrf.priority === 'urgent' && (
+                  <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="font-semibold">URGENT</span>
+                    <span className="text-muted-foreground">— this PRF has been flagged for urgent processing.</span>
+                  </div>
+                )}
+
                 <div className="grid gap-2 text-sm md:grid-cols-2">
-                  <p><span className="text-muted-foreground">PRF No:</span> {detailPrf.prf_number || 'Draft'}</p>
+                  <p>
+                    <span className="text-muted-foreground">PRF No:</span> {detailPrf.prf_number || 'Draft'}
+                  </p>
                   <p><span className="text-muted-foreground">Company:</span> {companyMap.get(detailPrf.company_id) || '-'}</p>
                   <p><span className="text-muted-foreground">Status:</span> {AP_PRF_STATUS_LABELS[detailPrf.status]}</p>
                   <p><span className="text-muted-foreground">Date:</span> {detailPrf.prf_date ? format(new Date(detailPrf.prf_date), 'dd MMM yyyy') : '-'}</p>

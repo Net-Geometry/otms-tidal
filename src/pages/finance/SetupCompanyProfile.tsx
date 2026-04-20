@@ -23,6 +23,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useFinanceCompanyProfiles, useBankAccounts } from '@/hooks/finance/useFinanceFoundation';
 import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
+import { GLAccountCombobox } from '@/components/finance/GLAccountCombobox';
 
 const monthOptions = [
   { value: 1, label: 'January' },
@@ -71,6 +72,15 @@ export default function SetupCompanyProfile() {
   const { bankAccounts } = useBankAccounts();
   const { accounts: glAccounts } = useChartOfAccounts();
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
+
+  const retainedEarningsOptions = useMemo(
+    () => glAccounts.filter((a) => a.account_type === 'equity' && a.is_postable && a.is_active),
+    [glAccounts],
+  );
+  const suspenseOptions = useMemo(
+    () => glAccounts.filter((a) => a.is_postable && a.is_active),
+    [glAccounts],
+  );
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -356,23 +366,14 @@ export default function SetupCompanyProfile() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Retained Earnings GL</FormLabel>
-                          <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select equity account" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="__none__">-- None --</SelectItem>
-                              {glAccounts
-                                .filter((a) => a.account_type === 'equity' && a.is_postable && a.is_active)
-                                .map((a) => (
-                                  <SelectItem key={a.id} value={a.id}>
-                                    {a.account_code} - {a.account_name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <GLAccountCombobox
+                              value={field.value}
+                              onChange={field.onChange}
+                              options={retainedEarningsOptions}
+                              placeholder="Select equity account"
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -384,23 +385,14 @@ export default function SetupCompanyProfile() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Suspense Account GL</FormLabel>
-                          <Select value={field.value || '__none__'} onValueChange={(v) => field.onChange(v === '__none__' ? '' : v)}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select account" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="__none__">-- None --</SelectItem>
-                              {glAccounts
-                                .filter((a) => a.is_postable && a.is_active)
-                                .map((a) => (
-                                  <SelectItem key={a.id} value={a.id}>
-                                    {a.account_code} - {a.account_name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <GLAccountCombobox
+                              value={field.value}
+                              onChange={field.onChange}
+                              options={suspenseOptions}
+                              placeholder="Select account"
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}

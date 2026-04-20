@@ -212,7 +212,7 @@ async function upsertPrf(db: any, input: UpsertPrfInput): Promise<{ id: string }
       project_id: item.project_id || null,
       project_site: item.project_site?.trim() || null,
     }))
-    .filter((item) => item.description && item.gl_account_id && item.quantity > 0);
+    .filter((item) => item.description && item.unit_price > 0);
 
   if (!items.length) throw new Error('At least one valid line item is required');
 
@@ -1172,6 +1172,7 @@ export interface PaymentVoucherLineInput {
   description: string;
   cheque_no?: string | null;
   amount: number;
+  gl_account_id?: string | null;
 }
 
 export interface UpsertPaymentVoucherInput {
@@ -1189,6 +1190,8 @@ export interface UpsertPaymentVoucherInput {
   remarks?: string | null;
   prf_id?: string | null;
   attachment_urls?: string[];
+  priority?: 'normal' | 'urgent';
+  target_approval_level?: 'fa' | 'asst_mgr' | 'dmd';
   allocations?: PaymentVoucherAllocationInput[];
   lines?: PaymentVoucherLineInput[];
 }
@@ -1220,7 +1223,10 @@ export function usePaymentVouchers(filters: PaymentVoucherFilters = {}) {
               *,
               ap_invoice:ap_invoices(id, invoice_number, total_amount, paid_amount, status)
             ),
-            lines:payment_voucher_lines(*)
+            lines:payment_voucher_lines(
+              *,
+              gl_account:chart_of_accounts!gl_account_id(id, account_code, account_name)
+            )
           `,
           { count: 'exact' },
         )
@@ -1281,6 +1287,7 @@ async function upsertPaymentVoucher(db: any, input: UpsertPaymentVoucherInput, c
       cheque_no: line.cheque_no?.trim() || null,
       amount: roundMoney(toNumber(line.amount)),
       sort_order: index,
+      gl_account_id: line.gl_account_id || null,
     }))
     .filter((line) => line.amount > 0 || line.description);
 
@@ -1319,6 +1326,8 @@ async function upsertPaymentVoucher(db: any, input: UpsertPaymentVoucherInput, c
     remarks: input.remarks?.trim() || null,
     prf_id: input.prf_id || null,
     attachment_urls: input.attachment_urls || [],
+    priority: input.priority || 'normal',
+    target_approval_level: input.target_approval_level || 'dmd',
     total_amount: totalAmount,
   };
 
@@ -1383,6 +1392,7 @@ async function upsertPaymentVoucher(db: any, input: UpsertPaymentVoucherInput, c
           cheque_no: line.cheque_no,
           amount: line.amount,
           sort_order: line.sort_order,
+          gl_account_id: line.gl_account_id,
         })),
       );
     if (insertLinesError) throw insertLinesError;
@@ -1400,6 +1410,7 @@ export function useCreatePaymentVoucher() {
     mutationFn: async (input: UpsertPaymentVoucherInput) => upsertPaymentVoucher(db, input, true),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
       toast({ title: 'Created', description: 'Payment voucher saved as draft' });
     },
     onError: (error: Error) => {
@@ -1425,6 +1436,7 @@ export function useUpdatePaymentVoucher() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
       toast({ title: 'Saved', description: 'Payment voucher updated' });
     },
     onError: (error: Error) => {
@@ -1445,24 +1457,50 @@ export function useSubmitPV() {
 
   const mutation = useMutation({
     mutationFn: async (input: { pvId: string }) => {
+      // Look up target_approval_level to decide what status to land on
+      const { data: pvCurrent, error: lookupError } = await db
+        .from('payment_vouchers')
+        .select('id, status, target_approval_level')
+        .eq('id', input.pvId)
+        .single();
+      if (lookupError) throw lookupError;
+      if (!pvCurrent || pvCurrent.status !== 'draft') {
+        throw new Error('Only draft payment vouchers can be submitted');
+      }
+
+      const target = pvCurrent.target_approval_level || 'dmd';
+      const now = new Date().toISOString();
+
+      // FA-only: jump straight to 'approved' on submit (no AM, no DMD).
+      // FA→AM: 'pending' (waits for AM check, which will jump to 'approved').
+      // FA→AM→DMD: 'pending' as before.
+      const updateFields: Record<string, string> = {
+        status: target === 'fa' ? 'approved' : 'pending',
+        submitted_at: now,
+      };
+      if (target === 'fa') {
+        updateFields.approved_at = now;
+      }
+
       const { data, error } = await db
         .from('payment_vouchers')
-        .update({
-          status: 'pending',
-          submitted_at: new Date().toISOString(),
-        })
+        .update(updateFields)
         .eq('id', input.pvId)
         .eq('status', 'draft')
-        .select('id, pv_number')
+        .select('id, pv_number, target_approval_level')
         .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Only draft payment vouchers can be submitted');
-      return data as { id: string; pv_number: string };
+      return data as { id: string; pv_number: string; target_approval_level: string };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
-      toast({ title: 'Submitted', description: 'Payment voucher submitted for approval' });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
+      const msg = data.target_approval_level === 'fa'
+        ? 'Self-approved (FA-only routing)'
+        : 'Payment voucher submitted for approval';
+      toast({ title: 'Submitted', description: msg });
       createFinanceNotification('pv_submitted', data.pv_number);
     },
     onError: (error: Error) => {
@@ -1483,24 +1521,48 @@ export function useCheckPV() {
 
   const mutation = useMutation({
     mutationFn: async (input: { pvId: string }) => {
+      const { data: pvCurrent, error: lookupError } = await db
+        .from('payment_vouchers')
+        .select('id, status, target_approval_level')
+        .eq('id', input.pvId)
+        .single();
+      if (lookupError) throw lookupError;
+      if (!pvCurrent || pvCurrent.status !== 'pending') {
+        throw new Error('Only pending payment vouchers can be checked');
+      }
+
+      const target = pvCurrent.target_approval_level || 'dmd';
+      const now = new Date().toISOString();
+
+      // FA→AM (target='asst_mgr'): AM check is the final approval — jump to 'approved'.
+      // FA→AM→DMD (target='dmd'): land on 'checked' to wait for DMD.
+      const updateFields: Record<string, string> = {
+        status: target === 'asst_mgr' ? 'approved' : 'checked',
+        checked_at: now,
+      };
+      if (target === 'asst_mgr') {
+        updateFields.approved_at = now;
+      }
+
       const { data, error } = await db
         .from('payment_vouchers')
-        .update({
-          status: 'checked',
-          checked_at: new Date().toISOString(),
-        })
+        .update(updateFields)
         .eq('id', input.pvId)
         .eq('status', 'pending')
-        .select('id, pv_number')
+        .select('id, pv_number, target_approval_level')
         .maybeSingle();
 
       if (error) throw error;
       if (!data) throw new Error('Only pending payment vouchers can be checked');
-      return data as { id: string; pv_number: string };
+      return data as { id: string; pv_number: string; target_approval_level: string };
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
-      toast({ title: 'Checked', description: 'Payment voucher checked and forwarded for approval' });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
+      const msg = data.target_approval_level === 'asst_mgr'
+        ? 'Approved (FA→AM routing)'
+        : 'Payment voucher checked and forwarded for approval';
+      toast({ title: 'Checked', description: msg });
       createFinanceNotification('pv_checked', data.pv_number);
     },
     onError: (error: Error) => {
@@ -1538,6 +1600,7 @@ export function useApprovePV() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
       toast({ title: 'Approved', description: 'Payment voucher approved' });
       createFinanceNotification('pv_approved', data.pv_number);
     },
@@ -1595,6 +1658,7 @@ export function useRejectPV() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
       toast({ title: 'Rejected', description: 'Payment voucher has been rejected' });
       createFinanceNotification('pv_rejected', data?.pv_number || '');
     },
@@ -1638,6 +1702,7 @@ export function useMarkPVPaid() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
       toast({
         title: 'Marked as Paid',
         description: `${data.count} payment voucher(s) marked as paid`,
@@ -1735,6 +1800,32 @@ export function usePostPV() {
       const payFor = voucher.pay_for ? ` - ${voucher.pay_for}` : '';
       const cbDescription = `Payment Voucher ${pvRef}${payFor}`;
 
+      // Build debit lines:
+      //  - allocation-linked PVs debit trade_payables (invoice already debited the expense GL)
+      //  - lines-only PVs debit each line's gl_account_id (or fall back to trade_payables if missing)
+      const debitLines: Array<{ account_id: string; description: string; debit_amount: number; credit_amount: number }> = [];
+
+      if (allocations.length) {
+        debitLines.push({
+          account_id: tradePayables.id,
+          description: cbDescription,
+          debit_amount: totalAllocated,
+          credit_amount: 0,
+        });
+      } else {
+        for (const line of lines) {
+          const lineAmount = roundMoney(toNumber(line.amount));
+          if (lineAmount <= 0) continue;
+          const accountId = line.gl_account_id || tradePayables.id;
+          debitLines.push({
+            account_id: accountId,
+            description: line.description || cbDescription,
+            debit_amount: lineAmount,
+            credit_amount: 0,
+          });
+        }
+      }
+
       const posting = await createGLPosting({
         company_id: voucher.company_id,
         entry_date: voucher.payment_date,
@@ -1743,12 +1834,7 @@ export function usePostPV() {
         reference_id: voucher.id,
         prefix: 'CB',
         lines: [
-          {
-            account_id: tradePayables.id,
-            description: cbDescription,
-            debit_amount: totalAllocated,
-            credit_amount: 0,
-          },
+          ...debitLines,
           {
             account_id: bankGlAccountId,
             description: voucher.reference_no || cbDescription,
@@ -1796,6 +1882,7 @@ export function usePostPV() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
       queryClient.invalidateQueries({ queryKey: ['ap-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['journal-entries'] });
       toast({ title: 'Posted', description: 'Payment voucher posted to GL' });
@@ -1858,6 +1945,7 @@ export function useChangePostType() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
       if (result) {
         toast({
           title: 'Post type changed',
@@ -2214,6 +2302,7 @@ export function usePostApPayment() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['ap-payments'] });
       queryClient.invalidateQueries({ queryKey: ['payment-vouchers'] });
+      queryClient.invalidateQueries({ queryKey: ['prf-outstanding-balances'] });
       toast({ title: 'Posted', description: 'AP payment posted' });
       createFinanceNotification('ap_payment_posted', data.payment_number);
     },

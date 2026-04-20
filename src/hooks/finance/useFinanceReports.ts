@@ -470,6 +470,31 @@ export interface AgingBucket {
   total: number;
 }
 
+export type ApAgingStatus = 'outstanding' | 'partially_paid' | 'paid';
+
+export interface AgingInvoiceRow {
+  id: string;
+  invoice_number: string;
+  invoice_date: string | null;
+  due_date: string;
+  supplier_id: string;
+  supplier_code: string;
+  supplier_name: string;
+  original_amount: number;
+  paid_amount: number;
+  outstanding_amount: number;
+  status: ApAgingStatus;
+  payment_date: string | null;
+  payment_ref: string | null; // PV number(s)
+  buckets: AgingBucket;
+}
+
+export interface ApAgingResult {
+  rows: AgingInvoiceRow[];
+  totals: AgingBucket & { paid_total: number; original_total: number };
+}
+
+// Legacy per-party aging row (still used by AR Aging which hasn't been re-grained)
 export interface AgingRow {
   id: string;
   code: string;
@@ -477,74 +502,122 @@ export interface AgingRow {
   buckets: AgingBucket;
 }
 
-export interface ApAgingResult {
+export interface ArAgingResult {
   rows: AgingRow[];
   totals: AgingBucket;
 }
 
-export function useApAging(companyId?: string, asOfDate?: string) {
+export function useApAging(companyId?: string, asOfDate?: string, includePaid: boolean = false) {
   const db = supabase as any;
 
   return useQuery<ApAgingResult>({
-    queryKey: ['finance-report', 'ap-aging', companyId || 'all', asOfDate || 'today'],
+    queryKey: ['finance-report', 'ap-aging', companyId || 'all', asOfDate || 'today', includePaid],
     queryFn: async () => {
       const refDate = asOfDate || new Date().toISOString().slice(0, 10);
+      const statuses = includePaid
+        ? ['posted', 'partially_paid', 'paid']
+        : ['posted', 'partially_paid'];
 
       let q = db
         .from('ap_invoices')
         .select(`
           id,
+          invoice_number,
+          invoice_date,
           total_amount,
           paid_amount,
           due_date,
-          supplier:suppliers(id, supplier_code, supplier_name)
+          status,
+          supplier:suppliers(id, supplier_code, supplier_name),
+          allocations:payment_voucher_allocations(
+            allocated_amount,
+            pv:payment_vouchers(pv_number, payment_date, status)
+          )
         `)
-        .in('status', ['posted', 'partially_paid']);
+        .in('status', statuses);
 
       if (companyId) q = q.eq('company_id', companyId);
 
       const { data, error } = await q;
       if (error) throw error;
 
-      const grouped = new Map<string, AgingRow>();
+      const rows: AgingInvoiceRow[] = [];
 
       for (const inv of (data || []) as any[]) {
         const supplier = inv.supplier;
         if (!supplier) continue;
 
-        const outstanding = asNumber(inv.total_amount) - asNumber(inv.paid_amount);
-        if (outstanding <= 0) continue;
+        const original = asNumber(inv.total_amount);
+        const paid = asNumber(inv.paid_amount);
+        const outstanding = Math.max(0, original - paid);
 
-        const dueDate = new Date(inv.due_date);
-        const asOf = new Date(refDate);
-        const daysPast = Math.floor((asOf.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+        let status: ApAgingStatus;
+        if (paid <= 0) status = 'outstanding';
+        else if (outstanding > 0.0001) status = 'partially_paid';
+        else status = 'paid';
 
-        const key = supplier.id;
-        if (!grouped.has(key)) {
-          grouped.set(key, {
-            id: supplier.id,
-            code: supplier.supplier_code,
-            name: supplier.supplier_name,
-            buckets: { current: 0, days30: 0, days60: 0, days90plus: 0, total: 0 },
-          });
+        // Pick the most recent posted PV from allocations as the "payment" reference
+        const postedAllocations = (inv.allocations || []).filter(
+          (a: any) => a.pv && ['paid', 'posted'].includes(a.pv.status),
+        );
+        postedAllocations.sort((a: any, b: any) =>
+          (b.pv?.payment_date || '').localeCompare(a.pv?.payment_date || ''),
+        );
+        const lastPaymentDate = postedAllocations[0]?.pv?.payment_date || null;
+        const allPvNumbers = postedAllocations.map((a: any) => a.pv?.pv_number).filter(Boolean);
+        const paymentRef = allPvNumbers.length ? allPvNumbers.join(', ') : null;
+
+        // Aging buckets based on outstanding ONLY — paid items show 0 in all buckets
+        const buckets: AgingBucket = { current: 0, days30: 0, days60: 0, days90plus: 0, total: outstanding };
+        if (outstanding > 0) {
+          const dueDate = new Date(inv.due_date);
+          const asOf = new Date(refDate);
+          const daysPast = Math.floor((asOf.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          if (daysPast <= 30) buckets.current = outstanding;
+          else if (daysPast <= 60) buckets.days30 = outstanding;
+          else if (daysPast <= 90) buckets.days60 = outstanding;
+          else buckets.days90plus = outstanding;
         }
 
-        const row = grouped.get(key)!;
-        if (daysPast <= 30) row.buckets.current += outstanding;
-        else if (daysPast <= 60) row.buckets.days30 += outstanding;
-        else if (daysPast <= 90) row.buckets.days60 += outstanding;
-        else row.buckets.days90plus += outstanding;
-        row.buckets.total += outstanding;
+        rows.push({
+          id: inv.id,
+          invoice_number: inv.invoice_number || inv.id,
+          invoice_date: inv.invoice_date,
+          due_date: inv.due_date,
+          supplier_id: supplier.id,
+          supplier_code: supplier.supplier_code,
+          supplier_name: supplier.supplier_name,
+          original_amount: original,
+          paid_amount: paid,
+          outstanding_amount: outstanding,
+          status,
+          payment_date: lastPaymentDate,
+          payment_ref: paymentRef,
+          buckets,
+        });
       }
 
-      const rows = Array.from(grouped.values()).sort((a, b) => a.code.localeCompare(b.code));
-      const totals: AgingBucket = { current: 0, days30: 0, days60: 0, days90plus: 0, total: 0 };
+      // Sort by supplier code then invoice number for stable display
+      rows.sort((a, b) => a.supplier_code.localeCompare(b.supplier_code) || a.invoice_number.localeCompare(b.invoice_number));
+
+      const totals = {
+        current: 0,
+        days30: 0,
+        days60: 0,
+        days90plus: 0,
+        total: 0,
+        paid_total: 0,
+        original_total: 0,
+      };
       for (const row of rows) {
         totals.current += row.buckets.current;
         totals.days30 += row.buckets.days30;
         totals.days60 += row.buckets.days60;
         totals.days90plus += row.buckets.days90plus;
         totals.total += row.buckets.total;
+        totals.paid_total += row.paid_amount;
+        totals.original_total += row.original_amount;
       }
 
       return { rows, totals };
@@ -560,7 +633,7 @@ export function useApAging(companyId?: string, asOfDate?: string) {
 export function useArAging(companyId?: string, asOfDate?: string) {
   const db = supabase as any;
 
-  return useQuery<ApAgingResult>({
+  return useQuery<ArAgingResult>({
     queryKey: ['finance-report', 'ar-aging', companyId || 'all', asOfDate || 'today'],
     queryFn: async () => {
       const refDate = asOfDate || new Date().toISOString().slice(0, 10);

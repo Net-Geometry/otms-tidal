@@ -35,6 +35,7 @@ import { PlusCircle, RotateCcw, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
 import { useProjects } from '@/hooks/finance/useProjects';
+import { GLAccountCombobox } from '@/components/finance/GLAccountCombobox';
 import {
   useCreateJournalEntry,
   useJournalEntries,
@@ -429,22 +430,11 @@ export default function JournalEntries() {
                     <div className="grid gap-3 md:grid-cols-6">
                       <div className="md:col-span-2 space-y-2">
                         <Label>Account</Label>
-                        <Select
-                          value={line.account_id || 'none'}
-                          onValueChange={(value) => onUpdateLine(line.id, 'account_id', value === 'none' ? '' : value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select account" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none" disabled>Select account</SelectItem>
-                            {postingAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.account_code} - {account.account_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <GLAccountCombobox
+                          value={line.account_id}
+                          onChange={(value) => onUpdateLine(line.id, 'account_id', value)}
+                          options={postingAccounts}
+                        />
                       </div>
 
                       <div className="space-y-2">

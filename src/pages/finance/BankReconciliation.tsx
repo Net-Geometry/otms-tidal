@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Bot, CheckCircle2, Eye, PlusCircle } from 'lucide-react';
+import { Bot, CheckCircle2, Eye, PlusCircle, Send } from 'lucide-react';
 import { BankStatementExtractDialog } from '@/components/finance/BankStatementExtractDialog';
 import { matchTransactions, type MatchResult } from '@/lib/bankStatementMatcher';
 import type { ExtractionResult } from '@/lib/bankStatementExtractor';
@@ -44,6 +44,7 @@ import {
   useReconciliationDetail,
   useToggleReconciled,
 } from '@/hooks/finance/useBankReconciliation';
+import { useSendMissingPVReminder } from '@/hooks/finance/useBankReconReminder';
 import {
   BANK_RECONCILIATION_STATUS_LABELS,
   type BankReconciliation,
@@ -144,6 +145,8 @@ export default function BankReconciliationPage() {
   const [extractDialogOpen, setExtractDialogOpen] = useState(false);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [extractedTxns, setExtractedTxns] = useState<ExtractionResult | null>(null);
+  const sendMissingPVReminder = useSendMissingPVReminder();
+  const [remindedTxnKeys, setRemindedTxnKeys] = useState<Set<string>>(new Set());
 
   const handleExtracted = (result: ExtractionResult) => {
     setExtractedTxns(result);
@@ -269,6 +272,97 @@ export default function BankReconciliationPage() {
                       <p className="text-red-600 font-medium">
                         Unmatched (GL): {matchResult.unmatchedItems.length}
                       </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Unmatched bank statement entries — likely missing PVs */}
+              {matchResult && extractedTxns && matchResult.unmatchedExtracted.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base text-amber-700">
+                      Bank Statement Entries Without Matching PV
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      These rows appear in the bank statement but no Payment Voucher exists in the system.
+                      Send a reminder to Finance Admin to create the missing PV.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[110px]">Date</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead>Reference</TableHead>
+                            <TableHead className="text-right">Debit</TableHead>
+                            <TableHead className="text-right">Credit</TableHead>
+                            <TableHead className="text-right w-[180px]">Action</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {matchResult.unmatchedExtracted.map((idx) => {
+                            const txn = extractedTxns.transactions[idx];
+                            if (!txn) return null;
+                            const isDebit = (txn.debit || 0) > 0;
+                            const amount = isDebit ? txn.debit : txn.credit;
+                            const key = `${txn.date}-${amount}-${txn.reference || ''}-${idx}`;
+                            const alreadyReminded = remindedTxnKeys.has(key);
+                            return (
+                              <TableRow key={key}>
+                                <TableCell className="text-xs">
+                                  {txn.date ? format(new Date(txn.date), 'dd MMM yyyy') : '-'}
+                                </TableCell>
+                                <TableCell className="max-w-[260px] truncate text-sm" title={txn.description}>
+                                  {txn.description || '-'}
+                                </TableCell>
+                                <TableCell className="font-mono text-xs">{txn.reference || '-'}</TableCell>
+                                <TableCell className="text-right tabular-nums text-xs">
+                                  {(txn.debit || 0) > 0 ? formatMoney(txn.debit) : '-'}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums text-xs">
+                                  {(txn.credit || 0) > 0 ? formatMoney(txn.credit) : '-'}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {alreadyReminded ? (
+                                    <Badge variant="secondary" className="gap-1">
+                                      <CheckCircle2 className="h-3 w-3" />
+                                      Reminder Sent
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={sendMissingPVReminder.isPending}
+                                      onClick={async () => {
+                                        await sendMissingPVReminder.mutateAsync({
+                                          bankAccountName: reconData.bank_account?.account_name || 'Unknown',
+                                          statementDate: reconData.statement_date,
+                                          txnDate: txn.date,
+                                          description: txn.description,
+                                          reference: txn.reference,
+                                          amount,
+                                          isDebit,
+                                        });
+                                        setRemindedTxnKeys((prev) => {
+                                          const next = new Set(prev);
+                                          next.add(key);
+                                          return next;
+                                        });
+                                      }}
+                                    >
+                                      <Send className="mr-1 h-3 w-3" />
+                                      Send Reminder
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
                     </div>
                   </CardContent>
                 </Card>

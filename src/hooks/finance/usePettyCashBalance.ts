@@ -24,7 +24,7 @@ export function usePettyCashBalance(fundAccountId?: string) {
           .from('petty_cash_settings')
           .select('float_amount')
           .eq('id', 1)
-          .single(),
+          .maybeSingle(),
       ]);
 
       if (txnError) throw txnError;

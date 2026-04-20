@@ -37,6 +37,7 @@ import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useSuppliers } from '@/hooks/finance/useFinanceFoundation';
 import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
 import { useProjects } from '@/hooks/finance/useProjects';
+import { GLAccountCombobox } from '@/components/finance/GLAccountCombobox';
 import {
   useApInvoices,
   useApproveApInvoice,
@@ -684,22 +685,11 @@ export default function ApInvoices() {
 
                           <div className="space-y-2 md:col-span-4">
                             <Label>GL Account</Label>
-                            <Select
-                              value={line.gl_account_id || 'none'}
-                              onValueChange={(value) => updateLine(line.id, 'gl_account_id', value === 'none' ? '' : value)}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select account" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Select account</SelectItem>
-                                {postingAccounts.map((account) => (
-                                  <SelectItem key={account.id} value={account.id}>
-                                    {account.account_code} - {account.account_name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <GLAccountCombobox
+                              value={line.gl_account_id}
+                              onChange={(value) => updateLine(line.id, 'gl_account_id', value)}
+                              options={postingAccounts}
+                            />
                           </div>
 
                           <div className="space-y-2 md:col-span-2">

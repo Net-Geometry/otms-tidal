@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { z } from 'zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Plus, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { GLAccountCombobox } from '@/components/finance/GLAccountCombobox';
 import {
   Table,
   TableBody,
@@ -69,68 +67,6 @@ interface PettyCashTxnFormProps {
   projects: Project[];
   departments: DepartmentWithCount[];
   isSubmitting?: boolean;
-}
-
-function LineAccountCombobox({
-  value,
-  onChange,
-  options,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: ChartOfAccount[];
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((a) => a.id === value);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn(
-            'w-full justify-between font-normal h-8 text-xs',
-            !value && 'text-muted-foreground',
-          )}
-        >
-          <span className="truncate">
-            {selected ? `${selected.account_code} - ${selected.account_name}` : 'Select account'}
-          </span>
-          <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search account..." />
-          <CommandList>
-            <CommandEmpty>No account found.</CommandEmpty>
-            <CommandGroup>
-              {options.map((row) => (
-                <CommandItem
-                  key={row.id}
-                  value={`${row.account_code} - ${row.account_name}`}
-                  onSelect={() => {
-                    onChange(row.id);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      'mr-2 h-4 w-4',
-                      value === row.id ? 'opacity-100' : 'opacity-0',
-                    )}
-                  />
-                  {row.account_code} - {row.account_name}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
 }
 
 export function PettyCashTxnForm({
@@ -361,10 +297,12 @@ export function PettyCashTxnForm({
                             name={`lines.${index}.account_id`}
                             render={({ field: f }) => (
                               <FormItem className="space-y-0">
-                                <LineAccountCombobox
+                                <GLAccountCombobox
                                   value={f.value}
                                   onChange={f.onChange}
                                   options={accountOptions}
+                                  size="sm"
+                                  popoverWidth="w-[320px]"
                                 />
                                 <FormMessage />
                               </FormItem>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Eye } from 'lucide-react';
+import { AlertTriangle, Eye } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -179,8 +179,18 @@ export default function ApprovePRF() {
                     </TableHeader>
                     <TableBody>
                       {rows.map((prf) => (
-                        <TableRow key={prf.id}>
-                          <TableCell className="font-medium">{prf.prf_number || 'Draft'}</TableCell>
+                        <TableRow key={prf.id} className={prf.priority === 'urgent' ? 'bg-amber-50/40 dark:bg-amber-950/20' : undefined}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-1.5">
+                              {prf.priority === 'urgent' && (
+                                <AlertTriangle
+                                  className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                                  aria-label="Urgent"
+                                />
+                              )}
+                              <span>{prf.prf_number || 'Draft'}</span>
+                            </div>
+                          </TableCell>
                           <TableCell>{format(new Date(prf.prf_date), 'dd MMM yyyy')}</TableCell>
                           <TableCell>{PRF_TYPE_LABELS[prf.prf_type]}</TableCell>
                           <TableCell>{prf.payable_to}</TableCell>
@@ -238,6 +248,13 @@ export default function ApprovePRF() {
             </DialogHeader>
             {detailPrf && (
               <div className="space-y-4 text-sm">
+                {detailPrf.priority === 'urgent' && (
+                  <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="font-semibold">URGENT</span>
+                    <span className="text-muted-foreground">— flagged for urgent processing.</span>
+                  </div>
+                )}
                 <div className="grid gap-2 md:grid-cols-2">
                   <p><span className="text-muted-foreground">Status:</span> <Badge className={getStatusBadgeClass(detailPrf.status)}>{AP_PRF_STATUS_LABELS[detailPrf.status]}</Badge></p>
                   <p><span className="text-muted-foreground">Type:</span> {PRF_TYPE_LABELS[detailPrf.prf_type]}{detailPrf.prf_type === 'others' && detailPrf.prf_type_others ? ` (${detailPrf.prf_type_others})` : ''}</p>

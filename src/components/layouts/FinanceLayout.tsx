@@ -54,6 +54,7 @@ import {
   Users,
   Banknote,
   CreditCard,
+  Bell,
 } from 'lucide-react';
 import { generateBreadcrumbs } from './layoutUtils';
 import { AppRole } from '@/types/otms';
@@ -78,10 +79,10 @@ function FinanceSidebar({ activeRole }: { activeRole: string | null }) {
     financeSetup: currentPath.includes('/setup') || currentPath.includes('/masters'),
     financeCash: currentPath.includes('/petty-cash') || currentPath.includes('/cashbook') || currentPath.includes('/bank') || currentPath.includes('/opening-balance'),
     financeGL: currentPath.includes('/gl') && !currentPath.includes('/cashbook') && !currentPath.includes('/opening-balance') || currentPath.includes('/claims') || currentPath.includes('/wages'),
-    financeAP: currentPath.includes('/ap/prf') || currentPath.includes('/ap/payment-vouchers'),
+    financeAP: currentPath.includes('/ap/prf') || currentPath.includes('/ap/payment-vouchers') || currentPath.includes('/ap/reminders'),
     financeAR: currentPath.includes('/ar/official-receipts'),
     financeCustomer: currentPath.includes('/ar/') && !currentPath.includes('official-receipts'),
-    financeSupplier: currentPath.includes('/ap/') && !currentPath.includes('prf') && !currentPath.includes('payment-vouchers'),
+    financeSupplier: currentPath.includes('/ap/') && !currentPath.includes('prf') && !currentPath.includes('payment-vouchers') && !currentPath.includes('reminders'),
     financeReports: currentPath.includes('/finance/reports'),
     general: true,
   });
@@ -128,6 +129,7 @@ function FinanceSidebar({ activeRole }: { activeRole: string | null }) {
       items: [
         { path: '/finance/ap/prf', label: 'Payment Requisitions', icon: FileText },
         { path: '/finance/ap/payment-vouchers', label: 'Payment Vouchers', icon: CreditCard },
+        { path: '/finance/ap/reminders', label: 'Payment Reminders', icon: Bell },
       ],
     },
     financeAR: {

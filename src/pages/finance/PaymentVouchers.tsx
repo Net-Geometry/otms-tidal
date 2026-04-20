@@ -13,6 +13,8 @@ import {
   BookOpen,
   FileText,
   ArrowRightLeft,
+  AlertTriangle,
+  Download,
 } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
@@ -57,6 +59,9 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useBankAccounts, useSuppliers } from '@/hooks/finance/useFinanceFoundation';
+import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
+import { usePrfOutstandingBalances } from '@/hooks/finance/usePrfOutstandingBalances';
+import { GLAccountCombobox } from '@/components/finance/GLAccountCombobox';
 import {
   useApInvoices,
   useApprovePV,
@@ -73,6 +78,7 @@ import {
 } from '@/hooks/finance/useAccountsPayable';
 import { FileUpload } from '@/components/ot/FileUpload';
 import { useActiveRole } from '@/hooks/useActiveRole';
+import { generatePvPdf, generatePvBulkPdf } from '@/lib/pvPdfGenerator';
 import {
   AP_PAYMENT_METHOD_LABELS,
   AP_PV_STATUS_LABELS,
@@ -88,6 +94,7 @@ interface PvLineRow {
   description: string;
   cheque_no: string;
   amount: string;
+  gl_account_id: string;
 }
 
 interface PvFormState {
@@ -106,6 +113,8 @@ interface PvFormState {
   allocations: Record<string, string>;
   prf_id: string;
   attachment_urls: string[];
+  priority: 'normal' | 'urgent';
+  target_approval_level: 'fa' | 'asst_mgr' | 'dmd';
 }
 
 function formatMoney(value: number) {
@@ -118,7 +127,7 @@ function formatMoney(value: number) {
 }
 
 function makeEmptyLine(date: string): PvLineRow {
-  return { line_date: date, description: '', cheque_no: '', amount: '' };
+  return { line_date: date, description: '', cheque_no: '', amount: '', gl_account_id: '' };
 }
 
 function makeInitialForm(companyId: string): PvFormState {
@@ -139,6 +148,8 @@ function makeInitialForm(companyId: string): PvFormState {
     allocations: {},
     prf_id: '',
     attachment_urls: [],
+    priority: 'normal',
+    target_approval_level: 'dmd',
   };
 }
 
@@ -192,8 +203,14 @@ export default function PaymentVouchers() {
   const { data: companies = [] } = useCompanies();
   const suppliers = useSuppliers();
   const bankAccounts = useBankAccounts();
+  const chart = useChartOfAccounts({ accountType: 'all', activity: 'active', search: '' });
+  const postableAccounts = useMemo(
+    () => (chart.accounts || []).filter((a) => a.is_postable && a.is_active),
+    [chart.accounts],
+  );
   const { data: prfData } = usePurchaseRequisitions({ status: 'approved' });
   const allApprovedPrfs = useMemo(() => prfData?.rows || [], [prfData]);
+  const { data: prfBalances = [] } = usePrfOutstandingBalances();
   const companyMap = useMemo(() => {
     const map = new Map<string, { name: string; code: string | null }>();
     for (const c of companies) map.set(c.id, { name: c.name, code: c.code });
@@ -217,11 +234,78 @@ export default function PaymentVouchers() {
   const [editingVoucher, setEditingVoucher] = useState<PaymentVoucher | null>(null);
   const [detailVoucher, setDetailVoucher] = useState<PaymentVoucher | null>(null);
   const [form, setForm] = useState<PvFormState>(makeInitialForm(''));
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  const approvedPrfs = useMemo(() => {
-    if (!form.company_id) return allApprovedPrfs;
-    return allApprovedPrfs.filter((prf: any) => prf.company_id === form.company_id);
-  }, [allApprovedPrfs, form.company_id]);
+  // PRFs available for the PRF picker: only those with outstanding > 0,
+  // filtered by selected company. Editing a PV that's linked to a now-zero
+  // PRF: keep that PRF visible too so the link still resolves.
+  const outstandingPrfsForPicker = useMemo(() => {
+    const filtered = form.company_id
+      ? prfBalances.filter((p) => p.company_id === form.company_id)
+      : prfBalances;
+
+    if (!form.prf_id) return filtered;
+    if (filtered.some((p) => p.prf_id === form.prf_id)) return filtered;
+
+    // Already-linked PRF not in outstanding list — synthesize a stub so it stays selected
+    const linked = allApprovedPrfs.find((p: any) => p.id === form.prf_id);
+    if (!linked) return filtered;
+    return [
+      ...filtered,
+      {
+        prf_id: linked.id,
+        prf_number: linked.prf_number,
+        company_id: linked.company_id,
+        payable_to: linked.payable_to,
+        priority: linked.priority || 'normal',
+        prf_date: linked.prf_date,
+        total_amount: Number(linked.total_amount || 0),
+        allocated_amount: Number(linked.total_amount || 0),
+        outstanding_amount: 0,
+      },
+    ];
+  }, [prfBalances, form.company_id, form.prf_id, allApprovedPrfs]);
+
+  const handlePrfSelect = (prfId: string) => {
+    if (!prfId) {
+      setForm((prev) => ({ ...prev, prf_id: '' }));
+      return;
+    }
+
+    const balance = prfBalances.find((p) => p.prf_id === prfId);
+    const fullPrf = allApprovedPrfs.find((p: any) => p.id === prfId);
+
+    setForm((prev) => {
+      const next = { ...prev, prf_id: prfId };
+
+      // Auto-populate payee from PRF (only if currently empty — don't clobber user input)
+      if (!prev.pay_to && fullPrf?.payable_to) {
+        next.pay_to = fullPrf.payable_to;
+      }
+
+      // Auto-populate Pay For from concatenated PRF item descriptions
+      if (!prev.pay_for && fullPrf?.items?.length) {
+        next.pay_for = fullPrf.items.map((it: any) => it.description).join('; ');
+      }
+
+      // Auto-populate the first empty line with outstanding amount + first item description
+      if (balance && balance.outstanding_amount > 0) {
+        const firstLineIdx = prev.lines.findIndex((l) => !Number(l.amount || 0) && !l.description.trim());
+        if (firstLineIdx >= 0) {
+          const newLines = [...prev.lines];
+          newLines[firstLineIdx] = {
+            ...newLines[firstLineIdx],
+            description: fullPrf?.items?.[0]?.description || `From ${balance.prf_number}`,
+            amount: String(balance.outstanding_amount.toFixed(2)),
+          };
+          next.lines = newLines;
+        }
+      }
+
+      return next;
+    });
+  };
 
   const vouchers = usePaymentVouchers({
     companyId: companyFilter === 'all' ? undefined : companyFilter,
@@ -286,10 +370,25 @@ export default function PaymentVouchers() {
     return suppliers.suppliers.filter((supplier) => supplier.company_id === form.company_id);
   }, [suppliers.suppliers, form.company_id]);
 
+  const pettyCashGlIds = useMemo(() => {
+    return new Set(
+      (chart.accounts || [])
+        .filter((a) => a.system_tag === 'petty_cash' || a.special_type === 'CH')
+        .map((a) => a.id),
+    );
+  }, [chart.accounts]);
+
   const filteredBankAccounts = useMemo(() => {
-    if (!form.company_id) return bankAccounts.bankAccounts;
-    return bankAccounts.bankAccounts.filter((account) => account.company_id === form.company_id);
-  }, [bankAccounts.bankAccounts, form.company_id]);
+    let list = bankAccounts.bankAccounts;
+    if (form.company_id) {
+      list = list.filter((account) => account.company_id === form.company_id);
+    }
+    // When Cash payment method is selected, restrict to bank accounts mapped to petty cash GL
+    if (form.payment_method === 'cash') {
+      list = list.filter((account) => account.gl_account_id && pettyCashGlIds.has(account.gl_account_id));
+    }
+    return list;
+  }, [bankAccounts.bankAccounts, form.company_id, form.payment_method, pettyCashGlIds]);
 
   const openNewDialog = () => {
     const defaultCompanyId = companyFilter === 'all' ? companies[0]?.id || '' : companyFilter;
@@ -311,6 +410,7 @@ export default function PaymentVouchers() {
         description: line.description || '',
         cheque_no: line.cheque_no || '',
         amount: String(line.amount || 0),
+        gl_account_id: line.gl_account_id || '',
       }));
 
     setEditingVoucher(voucher);
@@ -330,6 +430,8 @@ export default function PaymentVouchers() {
       allocations,
       prf_id: voucher.prf_id || '',
       attachment_urls: voucher.attachment_urls || [],
+      priority: (voucher.priority as 'normal' | 'urgent') || 'normal',
+      target_approval_level: (voucher.target_approval_level as 'fa' | 'asst_mgr' | 'dmd') || 'dmd',
     });
     setDialogOpen(true);
   };
@@ -416,6 +518,7 @@ export default function PaymentVouchers() {
         description: line.description,
         cheque_no: line.cheque_no || null,
         amount: Number(line.amount || 0),
+        gl_account_id: line.gl_account_id || null,
       }));
 
     if (!allocations.length && !lines.length) {
@@ -438,6 +541,8 @@ export default function PaymentVouchers() {
       remarks: form.remarks.trim() || null,
       prf_id: form.prf_id || null,
       attachment_urls: form.attachment_urls,
+      priority: form.priority,
+      target_approval_level: form.target_approval_level,
       allocations,
       lines,
     };
@@ -461,6 +566,63 @@ export default function PaymentVouchers() {
     const totalAmount = all.reduce((sum, r) => sum + Number(r.total_amount || 0), 0);
     return { draftCount, pendingCount, approvedCount, totalAmount };
   }, [vouchers.data]);
+
+  // ── Bulk selection ──
+  const visibleSelectableIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const allVisibleSelected =
+    visibleSelectableIds.length > 0 &&
+    visibleSelectableIds.every((id) => selectedIds.has(id));
+  const someVisibleSelected =
+    !allVisibleSelected && visibleSelectableIds.some((id) => selectedIds.has(id));
+
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        for (const id of visibleSelectableIds) next.add(id);
+      } else {
+        for (const id of visibleSelectableIds) next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const downloadSinglePvPdf = async (pv: PaymentVoucher) => {
+    try {
+      setIsDownloadingPdf(true);
+      await generatePvPdf(pv);
+    } catch (err) {
+      console.error('PV PDF generation failed', err);
+      toast({ title: 'Failed to generate PDF', variant: 'destructive' });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const downloadBulkPvPdf = async () => {
+    const selected = rows.filter((r) => selectedIds.has(r.id));
+    if (!selected.length) {
+      toast({ title: 'Select at least one PV to download', variant: 'destructive' });
+      return;
+    }
+    try {
+      setIsDownloadingPdf(true);
+      await generatePvBulkPdf(selected);
+    } catch (err) {
+      console.error('Bulk PV PDF generation failed', err);
+      toast({ title: 'Failed to generate bulk PDF', variant: 'destructive' });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   function getRowActions(voucher: PaymentVoucher) {
     const actions: { label: string; icon: React.ReactNode; onClick: () => void; disabled?: boolean; variant?: string }[] = [];
@@ -512,10 +674,27 @@ export default function PaymentVouchers() {
         title="Payment Vouchers"
         description="Prepare AP payments, allocate invoices, and post disbursements to GL."
         actions={
-          <Button onClick={openNewDialog}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Payment Voucher
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={downloadBulkPvPdf}
+              disabled={selectedIds.size === 0 || isDownloadingPdf}
+              title={
+                selectedIds.size === 0
+                  ? 'Select PVs from the list to enable bulk download'
+                  : `Download ${selectedIds.size} PV${selectedIds.size === 1 ? '' : 's'} as a single PDF`
+              }
+            >
+              <Download className="mr-2 h-4 w-4" />
+              {selectedIds.size > 0
+                ? `Download ${selectedIds.size} PV${selectedIds.size === 1 ? '' : 's'} as PDF`
+                : 'Download Selected PDF'}
+            </Button>
+            <Button onClick={openNewDialog}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              New Payment Voucher
+            </Button>
+          </div>
         }
       >
         {/* ── Summary Cards ── */}
@@ -633,6 +812,19 @@ export default function PaymentVouchers() {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-[36px]">
+                        <Checkbox
+                          aria-label="Select all visible PVs"
+                          checked={
+                            allVisibleSelected
+                              ? true
+                              : someVisibleSelected
+                              ? 'indeterminate'
+                              : false
+                          }
+                          onCheckedChange={(value) => toggleSelectAllVisible(value === true)}
+                        />
+                      </TableHead>
                       <TableHead>PV No</TableHead>
                       <TableHead>Company</TableHead>
                       <TableHead>Pay To</TableHead>
@@ -653,13 +845,31 @@ export default function PaymentVouchers() {
                       return (
                         <TableRow
                           key={voucher.id}
-                          className="group cursor-pointer"
+                          className={`group cursor-pointer ${voucher.priority === 'urgent' ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''} ${selectedIds.has(voucher.id) ? 'bg-primary/5' : ''}`}
                           onClick={() => setDetailVoucher(voucher)}
                         >
+                          <TableCell
+                            className="w-[36px]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Checkbox
+                              aria-label={`Select PV ${voucher.pv_number || voucher.id}`}
+                              checked={selectedIds.has(voucher.id)}
+                              onCheckedChange={(value) => toggleSelected(voucher.id, value === true)}
+                            />
+                          </TableCell>
                           <TableCell>
-                            <span className="font-mono text-xs font-medium">
-                              {voucher.pv_number || 'Draft'}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              {voucher.priority === 'urgent' && (
+                                <AlertTriangle
+                                  className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                                  aria-label="Urgent"
+                                />
+                              )}
+                              <span className="font-mono text-xs font-medium">
+                                {voucher.pv_number || 'Draft'}
+                              </span>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <span className="text-xs text-muted-foreground">{companyMap.get(voucher.company_id)?.code || companyMap.get(voucher.company_id)?.name || '-'}</span>
@@ -854,6 +1064,67 @@ export default function PaymentVouchers() {
                 </div>
               </div>
 
+              {/* Priority */}
+              <div className="flex items-center gap-3 rounded-md border bg-amber-50/50 p-3 dark:bg-amber-950/20">
+                <Checkbox
+                  id="pv_urgent"
+                  checked={form.priority === 'urgent'}
+                  onCheckedChange={(checked) =>
+                    setForm((prev) => ({ ...prev, priority: checked ? 'urgent' : 'normal' }))
+                  }
+                />
+                <AlertTriangle className={`h-4 w-4 ${form.priority === 'urgent' ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                <Label htmlFor="pv_urgent" className="cursor-pointer font-medium">
+                  Mark as Urgent
+                </Label>
+                <span className="text-xs text-muted-foreground">
+                  Approvers will see an urgent label and be notified accordingly.
+                </span>
+              </div>
+
+              {/* Approval Routing — FA picks how high this PV needs to escalate */}
+              <div className="space-y-2 rounded-md border p-3">
+                <Label className="text-sm font-medium">Approval Routing</Label>
+                <RadioGroup
+                  value={form.target_approval_level}
+                  onValueChange={(value) =>
+                    setForm((prev) => ({ ...prev, target_approval_level: value as 'fa' | 'asst_mgr' | 'dmd' }))
+                  }
+                  className="grid gap-2 md:grid-cols-3"
+                >
+                  <Label
+                    htmlFor="target_fa"
+                    className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm font-normal ${form.target_approval_level === 'fa' ? 'border-primary bg-primary/5' : ''}`}
+                  >
+                    <RadioGroupItem value="fa" id="target_fa" />
+                    <span>
+                      <span className="block font-medium">FA only</span>
+                      <span className="block text-xs text-muted-foreground">Self-approve, skip AM and DMD</span>
+                    </span>
+                  </Label>
+                  <Label
+                    htmlFor="target_asst_mgr"
+                    className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm font-normal ${form.target_approval_level === 'asst_mgr' ? 'border-primary bg-primary/5' : ''}`}
+                  >
+                    <RadioGroupItem value="asst_mgr" id="target_asst_mgr" />
+                    <span>
+                      <span className="block font-medium">FA → AM</span>
+                      <span className="block text-xs text-muted-foreground">Asst. Manager approves, skip DMD</span>
+                    </span>
+                  </Label>
+                  <Label
+                    htmlFor="target_dmd"
+                    className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm font-normal ${form.target_approval_level === 'dmd' ? 'border-primary bg-primary/5' : ''}`}
+                  >
+                    <RadioGroupItem value="dmd" id="target_dmd" />
+                    <span>
+                      <span className="block font-medium">FA → AM → DMD</span>
+                      <span className="block text-xs text-muted-foreground">Full chain (default)</span>
+                    </span>
+                  </Label>
+                </RadioGroup>
+              </div>
+
               {/* Row 2: Pay To, Pay For */}
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
@@ -889,7 +1160,7 @@ export default function PaymentVouchers() {
                   <Label>Payment Method</Label>
                   <RadioGroup
                     value={form.payment_method}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, payment_method: value as ApPaymentMethod }))}
+                    onValueChange={(value) => setForm((prev) => ({ ...prev, payment_method: value as ApPaymentMethod, bank_account_id: '' }))}
                     className="flex flex-wrap items-center gap-x-4 gap-y-2"
                   >
                     {(['cheque', 'online_transfer', 'cash', 'others'] as ApPaymentMethod[]).map((method) => (
@@ -962,10 +1233,11 @@ export default function PaymentVouchers() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="w-[140px]">Date</TableHead>
+                        <TableHead className="w-[130px]">Date</TableHead>
                         <TableHead>Description</TableHead>
-                        <TableHead className="w-[140px]">Cheque No.</TableHead>
-                        <TableHead className="w-[150px] text-right">Amount (RM)</TableHead>
+                        <TableHead className="w-[200px]">GL Account</TableHead>
+                        <TableHead className="w-[120px]">Cheque No.</TableHead>
+                        <TableHead className="w-[140px] text-right">Amount (RM)</TableHead>
                         <TableHead className="w-[50px]" />
                       </TableRow>
                     </TableHeader>
@@ -977,6 +1249,15 @@ export default function PaymentVouchers() {
                           </TableCell>
                           <TableCell>
                             <Input value={line.description} onChange={(e) => updateLine(index, 'description', e.target.value)} placeholder="Description" />
+                          </TableCell>
+                          <TableCell>
+                            <GLAccountCombobox
+                              value={line.gl_account_id}
+                              onChange={(value) => updateLine(index, 'gl_account_id', value)}
+                              options={postableAccounts}
+                              size="sm"
+                              popoverWidth="w-[340px]"
+                            />
                           </TableCell>
                           <TableCell>
                             <Input value={line.cheque_no} onChange={(e) => updateLine(index, 'cheque_no', e.target.value)} placeholder="Cheque no." />
@@ -1075,18 +1356,38 @@ export default function PaymentVouchers() {
                   <Label>PRF No.</Label>
                   <Select
                     value={form.prf_id || 'none'}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, prf_id: value === 'none' ? '' : value }))}
+                    onValueChange={(value) => handlePrfSelect(value === 'none' ? '' : value)}
                   >
                     <SelectTrigger><SelectValue placeholder="Link to PRF (optional)" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None</SelectItem>
-                      {approvedPrfs.map((prf: any) => (
-                        <SelectItem key={prf.id} value={prf.id}>
-                          {prf.prf_number} - {prf.description || prf.requester?.full_name || ''}
+                      {outstandingPrfsForPicker.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          No approved PRFs with outstanding balance.
+                        </div>
+                      )}
+                      {outstandingPrfsForPicker.map((prf) => (
+                        <SelectItem key={prf.prf_id} value={prf.prf_id}>
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-medium">{prf.prf_number}</span>
+                            {prf.payable_to && <span className="text-xs text-muted-foreground">— {prf.payable_to}</span>}
+                            <span className="ml-auto text-xs font-semibold tabular-nums text-emerald-600">
+                              {formatMoney(prf.outstanding_amount)}
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {form.prf_id && (() => {
+                    const balance = outstandingPrfsForPicker.find((p) => p.prf_id === form.prf_id);
+                    if (!balance) return null;
+                    return (
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        PRF Total: {formatMoney(balance.total_amount)} · Allocated: {formatMoney(balance.allocated_amount)} · Outstanding: <span className="font-semibold text-emerald-600">{formatMoney(balance.outstanding_amount)}</span>
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-2">
                   <Label>Attachments</Label>
@@ -1135,12 +1436,30 @@ export default function PaymentVouchers() {
                     {AP_PV_STATUS_LABELS[detailVoucher.status]}
                   </Badge>
                 )}
+                {detailVoucher?.priority === 'urgent' && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Urgent
+                  </Badge>
+                )}
+                {detailVoucher?.target_approval_level && detailVoucher.target_approval_level !== 'dmd' && (
+                  <Badge variant="outline" className="text-xs">
+                    {detailVoucher.target_approval_level === 'fa' ? 'FA-only' : 'FA → AM'}
+                  </Badge>
+                )}
               </div>
               <DialogDescription>Review payment details and invoice allocation breakdown.</DialogDescription>
             </DialogHeader>
 
             {!detailVoucher ? null : (
               <div className="space-y-5">
+                {detailVoucher.priority === 'urgent' && (
+                  <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="font-semibold">URGENT</span>
+                    <span className="text-muted-foreground">— this PV has been flagged for urgent processing.</span>
+                  </div>
+                )}
                 {/* Key details grid */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-md border p-3 space-y-2">
@@ -1199,6 +1518,7 @@ export default function PaymentVouchers() {
                           <TableRow>
                             <TableHead>Date</TableHead>
                             <TableHead>Description</TableHead>
+                            <TableHead>GL Account</TableHead>
                             <TableHead>Cheque No.</TableHead>
                             <TableHead className="text-right">Amount (RM)</TableHead>
                           </TableRow>
@@ -1210,6 +1530,11 @@ export default function PaymentVouchers() {
                               <TableRow key={line.id}>
                                 <TableCell className="tabular-nums">{format(new Date(line.line_date), 'dd-MM-yyyy')}</TableCell>
                                 <TableCell>{line.description}</TableCell>
+                                <TableCell className="text-xs">
+                                  {line.gl_account
+                                    ? `${line.gl_account.account_code} - ${line.gl_account.account_name}`
+                                    : <span className="text-muted-foreground">—</span>}
+                                </TableCell>
                                 <TableCell>{line.cheque_no || '-'}</TableCell>
                                 <TableCell className="text-right tabular-nums font-medium">{formatMoney(line.amount)}</TableCell>
                               </TableRow>
@@ -1254,6 +1579,20 @@ export default function PaymentVouchers() {
                   <PostTypeAuditSection pvId={detailVoucher.id} currentPostType={detailVoucher.post_to_type} />
                 )}
               </div>
+            )}
+
+            {detailVoucher && (
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => downloadSinglePvPdf(detailVoucher)}
+                  disabled={isDownloadingPdf}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+                <Button onClick={() => setDetailVoucher(null)}>Close</Button>
+              </DialogFooter>
             )}
           </DialogContent>
         </Dialog>

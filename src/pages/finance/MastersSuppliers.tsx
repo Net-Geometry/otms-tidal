@@ -51,7 +51,7 @@ const schema = z.object({
   company_id: z.string().min(1, 'Company is required'),
   supplier_code: z.string().min(1, 'Supplier code is required'),
   supplier_name: z.string().min(1, 'Supplier name is required'),
-  category: z.string().optional().nullable(),
+  category: z.enum(['trade_creditors', 'other_creditors']).nullable().optional(),
   tax_id: z.string().optional().nullable(),
   gst_no: z.string().optional().nullable(),
   contact_name: z.string().optional().nullable(),
@@ -87,7 +87,7 @@ export default function MastersSuppliers() {
       company_id: '',
       supplier_code: '',
       supplier_name: '',
-      category: '',
+      category: null,
       tax_id: '',
       gst_no: '',
       contact_name: '',
@@ -115,7 +115,7 @@ export default function MastersSuppliers() {
         company_id: companies[0]?.id || '',
         supplier_code: '',
         supplier_name: '',
-        category: '',
+        category: null,
         tax_id: '',
         gst_no: '',
         contact_name: '',
@@ -139,7 +139,7 @@ export default function MastersSuppliers() {
       company_id: editingSupplier.company_id,
       supplier_code: editingSupplier.supplier_code,
       supplier_name: editingSupplier.supplier_name,
-      category: editingSupplier.category || '',
+      category: (editingSupplier.category as 'trade_creditors' | 'other_creditors' | null) ?? null,
       tax_id: editingSupplier.tax_id || '',
       gst_no: editingSupplier.gst_no || '',
       contact_name: editingSupplier.contact_name || '',
@@ -165,7 +165,7 @@ export default function MastersSuppliers() {
       company_id: values.company_id,
       supplier_code: values.supplier_code.trim(),
       supplier_name: values.supplier_name.trim(),
-      category: values.category?.trim() || null,
+      category: values.category || null,
       tax_id: values.tax_id?.trim() || null,
       gst_no: values.gst_no?.trim() || null,
       contact_name: values.contact_name?.trim() || null,
@@ -258,7 +258,11 @@ export default function MastersSuppliers() {
                         <TableCell>
                           <div className="space-y-1">
                             <div>{supplier.supplier_name}</div>
-                            <div className="text-xs text-muted-foreground">{supplier.category || 'Uncategorized'}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {supplier.category === 'trade_creditors' ? 'Trade Creditors'
+                                : supplier.category === 'other_creditors' ? 'Other Creditors'
+                                : 'Uncategorized'}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>{supplier.companies?.code || '-'}</TableCell>
@@ -370,9 +374,21 @@ export default function MastersSuppliers() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Category</FormLabel>
-                        <FormControl>
-                          <Input placeholder="General / Services / Utilities" value={field.value || ''} onChange={field.onChange} />
-                        </FormControl>
+                        <Select
+                          value={field.value || 'none'}
+                          onValueChange={(value) => field.onChange(value === 'none' ? null : value)}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">— None —</SelectItem>
+                            <SelectItem value="trade_creditors">Trade Creditors</SelectItem>
+                            <SelectItem value="other_creditors">Other Creditors</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}

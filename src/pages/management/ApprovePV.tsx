@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Eye } from 'lucide-react';
+import { AlertTriangle, Eye } from 'lucide-react';
 import { AppLayout } from '@/components/AppLayout';
 import { PageLayout } from '@/components/ui/page-layout';
 import { Badge } from '@/components/ui/badge';
@@ -175,8 +175,18 @@ export default function ApprovePV() {
                     </TableHeader>
                     <TableBody>
                       {rows.map((pv) => (
-                        <TableRow key={pv.id}>
-                          <TableCell className="font-medium">{pv.pv_number || 'Draft'}</TableCell>
+                        <TableRow key={pv.id} className={pv.priority === 'urgent' ? 'bg-amber-50/40 dark:bg-amber-950/20' : undefined}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-1.5">
+                              {pv.priority === 'urgent' && (
+                                <AlertTriangle
+                                  className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                                  aria-label="Urgent"
+                                />
+                              )}
+                              <span>{pv.pv_number || 'Draft'}</span>
+                            </div>
+                          </TableCell>
                           <TableCell>{format(new Date(pv.payment_date), 'dd MMM yyyy')}</TableCell>
                           <TableCell>{pv.pay_to || '-'}</TableCell>
                           <TableCell className="max-w-[200px] truncate text-muted-foreground">{pv.pay_for || '-'}</TableCell>
@@ -235,6 +245,13 @@ export default function ApprovePV() {
             </DialogHeader>
             {detailPv && (
               <div className="space-y-4 text-sm">
+                {detailPv.priority === 'urgent' && (
+                  <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span className="font-semibold">URGENT</span>
+                    <span className="text-muted-foreground">— flagged for urgent processing.</span>
+                  </div>
+                )}
                 <div className="grid gap-2 md:grid-cols-2">
                   <p><span className="text-muted-foreground">Status:</span> <Badge className={getStatusBadgeClass(detailPv.status)}>{AP_PV_STATUS_LABELS[detailPv.status]}</Badge></p>
                   <p><span className="text-muted-foreground">Date:</span> {format(new Date(detailPv.payment_date), 'dd MMM yyyy')}</p>

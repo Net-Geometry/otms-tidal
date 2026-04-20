@@ -95,6 +95,7 @@ const JournalEntries = lazy(() => import("./pages/finance/JournalEntries"));
 const PurchaseRequisitions = lazy(() => import("./pages/finance/PurchaseRequisitions"));
 const ApInvoices = lazy(() => import("./pages/finance/ApInvoices"));
 const PaymentVouchers = lazy(() => import("./pages/finance/PaymentVouchers"));
+const PaymentReminders = lazy(() => import("./pages/finance/PaymentReminders"));
 const ArInvoices = lazy(() => import("./pages/finance/ArInvoices"));
 const OfficialReceipts = lazy(() => import("./pages/finance/OfficialReceipts"));
 const ApDebitCreditNotes = lazy(() => import("./pages/finance/ApDebitCreditNotes"));
@@ -204,6 +205,7 @@ const App = () => (
                 <Route path="/finance/ap/prf" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PurchaseRequisitions /></ProtectedRoute>} />
                 <Route path="/finance/ap/invoices" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ApInvoices /></ProtectedRoute>} />
                 <Route path="/finance/ap/payment-vouchers" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PaymentVouchers /></ProtectedRoute>} />
+                <Route path="/finance/ap/reminders" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><PaymentReminders /></ProtectedRoute>} />
                 <Route path="/finance/ap/payments" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ApPayments /></ProtectedRoute>} />
                 <Route path="/finance/ar/invoices" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><ArInvoices /></ProtectedRoute>} />
                 <Route path="/finance/ar/official-receipts" element={<ProtectedRoute requiredRole={[...FINANCE_ROUTE_ROLES]}><OfficialReceipts /></ProtectedRoute>} />

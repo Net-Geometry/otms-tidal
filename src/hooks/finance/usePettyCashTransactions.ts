@@ -78,7 +78,7 @@ export function usePettyCashTransactions(filters: PettyCashTxnFilters = {}) {
         .from('petty_cash_transactions')
         .select(`
           *,
-          account:chart_of_accounts(id, account_code, account_name),
+          account:chart_of_accounts!account_id(id, account_code, account_name),
           fund_account:chart_of_accounts!fund_account_id(id, account_code, account_name),
           lines:petty_cash_transaction_lines(id, txn_id, account_id, description, amount, sort_order,
             account:chart_of_accounts!account_id(id, account_code, account_name)

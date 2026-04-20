@@ -46,6 +46,7 @@ import { formatCurrency } from '@/lib/otCalculations';
 import { useCompanies } from '@/hooks/hr/useCompanies';
 import { useChartOfAccounts } from '@/hooks/finance/useChartOfAccounts';
 import { useBankAccounts } from '@/hooks/finance/useFinanceFoundation';
+import { GLAccountCombobox } from '@/components/finance/GLAccountCombobox';
 import { FINANCE_BANK_ACCOUNT_TYPE_LABELS, type BankAccount, type FinanceBankAccountType } from '@/types/finance';
 
 const schema = z.object({
@@ -160,7 +161,7 @@ export default function MastersBankAccounts() {
     setEditingAccount(null);
   };
 
-  const postableAssetAccounts = coa.accounts.filter((account) => account.is_postable && account.account_type === 'asset');
+  const postableAssetAccounts = coa.accounts.filter((account) => account.is_postable && account.is_active && account.account_type === 'asset');
 
   return (
     <AppLayout>
@@ -460,21 +461,14 @@ export default function MastersBankAccounts() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Linked GL Account</FormLabel>
-                        <Select value={field.value || 'none'} onValueChange={(value) => field.onChange(value === 'none' ? '' : value)}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select GL account" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="none">No link yet</SelectItem>
-                            {postableAssetAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.account_code} - {account.account_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <GLAccountCombobox
+                            value={field.value}
+                            onChange={field.onChange}
+                            options={postableAssetAccounts}
+                            placeholder="Select GL account"
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
