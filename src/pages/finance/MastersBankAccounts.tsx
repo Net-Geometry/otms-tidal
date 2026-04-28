@@ -280,7 +280,7 @@ export default function MastersBankAccounts() {
                               >
                                 Edit
                               </Button>
-                              {bankAccount.is_active && (
+                              {bankAccount.is_active ? (
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -288,6 +288,15 @@ export default function MastersBankAccounts() {
                                   disabled={bankAccounts.isArchiving}
                                 >
                                   Archive
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => bankAccounts.activateBankAccount(bankAccount.id)}
+                                  disabled={bankAccounts.isActivating}
+                                >
+                                  Activate
                                 </Button>
                               )}
                             </div>

@@ -551,13 +551,32 @@ export function useBankAccounts(options: MasterListOptions = {}) {
     },
   });
 
+  const activateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db
+        .from('bank_accounts')
+        .update({ is_active: true })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bank-accounts'] });
+      toast({ title: 'Activated', description: 'Bank account activated' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    },
+  });
+
   return {
     ...query,
     bankAccounts: filteredBankAccounts,
     upsertBankAccount: upsertMutation.mutateAsync,
     archiveBankAccount: archiveMutation.mutateAsync,
+    activateBankAccount: activateMutation.mutateAsync,
     isSaving: upsertMutation.isPending,
     isArchiving: archiveMutation.isPending,
+    isActivating: activateMutation.isPending,
   };
 }
 

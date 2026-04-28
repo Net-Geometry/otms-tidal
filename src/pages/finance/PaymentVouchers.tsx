@@ -269,7 +269,7 @@ export default function PaymentVouchers() {
 
   const handlePrfSelect = (prfId: string) => {
     if (!prfId) {
-      setForm((prev) => ({ ...prev, prf_id: '' }));
+      setForm((prev) => ({ ...prev, prf_id: '', pay_to: '', pay_for: '', lines: [makeEmptyLine(prev.payment_date)] }));
       return;
     }
 
@@ -279,28 +279,28 @@ export default function PaymentVouchers() {
     setForm((prev) => {
       const next = { ...prev, prf_id: prfId };
 
-      // Auto-populate payee from PRF (only if currently empty — don't clobber user input)
-      if (!prev.pay_to && fullPrf?.payable_to) {
+      if (fullPrf?.payable_to) {
         next.pay_to = fullPrf.payable_to;
       }
 
-      // Auto-populate Pay For from concatenated PRF item descriptions
-      if (!prev.pay_for && fullPrf?.items?.length) {
+      if (fullPrf?.items?.length) {
         next.pay_for = fullPrf.items.map((it: any) => it.description).join('; ');
-      }
 
-      // Auto-populate the first empty line with outstanding amount + first item description
-      if (balance && balance.outstanding_amount > 0) {
-        const firstLineIdx = prev.lines.findIndex((l) => !Number(l.amount || 0) && !l.description.trim());
-        if (firstLineIdx >= 0) {
-          const newLines = [...prev.lines];
-          newLines[firstLineIdx] = {
-            ...newLines[firstLineIdx],
-            description: fullPrf?.items?.[0]?.description || `From ${balance.prf_number}`,
-            amount: String(balance.outstanding_amount.toFixed(2)),
-          };
-          next.lines = newLines;
-        }
+        next.lines = fullPrf.items.map((item: any) => ({
+          line_date: item.doc_date || prev.payment_date,
+          description: item.description || '',
+          cheque_no: '',
+          amount: String(Number(item.amount || 0).toFixed(2)),
+          gl_account_id: item.gl_account_id || '',
+        }));
+      } else if (balance && balance.outstanding_amount > 0) {
+        next.lines = [{
+          line_date: prev.payment_date,
+          description: `From ${balance.prf_number}`,
+          cheque_no: '',
+          amount: String(balance.outstanding_amount.toFixed(2)),
+          gl_account_id: '',
+        }];
       }
 
       return next;
@@ -1218,6 +1218,45 @@ export default function PaymentVouchers() {
                 </div>
               </div>
 
+              {/* PRF No. — above line items since PRF is the parent document */}
+              <div className="space-y-2">
+                <Label>PRF No.</Label>
+                <Select
+                  value={form.prf_id || 'none'}
+                  onValueChange={(value) => handlePrfSelect(value === 'none' ? '' : value)}
+                >
+                  <SelectTrigger><SelectValue placeholder="Link to PRF (optional)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {outstandingPrfsForPicker.length === 0 && (
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        No approved PRFs with outstanding balance.
+                      </div>
+                    )}
+                    {outstandingPrfsForPicker.map((prf) => (
+                      <SelectItem key={prf.prf_id} value={prf.prf_id}>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-medium">{prf.prf_number}</span>
+                          {prf.payable_to && <span className="text-xs text-muted-foreground">— {prf.payable_to}</span>}
+                          <span className="ml-auto text-xs font-semibold tabular-nums text-emerald-600">
+                            {formatMoney(prf.outstanding_amount)}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {form.prf_id && (() => {
+                  const balance = outstandingPrfsForPicker.find((p) => p.prf_id === form.prf_id);
+                  if (!balance) return null;
+                  return (
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      PRF Total: {formatMoney(balance.total_amount)} · Allocated: {formatMoney(balance.allocated_amount)} · Outstanding: <span className="font-semibold text-emerald-600">{formatMoney(balance.outstanding_amount)}</span>
+                    </p>
+                  );
+                })()}
+              </div>
+
               <Separator />
 
               {/* Line Items */}
@@ -1350,58 +1389,19 @@ export default function PaymentVouchers() {
                 <Textarea rows={2} value={form.remarks} onChange={(e) => setForm((prev) => ({ ...prev, remarks: e.target.value }))} placeholder="Optional notes" />
               </div>
 
-              {/* PRF & Attachments */}
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>PRF No.</Label>
-                  <Select
-                    value={form.prf_id || 'none'}
-                    onValueChange={(value) => handlePrfSelect(value === 'none' ? '' : value)}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Link to PRF (optional)" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {outstandingPrfsForPicker.length === 0 && (
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                          No approved PRFs with outstanding balance.
-                        </div>
-                      )}
-                      {outstandingPrfsForPicker.map((prf) => (
-                        <SelectItem key={prf.prf_id} value={prf.prf_id}>
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-medium">{prf.prf_number}</span>
-                            {prf.payable_to && <span className="text-xs text-muted-foreground">— {prf.payable_to}</span>}
-                            <span className="ml-auto text-xs font-semibold tabular-nums text-emerald-600">
-                              {formatMoney(prf.outstanding_amount)}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {form.prf_id && (() => {
-                    const balance = outstandingPrfsForPicker.find((p) => p.prf_id === form.prf_id);
-                    if (!balance) return null;
-                    return (
-                      <p className="text-xs text-muted-foreground tabular-nums">
-                        PRF Total: {formatMoney(balance.total_amount)} · Allocated: {formatMoney(balance.allocated_amount)} · Outstanding: <span className="font-semibold text-emerald-600">{formatMoney(balance.outstanding_amount)}</span>
-                      </p>
-                    );
-                  })()}
-                </div>
-                <div className="space-y-2">
-                  <Label>Attachments</Label>
-                  <FileUpload
-                    bucket="pv-attachments"
-                    onUploadComplete={(urls) => setForm((prev) => ({ ...prev, attachment_urls: urls }))}
-                    onRemove={(idx) => setForm((prev) => ({
-                      ...prev,
-                      attachment_urls: prev.attachment_urls.filter((_, i) => i !== idx),
-                    }))}
-                    currentFiles={form.attachment_urls}
-                    maxFiles={5}
-                  />
-                </div>
+              {/* Attachments */}
+              <div className="space-y-2">
+                <Label>Attachments</Label>
+                <FileUpload
+                  bucket="pv-attachments"
+                  onUploadComplete={(urls) => setForm((prev) => ({ ...prev, attachment_urls: urls }))}
+                  onRemove={(idx) => setForm((prev) => ({
+                    ...prev,
+                    attachment_urls: prev.attachment_urls.filter((_, i) => i !== idx),
+                  }))}
+                  currentFiles={form.attachment_urls}
+                  maxFiles={5}
+                />
               </div>
 
               {/* Totals */}
