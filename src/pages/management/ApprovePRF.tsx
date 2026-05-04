@@ -61,8 +61,8 @@ export default function ApprovePRF() {
   const [rejectingPrfId, setRejectingPrfId] = useState<string | null>(null);
   const [rejectRemarks, setRejectRemarks] = useState('');
 
-  const isManagement = roles.includes('management');
-  const isAsstMgr = roles.includes('assistant_manager');
+  const isManagement = roles.some((r) => ['management', 'sgm', 'director', 'gm'].includes(r));
+  const isAsstMgr = roles.some((r) => ['assistant_manager', 'manager'].includes(r));
   const isDmd = roles.includes('dmd');
 
   // Determine which status this user should see as "pending"
