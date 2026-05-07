@@ -18,6 +18,8 @@ export interface NotificationPreferences {
   finance_ap_notifications: boolean;
   /** AR notifications: AR invoices, official receipts, AR payments (finance role) */
   finance_ar_notifications: boolean;
+  /** PRF notifications: submitted, verified, checked, approved, rejected */
+  prf_notifications: boolean;
   /** Global disable flag - when true, all notifications are disabled */
   all_disabled: boolean;
 }
@@ -33,6 +35,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   ot_supervisor_confirmed: true,
   finance_ap_notifications: true,
   finance_ar_notifications: true,
+  prf_notifications: true,
   all_disabled: false,
 };
 
@@ -80,6 +83,12 @@ export const NOTIFICATION_TYPES: NotificationTypeConfig[] = [
     label: 'OT Confirmed',
     description: 'Get notified when your supervisor confirms your OT request',
     roles: ['employee']
+  },
+  {
+    key: 'prf_notifications',
+    label: 'PRF Notifications',
+    description: 'Purchase requisition submissions, verifications, and approvals',
+    roles: ['management', 'sgm', 'director', 'gm', 'assistant_manager', 'manager', 'dmd', 'finance', 'admin']
   },
   {
     key: 'finance_ap_notifications',

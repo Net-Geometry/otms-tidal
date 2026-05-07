@@ -46,6 +46,9 @@ export interface Notification {
     | 'ar_payment_submitted'
     | 'ar_payment_approved'
     | 'ar_payment_posted'
+    | 'prf_pending_review'
+    | 'prf_approved'
+    | 'prf_rejected'
     | 'payroll_memo_pending_director';
   created_at: string;
 }
