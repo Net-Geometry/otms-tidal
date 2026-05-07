@@ -174,6 +174,8 @@ ALTER TABLE notifications ADD CONSTRAINT notifications_notification_type_check C
     'or_posted'::text,
     'ar_payment_submitted'::text,
     'ar_payment_approved'::text,
-    'ar_payment_posted'::text
+    'ar_payment_posted'::text,
+    'payment_reminder'::text,
+    'payroll_memo_pending_director'::text
   ])
 );
