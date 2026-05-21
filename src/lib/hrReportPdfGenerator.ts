@@ -83,8 +83,8 @@ async function loadImageFromUrl(url: string): Promise<string | null> {
 }
 
 export async function generateHRReportPDF(data: HRReportData): Promise<void> {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const style = createPayslipReportStyle();
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const style = createPayslipReportStyle(doc);
   let yPos = await drawPayslipStyleHeader(doc, data.companyInfo, style);
 
   yPos = drawReportTitle(doc, 'Overtime Summary Report', data.period, yPos, style);
@@ -116,12 +116,12 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
       ]],
       ...getPayslipTableOptions(style),
       columnStyles: {
-        0: { cellWidth: 24 },
-        1: { cellWidth: 38 },
-        2: { cellWidth: 34 },
-        3: { cellWidth: 30 },
-        4: { cellWidth: 18, halign: 'right' },
-        5: { cellWidth: 25, halign: 'right' },
+        0: { cellWidth: 32 },
+        1: { cellWidth: 58 },
+        2: { cellWidth: 52 },
+        3: { cellWidth: 48 },
+        4: { cellWidth: 24, halign: 'right' },
+        5: { cellWidth: 32, halign: 'right' },
       },
     });
 
@@ -135,8 +135,8 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
 }
 
 export async function generateCombinedReportPDF(data: CombinedReportData): Promise<void> {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const style = createPayslipReportStyle();
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const style = createPayslipReportStyle(doc);
   let yPos = await drawPayslipStyleHeader(doc, data.companyInfo, style);
 
   yPos = drawReportTitle(doc, 'Overtime Summary Report (Combined)', data.period, yPos, style);
@@ -168,13 +168,13 @@ export async function generateCombinedReportPDF(data: CombinedReportData): Promi
     ],
     ...getPayslipTableOptions(style),
     columnStyles: {
-      0: { cellWidth: 34 },
-      1: { cellWidth: 22 },
-      2: { cellWidth: 35 },
-      3: { cellWidth: 30 },
-      4: { cellWidth: 28 },
-      5: { cellWidth: 18, halign: 'right' },
-      6: { cellWidth: 25, halign: 'right' }
+      0: { cellWidth: 50 },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 45 },
+      3: { cellWidth: 42 },
+      4: { cellWidth: 38 },
+      5: { cellWidth: 20, halign: 'right' },
+      6: { cellWidth: 26, halign: 'right' }
     },
   });
 
@@ -184,16 +184,23 @@ export async function generateCombinedReportPDF(data: CombinedReportData): Promi
   doc.save(fileName);
 }
 
-function createPayslipReportStyle() {
+function createPayslipReportStyle(doc: jsPDF) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const left = 24;
+  const right = pageWidth - 24;
+
   return {
     primary: [47, 182, 201] as [number, number, number],
     black: [34, 34, 34] as [number, number, number],
     gray: [119, 119, 119] as [number, number, number],
     border: [230, 230, 230] as [number, number, number],
     lightBg: [232, 250, 251] as [number, number, number],
-    pageWidth: 210,
-    left: 24,
-    right: 186,
+    pageWidth,
+    pageHeight,
+    left,
+    right,
+    footerY: pageHeight - 22,
   };
 }
 
@@ -345,7 +352,7 @@ function drawReportSectionHeader(
 function getPayslipTableOptions(style: ReturnType<typeof createPayslipReportStyle>) {
   return {
     theme: 'plain' as const,
-    margin: { left: style.left, right: 210 - style.right },
+    margin: { left: style.left, right: style.pageWidth - style.right },
     tableWidth: style.right - style.left,
     styles: {
       font: 'helvetica',
@@ -379,7 +386,7 @@ function drawReportFooter(
   generatedDate: string,
   style: ReturnType<typeof createPayslipReportStyle>
 ): void {
-  const footerY = 272;
+  const footerY = style.footerY;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...style.gray);
