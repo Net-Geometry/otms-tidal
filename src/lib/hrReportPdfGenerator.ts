@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import tidalLogo from '@/assets/tidal-logo.png';
 
 interface HRReportData {
   companyInfo: {
@@ -37,6 +38,34 @@ interface HRReportData {
   }>;
 }
 
+interface CombinedReportData {
+  companyInfo: {
+    name: string;
+    registrationNo: string;
+    address: string;
+    phone: string;
+    logoUrl?: string;
+  };
+  period: string;
+  generatedDate: string;
+  summary: {
+    totalHours: number;
+    totalCost: number;
+    totalEmployees: number;
+    totalCompanies: number;
+  };
+  employees: Array<{
+    company_name: string;
+    company_code: string;
+    employee_no: string;
+    employee_name: string;
+    department: string;
+    position: string;
+    total_ot_hours: number;
+    amount: number;
+  }>;
+}
+
 async function loadImageFromUrl(url: string): Promise<string | null> {
   try {
     const response = await fetch(url);
@@ -54,145 +83,21 @@ async function loadImageFromUrl(url: string): Promise<string | null> {
 }
 
 export async function generateHRReportPDF(data: HRReportData): Promise<void> {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 20;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const style = createPayslipReportStyle();
+  let yPos = await drawPayslipStyleHeader(doc, data.companyInfo, style);
 
-  // Color scheme - teal theme
-  const primaryColor: [number, number, number] = [20, 184, 166]; // teal-500
-  const secondaryColor: [number, number, number] = [45, 212, 191]; // teal-400
-  const textDark: [number, number, number] = [31, 41, 55]; // gray-800
-  const textLight: [number, number, number] = [107, 114, 128]; // gray-500
+  yPos = drawReportTitle(doc, 'Overtime Summary Report', data.period, yPos, style);
+  yPos = drawSummaryBox(doc, data.summary, yPos, style);
+  yPos = drawReportSectionHeader(doc, 'Employee Overtime Details by Company', yPos + 8, style);
 
-  let yPos = margin;
-
-  // ===== HEADER SECTION =====
-  // Company logo or placeholder - centered
-  const logoSize = 25;
-  const headerContentWidth = logoSize + 10 + 120; // logo + gap + text area
-  const headerStartX = (pageWidth - headerContentWidth) / 2;
-  
-  if (data.companyInfo.logoUrl) {
-    const logoData = await loadImageFromUrl(data.companyInfo.logoUrl);
-    if (logoData) {
-      doc.addImage(logoData, 'PNG', headerStartX, yPos, logoSize, logoSize);
-    } else {
-      drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.companyInfo.name);
-    }
-  } else {
-    drawLogoPlaceholder(doc, headerStartX, yPos, logoSize, data.companyInfo.name);
-  }
-
-  // Company info
-  doc.setFontSize(16);
-  doc.setTextColor(...textDark);
-  doc.setFont('helvetica', 'bold');
-  doc.text(data.companyInfo.name, headerStartX + logoSize + 10, yPos + 8);
-
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...textLight);
-  doc.text(`Reg No: ${data.companyInfo.registrationNo}`, headerStartX + logoSize + 10, yPos + 14);
-  doc.text(data.companyInfo.address, headerStartX + logoSize + 10, yPos + 19);
-  doc.text(`Tel: ${data.companyInfo.phone}`, headerStartX + logoSize + 10, yPos + 24);
-
-  yPos += logoSize + 15;
-
-  // ===== TITLE ROW =====
-  doc.setFillColor(...primaryColor);
-  doc.rect(margin, yPos, pageWidth - 2 * margin, 12, 'F');
-  
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('OVERTIME SUMMARY REPORT', pageWidth / 2, yPos + 8, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  const periodText = `Period: ${data.period}`;
-  const periodWidth = doc.getTextWidth(periodText);
-  doc.text(periodText, pageWidth - margin - periodWidth - 5, yPos + 8);
-
-  yPos += 20;
-
-  // ===== SUMMARY STATISTICS =====
-  const boxWidth = 75;
-  const boxGap = 10;
-  const totalBoxesWidth = (boxWidth * 2) + boxGap;
-  const boxesStartX = (pageWidth - totalBoxesWidth) / 2;
-  const boxHeight = 25;
-
-  // Total OT Hours box
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(boxesStartX, yPos, boxWidth, boxHeight, 3, 3, 'F');
-  doc.setDrawColor(...primaryColor);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(boxesStartX, yPos, boxWidth, boxHeight, 3, 3, 'S');
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...textLight);
-  doc.text('Total OT Hours', boxesStartX + boxWidth / 2, yPos + 8, { align: 'center' });
-
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...primaryColor);
-  doc.text(data.summary.totalHours.toFixed(2), boxesStartX + boxWidth / 2, yPos + 18, { align: 'center' });
-
-  // Total OT Cost box
-  doc.setFillColor(245, 245, 245);
-  doc.roundedRect(boxesStartX + boxWidth + boxGap, yPos, boxWidth, boxHeight, 3, 3, 'F');
-  doc.setDrawColor(...primaryColor);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(boxesStartX + boxWidth + boxGap, yPos, boxWidth, boxHeight, 3, 3, 'S');
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...textLight);
-  doc.text('Total OT Cost', boxesStartX + boxWidth + boxGap + boxWidth / 2, yPos + 8, { align: 'center' });
-
-  doc.setFontSize(18);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...primaryColor);
-  doc.text(`RM ${data.summary.totalCost.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 
-    boxesStartX + boxWidth + boxGap + boxWidth / 2, yPos + 18, { align: 'center' });
-
-  yPos += boxHeight + 5;
-
-  // Additional stats
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...textLight);
-  doc.text(`Total Employees: ${data.summary.totalEmployees} | Companies: ${data.summary.totalCompanies}`, 
-    pageWidth / 2, yPos + 5, { align: 'center' });
-
-  yPos += 15;
-
-  // ===== EMPLOYEE DATA SECTION =====
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...textDark);
-  doc.text('Employee Overtime Details by Company', pageWidth / 2, yPos, { align: 'center' });
-
-  yPos += 8;
-
-  // For each company, create a section
-  const tableWidth = 185; // Sum of column widths
-  const tableStartX = (pageWidth - tableWidth) / 2;
-  
-  data.companyGroups.forEach((company, index) => {
-    // Company header with subtle background - centered
-    doc.setFillColor(240, 247, 255); // Light blue background
-    doc.roundedRect(tableStartX, yPos - 2, tableWidth, 10, 2, 2, 'F');
-    
+  data.companyGroups.forEach((company) => {
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...primaryColor);
-    doc.text(`${company.companyName} (${company.companyCode})`, pageWidth / 2, yPos + 5, { align: 'center' });
-    
-    yPos += 13;
-    
-    // Company employee table - centered
+    doc.setTextColor(...style.black);
+    doc.text(`${company.companyName} (${company.companyCode})`, style.left, yPos);
+    yPos += 5;
+
     autoTable(doc, {
       startY: yPos,
       head: [['Employee No', 'Name', 'Department', 'Position', 'OT Hours', 'Amount (RM)']],
@@ -202,69 +107,305 @@ export async function generateHRReportPDF(data: HRReportData): Promise<void> {
         emp.department,
         emp.position,
         emp.total_ot_hours.toFixed(2),
-        emp.amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        fmt(emp.amount),
       ]),
-      theme: 'striped',
-      headStyles: {
-        fillColor: primaryColor,
-        textColor: [255, 255, 255],
-        fontSize: 9,
-        fontStyle: 'bold',
-        halign: 'left'
-      },
-      bodyStyles: {
-        fontSize: 8,
-        textColor: textDark,
-      },
-      alternateRowStyles: {
-        fillColor: [249, 250, 251]
-      },
+      foot: [[
+        { content: `${company.companyName} Subtotal`, colSpan: 4, styles: { fontStyle: 'bold' as const } },
+        { content: company.stats.totalHours.toFixed(2), styles: { fontStyle: 'bold' as const, halign: 'right' as const } },
+        { content: fmt(company.stats.totalCost), styles: { fontStyle: 'bold' as const, halign: 'right' as const, textColor: style.primary } },
+      ]],
+      ...getPayslipTableOptions(style),
       columnStyles: {
-        0: { cellWidth: 25 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 35 },
-        4: { cellWidth: 20, halign: 'right' },
-        5: { cellWidth: 30, halign: 'right' }
+        0: { cellWidth: 24 },
+        1: { cellWidth: 38 },
+        2: { cellWidth: 34 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 18, halign: 'right' },
+        5: { cellWidth: 25, halign: 'right' },
       },
-      margin: { left: tableStartX, right: pageWidth - tableStartX - tableWidth },
     });
-    
-    // Display subtotal row - centered
-    yPos = (doc as any).lastAutoTable.finalY + 3;
-    
-    doc.setFillColor(245, 245, 245);
-    doc.rect(tableStartX, yPos, tableWidth, 8, 'F');
-    
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...textDark);
-    doc.text(
-      `${company.companyName} Subtotal: ${company.stats.totalHours.toFixed(2)} hours | RM ${company.stats.totalCost.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      tableStartX + tableWidth - 5,
-      yPos + 5,
-      { align: 'right' }
-    );
-    
-    yPos += 15; // Space before next company
+
+    yPos = getFinalTableY(doc) + 12;
   });
 
-  // ===== FOOTER =====
-  const finalY = (doc as any).lastAutoTable.finalY || yPos + 50;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...textLight);
-  
-  // Generated date on left
-  doc.text(`Generated: ${data.generatedDate}`, margin, finalY + 15);
-  
-  // Computer-generated message centered
-  doc.text('This is a computer-generated report. No signature is required.', 
-    pageWidth / 2, finalY + 15, { align: 'center' });
+  drawReportFooter(doc, data.generatedDate, style);
 
-  // Save the PDF
   const fileName = `HR_OT_Report_${data.period.replace(/\s+/g, '_')}.pdf`;
   doc.save(fileName);
+}
+
+export async function generateCombinedReportPDF(data: CombinedReportData): Promise<void> {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const style = createPayslipReportStyle();
+  let yPos = await drawPayslipStyleHeader(doc, data.companyInfo, style);
+
+  yPos = drawReportTitle(doc, 'Overtime Summary Report (Combined)', data.period, yPos, style);
+  yPos = drawSummaryBox(doc, data.summary, yPos, style);
+  yPos = drawReportSectionHeader(doc, 'Employee Overtime Details', yPos + 8, style);
+
+  // Grand total values for footer row
+  const grandTotalHours = data.employees.reduce((sum, emp) => sum + emp.total_ot_hours, 0);
+  const grandTotalAmount = data.employees.reduce((sum, emp) => sum + emp.amount, 0);
+
+  autoTable(doc, {
+    startY: yPos,
+    head: [['Company', 'Employee No', 'Name', 'Department', 'Position', 'OT Hours', 'Amount (RM)']],
+    body: [
+      ...data.employees.map(emp => [
+        `${emp.company_name} (${emp.company_code})`,
+        emp.employee_no,
+        emp.employee_name,
+        emp.department,
+        emp.position,
+        emp.total_ot_hours.toFixed(2),
+        fmt(emp.amount)
+      ]),
+      [
+        { content: 'Grand Total', colSpan: 5, styles: { fontStyle: 'bold' as const } },
+        { content: grandTotalHours.toFixed(2), styles: { fontStyle: 'bold' as const, halign: 'right' as const } },
+        { content: fmt(grandTotalAmount), styles: { fontStyle: 'bold' as const, halign: 'right' as const, textColor: style.primary } },
+      ]
+    ],
+    ...getPayslipTableOptions(style),
+    columnStyles: {
+      0: { cellWidth: 34 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 28 },
+      5: { cellWidth: 18, halign: 'right' },
+      6: { cellWidth: 25, halign: 'right' }
+    },
+  });
+
+  drawReportFooter(doc, data.generatedDate, style);
+
+  const fileName = `OT_Report_Combined_${data.companyInfo.name.replace(/\s+/g, '_')}_${data.period.replace(/\s+/g, '_')}.pdf`;
+  doc.save(fileName);
+}
+
+function createPayslipReportStyle() {
+  return {
+    primary: [47, 182, 201] as [number, number, number],
+    black: [34, 34, 34] as [number, number, number],
+    gray: [119, 119, 119] as [number, number, number],
+    border: [230, 230, 230] as [number, number, number],
+    lightBg: [232, 250, 251] as [number, number, number],
+    pageWidth: 210,
+    left: 24,
+    right: 186,
+  };
+}
+
+async function drawPayslipStyleHeader(
+  doc: jsPDF,
+  companyInfo: HRReportData['companyInfo'],
+  style: ReturnType<typeof createPayslipReportStyle>
+): Promise<number> {
+  const y = 18;
+  const logoSize = 26;
+  const logoCenterX = style.left + 17;
+  const logoUrl = companyInfo.logoUrl || tidalLogo;
+  const logoData = await loadImageFromUrl(logoUrl);
+
+  if (logoData) {
+    try {
+      doc.addImage(logoData, 'PNG', logoCenterX - logoSize / 2, y, logoSize, logoSize);
+    } catch {
+      drawLogoPlaceholder(doc, style.left, y, 35, companyInfo.name);
+    }
+  } else {
+    drawLogoPlaceholder(doc, style.left, y, 35, companyInfo.name);
+  }
+
+  const textY = y + logoSize + 3;
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(50, 80, 120);
+  doc.text('T I D A L', logoCenterX, textY, { align: 'center' });
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(140, 140, 140);
+  doc.text('group', logoCenterX, textY + 4, { align: 'center' });
+
+  const infoX = style.left + 47;
+  const maxW = style.right - infoX;
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...style.black);
+  doc.text(companyInfo.name.toUpperCase(), infoX, y + 8);
+
+  let infoY = y + 14;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...style.gray);
+  if (companyInfo.registrationNo) {
+    doc.text(`(${companyInfo.registrationNo})`, infoX, infoY);
+    infoY += 4;
+  }
+  if (companyInfo.address) {
+    const addressLines = doc.splitTextToSize(companyInfo.address, maxW);
+    doc.text(addressLines, infoX, infoY);
+    infoY += addressLines.length * 4;
+  }
+  if (companyInfo.phone) {
+    doc.text(`Telephone No. ${companyInfo.phone}`, infoX, infoY);
+  }
+
+  return 68;
+}
+
+function drawReportTitle(
+  doc: jsPDF,
+  title: string,
+  period: string,
+  y: number,
+  style: ReturnType<typeof createPayslipReportStyle>
+): number {
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...style.black);
+  doc.text(title, style.left, y);
+
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...style.gray);
+  const periodLabel = 'Period: ';
+  const periodLabelWidth = doc.getTextWidth(periodLabel);
+  doc.text(periodLabel, style.right - doc.getTextWidth(period) - periodLabelWidth, y);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...style.black);
+  doc.text(period, style.right, y, { align: 'right' });
+
+  return y + 10;
+}
+
+function drawSummaryBox(
+  doc: jsPDF,
+  summary: HRReportData['summary'],
+  y: number,
+  style: ReturnType<typeof createPayslipReportStyle>
+): number {
+  const boxWidth = 62;
+  const boxHeight = 20;
+  const boxGap = 8;
+  const startX = style.right - (boxWidth * 2 + boxGap);
+
+  drawMetricBox(doc, 'TOTAL OT HOURS', summary.totalHours.toFixed(2), startX, y, boxWidth, boxHeight, style);
+  drawMetricBox(doc, 'TOTAL OT COST', `RM ${fmt(summary.totalCost)}`, startX + boxWidth + boxGap, y, boxWidth, boxHeight, style);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...style.gray);
+  doc.text(`Employees: ${summary.totalEmployees}   Companies: ${summary.totalCompanies}`, style.left, y + 12);
+
+  return y + boxHeight + 10;
+}
+
+function drawMetricBox(
+  doc: jsPDF,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  style: ReturnType<typeof createPayslipReportStyle>
+): void {
+  doc.setFillColor(...style.lightBg);
+  doc.setDrawColor(...style.primary);
+  doc.setLineWidth(1.2);
+  doc.roundedRect(x, y - 4, width, height, 2, 2, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...style.primary);
+  doc.text(label, x + width / 2, y + 3, { align: 'center' });
+  doc.setFontSize(12);
+  doc.setTextColor(...style.black);
+  doc.text(value, x + width / 2, y + 11, { align: 'center' });
+}
+
+function drawReportSectionHeader(
+  doc: jsPDF,
+  title: string,
+  y: number,
+  style: ReturnType<typeof createPayslipReportStyle>
+): number {
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...style.primary);
+  doc.text(title, style.left, y);
+  y += 2;
+  doc.setDrawColor(...style.black);
+  doc.setLineWidth(0.3);
+  doc.line(style.left, y, style.right, y);
+  return y + 7;
+}
+
+function getPayslipTableOptions(style: ReturnType<typeof createPayslipReportStyle>) {
+  return {
+    theme: 'plain' as const,
+    margin: { left: style.left, right: 210 - style.right },
+    tableWidth: style.right - style.left,
+    styles: {
+      font: 'helvetica',
+      fontSize: 7.5,
+      cellPadding: { top: 2, right: 1.5, bottom: 2, left: 1.5 },
+      lineColor: style.border,
+      lineWidth: 0.1,
+      textColor: style.black,
+    },
+    headStyles: {
+      fillColor: [255, 255, 255] as [number, number, number],
+      textColor: style.black,
+      fontStyle: 'bold' as const,
+      lineColor: style.black,
+      lineWidth: { bottom: 0.3 },
+    },
+    bodyStyles: {
+      fillColor: [255, 255, 255] as [number, number, number],
+    },
+    footStyles: {
+      fillColor: [255, 255, 255] as [number, number, number],
+      textColor: style.black,
+      lineColor: style.black,
+      lineWidth: { top: 0.3 },
+    },
+  };
+}
+
+function drawReportFooter(
+  doc: jsPDF,
+  generatedDate: string,
+  style: ReturnType<typeof createPayslipReportStyle>
+): void {
+  const footerY = 272;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...style.gray);
+  doc.text('This report is computer generated. No signature is required.', style.pageWidth / 2, footerY, { align: 'center' });
+
+  const printedOnLabel = 'Printed on: ';
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  const labelWidth = doc.getTextWidth(printedOnLabel);
+  doc.setFont('helvetica', 'bold');
+  const dateWidth = doc.getTextWidth(generatedDate);
+  const startX = (style.pageWidth - labelWidth - dateWidth) / 2;
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...style.gray);
+  doc.text(printedOnLabel, startX, footerY + 10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...style.black);
+  doc.text(generatedDate, startX + labelWidth, footerY + 10);
+}
+
+function getFinalTableY(doc: jsPDF): number {
+  return (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 140;
+}
+
+function fmt(value: number): string {
+  return Number(value || 0).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function drawLogoPlaceholder(
