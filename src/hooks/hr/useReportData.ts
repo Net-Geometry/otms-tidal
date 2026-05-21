@@ -22,6 +22,23 @@ interface ReportStats {
   totalCompanies: number;
 }
 
+interface ReportProfile {
+  id: string;
+  employee_id: string | null;
+  full_name: string | null;
+  company_id: string | null;
+  department_id: string | null;
+  position_id: string | null;
+  departments: { name: string | null; code: string | null } | null;
+  positions: { title: string | null } | null;
+  companies: {
+    id: string;
+    name: string | null;
+    code: string | null;
+    parent_company_id: string | null;
+  } | null;
+}
+
 interface UseReportDataParams {
   month: Date;
   reportType: 'combined' | 'individual';
@@ -72,28 +89,20 @@ export function useReportData({ month, reportType, companyId, enabled = false }:
 
       if (profileError) throw profileError;
 
-      const db = supabase as any;
+      const reportProfiles = (profiles ?? []) as ReportProfile[];
 
       // Build a profile map keyed by profile id
-      const profileMap = new Map<string, any>(
-        profiles?.map(p => [p.id, p]) || []
+      const profileMap = new Map<string, ReportProfile>(
+        reportProfiles.map(p => [p.id, p])
       );
 
       // Determine which employees to include based on report type
       const includedProfileIds = new Set<string>();
 
-      if (reportType === 'combined') {
-        // Include all employees whose company has a non-null parent_company_id (subsidiaries)
-        profiles?.forEach(p => {
-          const company = p.companies as any;
-          if (company?.parent_company_id != null) {
-            includedProfileIds.add(p.id);
-          }
-        });
-      } else {
+      if (reportType !== 'combined') {
         // Individual: include only employees whose company_id matches the selected companyId
         if (companyId) {
-          profiles?.forEach(p => {
+          reportProfiles.forEach(p => {
             if (p.company_id === companyId) {
               includedProfileIds.add(p.id);
             }
@@ -107,19 +116,19 @@ export function useReportData({ month, reportType, companyId, enabled = false }:
       (otRequests || []).forEach(req => {
         const empId = req.employee_id;
 
-        // Skip employees not in our inclusion set
-        if (!includedProfileIds.has(empId)) return;
+        // Combined reports mirror the on-screen summary and include every approved OT row.
+        if (reportType !== 'combined' && !includedProfileIds.has(empId)) return;
 
         const profile = profileMap.get(empId);
 
         if (!grouped.has(empId)) {
-          const company = profile?.companies as any;
+          const company = profile?.companies;
           grouped.set(empId, {
             employee_id: empId,
             employee_no: profile?.employee_id || empId,
             employee_name: profile?.full_name || 'Unknown',
-            department: (profile?.departments as any)?.name || 'N/A',
-            position: (profile?.positions as any)?.title || 'N/A',
+            department: profile?.departments?.name || 'N/A',
+            position: profile?.positions?.title || 'N/A',
             company_id: profile?.company_id || 'unknown',
             company_name: company?.name || 'Unknown Company',
             company_code: company?.code || 'N/A',
