@@ -380,43 +380,67 @@ function FilterSelect({ label, value, onValueChange, allLabel, items }: { label:
 }
 
 function AllSubmissionsTable({ rows, isLoading }: { rows: ReturnType<typeof buildOTManagementExportRows>; isLoading: boolean }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const pageRows = rows.slice(startIndex, startIndex + pageSize);
+
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading submissions...</div>;
   if (rows.length === 0) return <div className="text-center py-12 text-muted-foreground">No OT submissions found for the selected filters.</div>;
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full text-sm">
-        <thead className="bg-muted/40 text-muted-foreground">
-          <tr>
-            <th className="px-4 py-3 text-left font-medium">Ticket #</th>
-            <th className="px-4 py-3 text-left font-medium">Employee</th>
-            <th className="px-4 py-3 text-left font-medium">Company</th>
-            <th className="px-4 py-3 text-left font-medium">Department</th>
-            <th className="px-4 py-3 text-left font-medium">OT Date</th>
-            <th className="px-4 py-3 text-left font-medium">Sessions</th>
-            <th className="px-4 py-3 text-right font-medium">Hours</th>
-            <th className="px-4 py-3 text-right font-medium">Amount</th>
-            <th className="px-4 py-3 text-left font-medium">Current Status</th>
-            <th className="px-4 py-3 text-left font-medium">Included In Claim</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={`${row.ticket_number}-${row.ot_date}-${row.sessions}`} className="border-t border-border">
-              <td className="px-4 py-3 font-mono text-primary">{row.ticket_number}</td>
-              <td className="px-4 py-3"><div className="font-medium">{row.employee_name}</div><div className="text-xs text-muted-foreground">{row.employee_no}</div></td>
-              <td className="px-4 py-3">{row.company}</td>
-              <td className="px-4 py-3">{row.department}</td>
-              <td className="px-4 py-3 whitespace-nowrap">{row.ot_date}</td>
-              <td className="px-4 py-3 min-w-[220px]">{row.sessions}</td>
-              <td className="px-4 py-3 text-right">{formatHours(row.total_hours)}</td>
-              <td className="px-4 py-3 text-right">{formatCurrency(row.ot_amount)}</td>
-              <td className="px-4 py-3 whitespace-nowrap">{row.current_status}</td>
-              <td className="px-4 py-3">{row.included_in_claim}</td>
+    <div className="space-y-3">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/40 text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">Ticket #</th>
+              <th className="px-4 py-3 text-left font-medium">Employee</th>
+              <th className="px-4 py-3 text-left font-medium">Company</th>
+              <th className="px-4 py-3 text-left font-medium">Department</th>
+              <th className="px-4 py-3 text-left font-medium">OT Date</th>
+              <th className="px-4 py-3 text-left font-medium">Sessions</th>
+              <th className="px-4 py-3 text-right font-medium">Hours</th>
+              <th className="px-4 py-3 text-right font-medium">Amount</th>
+              <th className="px-4 py-3 text-left font-medium">Current Status</th>
+              <th className="px-4 py-3 text-left font-medium">Included In Claim</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pageRows.map((row) => (
+              <tr key={`${row.ticket_number}-${row.ot_date}-${row.sessions}`} className="border-t border-border">
+                <td className="px-4 py-3 font-mono text-primary">{row.ticket_number}</td>
+                <td className="px-4 py-3"><div className="font-medium">{row.employee_name}</div><div className="text-xs text-muted-foreground">{row.employee_no}</div></td>
+                <td className="px-4 py-3">{row.company}</td>
+                <td className="px-4 py-3">{row.department}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{row.ot_date}</td>
+                <td className="px-4 py-3 min-w-[220px]">{row.sessions}</td>
+                <td className="px-4 py-3 text-right">{formatHours(row.total_hours)}</td>
+                <td className="px-4 py-3 text-right">{formatCurrency(row.ot_amount)}</td>
+                <td className="px-4 py-3 whitespace-nowrap">{row.current_status}</td>
+                <td className="px-4 py-3">{row.included_in_claim}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
+        <div>
+          Showing {startIndex + 1}-{Math.min(startIndex + pageSize, rows.length)} of {rows.length} submissions
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={safePage === 1}>
+            Previous
+          </Button>
+          <span>Page {safePage} of {totalPages}</span>
+          <Button variant="outline" size="sm" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={safePage === totalPages}>
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
