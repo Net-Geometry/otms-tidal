@@ -212,6 +212,7 @@ async function drawPayslipStyleHeader(
   const y = 18;
   const logoSize = 26;
   const logoCenterX = style.left + 17;
+  const hasCustomLogo = Boolean(companyInfo.logoUrl);
   const logoUrl = companyInfo.logoUrl || tidalLogo;
   const logoData = await loadImageFromUrl(logoUrl);
 
@@ -225,15 +226,17 @@ async function drawPayslipStyleHeader(
     drawLogoPlaceholder(doc, style.left, y, 35, companyInfo.name);
   }
 
-  const textY = y + logoSize + 3;
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(50, 80, 120);
-  doc.text('T I D A L', logoCenterX, textY, { align: 'center' });
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(140, 140, 140);
-  doc.text('group', logoCenterX, textY + 4, { align: 'center' });
+  if (!hasCustomLogo) {
+    const textY = y + logoSize + 3;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(50, 80, 120);
+    doc.text('T I D A L', logoCenterX, textY, { align: 'center' });
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(140, 140, 140);
+    doc.text('group', logoCenterX, textY + 4, { align: 'center' });
+  }
 
   const infoX = style.left + 47;
   const maxW = style.right - infoX;

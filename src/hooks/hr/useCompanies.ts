@@ -9,6 +9,7 @@ export interface Company {
   registration_no: string | null;
   address: string | null;
   phone: string | null;
+  logo_url: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -26,7 +27,7 @@ async function fetchCompanies(): Promise<Company[]> {
   const db = supabase as any;
   const { data, error } = await db
     .from('companies')
-    .select('id, name, code, parent_company_id, registration_no, address, phone, is_active, created_at, updated_at')
+    .select('id, name, code, parent_company_id, registration_no, address, phone, logo_url, is_active, created_at, updated_at')
     .eq('is_active', true)
     .order('name');
 

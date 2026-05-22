@@ -25,7 +25,7 @@ import { toast } from '@/hooks/use-toast';
 import { useCompaniesGrouped } from '@/hooks/hr/useCompanies';
 import { useReportData } from '@/hooks/hr/useReportData';
 import { generateCombinedReportPDF, generateHRReportPDF } from '@/lib/hrReportPdfGenerator';
-import { exportToCSV } from '@/lib/exportUtils';
+import { exportToXLSX } from '@/lib/xlsxExport';
 import { groupByCompany } from '@/lib/companyReportUtils';
 
 interface GenerateReportDialogProps {
@@ -45,7 +45,7 @@ const SHORT_MONTH_NAMES = [
 
 export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateReportDialogProps) {
   const [open, setOpen] = useState(false);
-  const [reportType, setReportType] = useState<'combined' | 'individual'>('combined');
+  const [reportType, setReportType] = useState<'all_companies' | 'by_company' | 'by_year' | 'by_month'>('all_companies');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
   const [selectedYear, setSelectedYear] = useState(defaultYear);
@@ -57,25 +57,34 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
 
   const { refetch } = useReportData({
     month: monthDate,
-    reportType,
-    companyId: reportType === 'individual' ? selectedCompanyId : undefined,
+    reportType: reportType === 'by_company' ? 'individual' : 'combined',
+    companyId: reportType === 'by_company' ? selectedCompanyId : undefined,
+    periodMode: reportType === 'all_companies' || reportType === 'by_company' ? 'all' : reportType === 'by_year' ? 'year' : 'month',
     enabled: false,
   });
 
   const parentCompany = companiesGrouped?.parent;
-  const subsidiaries = companiesGrouped?.subsidiaries ?? [];
+  const reportCompanies = companiesGrouped?.all ?? [];
 
-  const periodLabel = `${MONTH_NAMES[Number(selectedMonth) - 1]} ${selectedYear}`;
-  const shortPeriodLabel = `${SHORT_MONTH_NAMES[Number(selectedMonth) - 1]}_${selectedYear}`;
+  const periodLabel = reportType === 'all_companies' || reportType === 'by_company'
+    ? 'All Periods'
+    : reportType === 'by_year'
+    ? selectedYear
+    : `${MONTH_NAMES[Number(selectedMonth) - 1]} ${selectedYear}`;
+  const shortPeriodLabel = reportType === 'all_companies' || reportType === 'by_company'
+    ? 'All_Periods'
+    : reportType === 'by_year'
+    ? selectedYear
+    : `${SHORT_MONTH_NAMES[Number(selectedMonth) - 1]}_${selectedYear}`;
 
-  const isDownloadDisabled = generating || (reportType === 'individual' && !selectedCompanyId);
+  const isDownloadDisabled = generating || (reportType === 'by_company' && !selectedCompanyId);
 
   // Build year options (current year +/- 2)
   const currentYear = new Date().getFullYear();
   const yearOptions = Array.from({ length: 5 }, (_, i) => String(currentYear - 2 + i));
 
   const handleReportTypeChange = useCallback((value: string) => {
-    setReportType(value as 'combined' | 'individual');
+    setReportType(value as 'all_companies' | 'by_company' | 'by_year' | 'by_month');
     setSelectedCompanyId('');
   }, []);
 
@@ -94,13 +103,14 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
 
       const generatedDate = format(new Date(), 'dd MMM yyyy, hh:mm a');
 
-      if (reportType === 'combined') {
+      if (reportType !== 'by_company') {
         await generateCombinedReportPDF({
           companyInfo: {
             name: parentCompany?.name ?? 'Company',
             registrationNo: parentCompany?.registration_no ?? '',
             address: parentCompany?.address ?? '',
             phone: parentCompany?.phone ?? '',
+            logoUrl: parentCompany?.logo_url ?? undefined,
           },
           period: periodLabel,
           generatedDate,
@@ -108,7 +118,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
           employees: data.employees,
         });
       } else {
-        const selectedCompany = subsidiaries.find((c) => c.id === selectedCompanyId);
+        const selectedCompany = reportCompanies.find((c) => c.id === selectedCompanyId);
         const companyGroups = groupByCompany(data.employees);
 
         await generateHRReportPDF({
@@ -117,6 +127,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
             registrationNo: selectedCompany?.registration_no ?? '',
             address: selectedCompany?.address ?? '',
             phone: selectedCompany?.phone ?? '',
+            logoUrl: selectedCompany?.logo_url ?? undefined,
           },
           period: periodLabel,
           generatedDate,
@@ -139,9 +150,9 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
     } finally {
       setGenerating(false);
     }
-  }, [refetch, reportType, parentCompany, subsidiaries, selectedCompanyId, periodLabel]);
+  }, [refetch, reportType, parentCompany, reportCompanies, selectedCompanyId, periodLabel]);
 
-  const handleDownloadCSV = useCallback(async () => {
+  const handleDownloadExcel = useCallback(async () => {
     setGenerating(true);
     try {
       const { data } = await refetch();
@@ -156,7 +167,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
 
       const generatedDate = format(new Date(), 'dd MMM yyyy, hh:mm a');
 
-      if (reportType === 'combined') {
+      if (reportType !== 'by_company') {
         const headers = [
           { key: 'company_name', label: 'Company' },
           { key: 'employee_no', label: 'Employee No.' },
@@ -168,10 +179,10 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
         ];
 
         const parentCode = parentCompany?.code ?? 'Combined';
-        const filename = `OT_Report_Combined_${parentCode}_${shortPeriodLabel}`;
+        const filename = `OT_Report_${reportType}_${parentCode}_${shortPeriodLabel}`;
 
-        exportToCSV(data.employees, filename, headers, {
-          reportName: `OT Report (Combined) - ${parentCompany?.name ?? 'All Companies'}`,
+        await exportToXLSX(data.employees, filename, headers, {
+          reportName: `OT Report (${getReportTypeLabel(reportType)}) - ${parentCompany?.name ?? 'All Companies'}`,
           period: periodLabel,
           generatedDate,
         });
@@ -185,11 +196,11 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
           { key: 'amount', label: 'Amount (RM)' },
         ];
 
-        const selectedCompany = subsidiaries.find((c) => c.id === selectedCompanyId);
+        const selectedCompany = reportCompanies.find((c) => c.id === selectedCompanyId);
         const companyCode = selectedCompany?.code ?? 'Company';
         const filename = `OT_Report_${companyCode}_${shortPeriodLabel}`;
 
-        exportToCSV(data.employees, filename, headers, {
+        await exportToXLSX(data.employees, filename, headers, {
           reportName: `OT Report - ${selectedCompany?.name ?? 'Company'}`,
           period: periodLabel,
           generatedDate,
@@ -197,20 +208,20 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
       }
 
       toast({
-        title: 'CSV generated',
+        title: 'Excel generated',
         description: 'Your report has been downloaded.',
       });
     } catch (error) {
-      console.error('CSV generation failed:', error);
+      console.error('Excel generation failed:', error);
       toast({
         title: 'Generation failed',
-        description: 'Failed to generate the CSV report. Please try again.',
+        description: 'Failed to generate the Excel report. Please try again.',
         variant: 'destructive',
       });
     } finally {
       setGenerating(false);
     }
-  }, [refetch, reportType, parentCompany, subsidiaries, selectedCompanyId, periodLabel, shortPeriodLabel]);
+  }, [refetch, reportType, parentCompany, reportCompanies, selectedCompanyId, periodLabel, shortPeriodLabel]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -238,22 +249,34 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
               className="flex flex-col gap-2"
             >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="combined" id="report-combined" />
-                <Label htmlFor="report-combined" className="font-normal cursor-pointer">
-                  Combined{parentCompany ? ` (${parentCompany.name})` : ''}
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="individual" id="report-individual" />
-                <Label htmlFor="report-individual" className="font-normal cursor-pointer">
-                  Individual
-                </Label>
-              </div>
+                  <RadioGroupItem value="all_companies" id="report-all-companies" />
+                  <Label htmlFor="report-all-companies" className="font-normal cursor-pointer">
+                    Total All Companies
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="by_company" id="report-by-company" />
+                  <Label htmlFor="report-by-company" className="font-normal cursor-pointer">
+                    Total By Company
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="by_year" id="report-by-year" />
+                  <Label htmlFor="report-by-year" className="font-normal cursor-pointer">
+                    Total By Year
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="by_month" id="report-by-month" />
+                  <Label htmlFor="report-by-month" className="font-normal cursor-pointer">
+                    Total By Month
+                  </Label>
+                </div>
             </RadioGroup>
           </div>
 
           {/* Company (only for individual) */}
-          {reportType === 'individual' && (
+          {reportType === 'by_company' && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Company</Label>
               <Select value={selectedCompanyId} onValueChange={setSelectedCompanyId}>
@@ -261,7 +284,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
                   <SelectValue placeholder="Select a company" />
                 </SelectTrigger>
                 <SelectContent className="bg-white text-gray-900 z-[200] border shadow-lg" position="popper" sideOffset={4}>
-                  {subsidiaries.map((company) => (
+                  {reportCompanies.map((company) => (
                     <SelectItem key={company.id} value={company.id}>
                       {company.name} ({company.code})
                     </SelectItem>
@@ -275,7 +298,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
           <div className="space-y-2">
             <Label className="text-sm font-medium">Period</Label>
             <div className="flex gap-3">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={reportType === 'all_companies' || reportType === 'by_company' || reportType === 'by_year'}>
                 <SelectTrigger className="flex-1 border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
                   <SelectValue />
                 </SelectTrigger>
@@ -287,7 +310,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <Select value={selectedYear} onValueChange={setSelectedYear} disabled={reportType === 'all_companies' || reportType === 'by_company'}>
                 <SelectTrigger className="w-[100px] border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
                   <SelectValue />
                 </SelectTrigger>
@@ -310,10 +333,10 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
                 variant="outline"
                 className="flex-1"
                 disabled={isDownloadDisabled}
-                onClick={handleDownloadCSV}
+                onClick={handleDownloadExcel}
               >
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
-                {generating ? 'Generating...' : 'Download CSV'}
+                {generating ? 'Generating...' : 'Download Excel'}
               </Button>
               <Button
                 className="flex-1 bg-[#5F26B4] hover:bg-[#4C1D95] text-white font-semibold"
@@ -329,4 +352,17 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
       </DialogContent>
     </Dialog>
   );
+}
+
+function getReportTypeLabel(reportType: 'all_companies' | 'by_company' | 'by_year' | 'by_month') {
+  switch (reportType) {
+    case 'all_companies':
+      return 'Total All Companies';
+    case 'by_company':
+      return 'Total By Company';
+    case 'by_year':
+      return 'Total By Year';
+    case 'by_month':
+      return 'Total By Month';
+  }
 }

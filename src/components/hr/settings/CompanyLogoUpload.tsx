@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 interface CompanyLogoUploadProps {
   onFileSelect: (file: File) => void;
   isUploading: boolean;
+  compact?: boolean;
 }
 
-export function CompanyLogoUpload({ onFileSelect, isUploading }: CompanyLogoUploadProps) {
+export function CompanyLogoUpload({ onFileSelect, isUploading, compact = false }: CompanyLogoUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +74,7 @@ export function CompanyLogoUpload({ onFileSelect, isUploading }: CompanyLogoUplo
         onDrop={handleDrop}
         className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           dragActive ? 'border-primary bg-primary/5' : 'border-border'
-        } ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+        } ${compact ? 'p-4' : 'p-8'} ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
       >
         <input
           type="file"
@@ -87,7 +88,7 @@ export function CompanyLogoUpload({ onFileSelect, isUploading }: CompanyLogoUplo
           htmlFor="logo-upload"
           className="cursor-pointer flex flex-col items-center gap-2"
         >
-          <Upload className="h-10 w-10 text-muted-foreground" />
+          <Upload className={`${compact ? 'h-6 w-6' : 'h-10 w-10'} text-muted-foreground`} />
           <div>
             <p className="text-sm font-medium">
               {isUploading ? 'Uploading...' : 'Click to upload or drag and drop'}
@@ -95,9 +96,11 @@ export function CompanyLogoUpload({ onFileSelect, isUploading }: CompanyLogoUplo
             <p className="text-xs text-muted-foreground mt-1">
               PNG, JPG, or SVG (max 2MB)
             </p>
-            <p className="text-xs text-muted-foreground">
-              Recommended size: 500x500px
-            </p>
+            {!compact && (
+              <p className="text-xs text-muted-foreground">
+                Recommended size: 500x500px
+              </p>
+            )}
           </div>
         </label>
       </form>
