@@ -20,10 +20,13 @@ import { exportToXLSX } from '@/lib/xlsxExport';
 import { CompanyReportCard } from './CompanyReportCard';
 
 type ReportView = 'summary' | 'submissions';
+type PeriodMode = 'all' | 'year' | 'month';
 
 export function MonthlyOTReport() {
   const [searchQuery, setSearchQuery] = useState('');
   const currentDate = new Date();
+  const [selectedPeriodMode, setSelectedPeriodMode] = useState<PeriodMode>('all');
+  const [appliedPeriodMode, setAppliedPeriodMode] = useState<PeriodMode>('all');
   const [selectedMonth, setSelectedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [selectedYear, setSelectedYear] = useState<string>(currentDate.getFullYear().toString());
   const [appliedMonth, setAppliedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
@@ -37,14 +40,28 @@ export function MonthlyOTReport() {
     return new Date(parseInt(appliedYear), parseInt(appliedMonth) - 1, 1);
   }, [appliedMonth, appliedYear]);
 
-  const { data, isLoading } = useHRReportData(filterDate);
-  const submissionStartDate = format(startOfMonth(filterDate), 'yyyy-MM-dd');
-  const submissionEndDate = format(endOfMonth(filterDate), 'yyyy-MM-dd');
+  const { data, isLoading } = useHRReportData(filterDate, appliedPeriodMode);
+  const submissionStartDate = appliedPeriodMode === 'year'
+    ? format(new Date(filterDate.getFullYear(), 0, 1), 'yyyy-MM-dd')
+    : format(startOfMonth(filterDate), 'yyyy-MM-dd');
+  const submissionEndDate = appliedPeriodMode === 'year'
+    ? format(new Date(filterDate.getFullYear(), 11, 31), 'yyyy-MM-dd')
+    : format(endOfMonth(filterDate), 'yyyy-MM-dd');
+  const periodLabel = appliedPeriodMode === 'all'
+    ? 'All Period'
+    : appliedPeriodMode === 'year'
+    ? appliedYear
+    : format(filterDate, 'MMMM yyyy');
+  const shortPeriodLabel = appliedPeriodMode === 'all'
+    ? 'All_Period'
+    : appliedPeriodMode === 'year'
+    ? appliedYear
+    : format(filterDate, 'MMM_yyyy');
 
   const { data: submissionData = [], isLoading: isLoadingSubmissions } = useQuery({
-    queryKey: ['monthly-ot-all-submissions', submissionStartDate, submissionEndDate],
+    queryKey: ['monthly-ot-all-submissions', appliedPeriodMode, submissionStartDate, submissionEndDate],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let submissionsQuery = supabase
         .from('ot_requests')
         .select(`
           *,
@@ -58,10 +75,13 @@ export function MonthlyOTReport() {
             positions!profiles_position_id_fkey(title),
             companies!profiles_company_id_fkey(id, name, code)
           )
-        `)
-        .gte('ot_date', submissionStartDate)
-        .lte('ot_date', submissionEndDate)
-        .order('ot_date', { ascending: false });
+        `);
+
+      if (appliedPeriodMode !== 'all') {
+        submissionsQuery = submissionsQuery.gte('ot_date', submissionStartDate).lte('ot_date', submissionEndDate);
+      }
+
+      const { data, error } = await submissionsQuery.order('ot_date', { ascending: false });
 
       if (error) throw error;
       return data || [];
@@ -211,7 +231,7 @@ export function MonthlyOTReport() {
 
     await exportToXLSX(
       submissionRows,
-      `OT_All_Submissions_${format(filterDate, 'MMM_yyyy')}`,
+      `OT_All_Submissions_${shortPeriodLabel}`,
       [
         { key: 'ticket_number', label: 'Ticket #' },
         { key: 'employee_no', label: 'Employee No.' },
@@ -234,7 +254,7 @@ export function MonthlyOTReport() {
       ],
       {
         reportName: 'OT All Submissions',
-        period: format(filterDate, 'MMMM yyyy'),
+        period: periodLabel,
         generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
       },
     );
@@ -249,16 +269,16 @@ export function MonthlyOTReport() {
     <>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <EnhancedDashboardCard title="Total Companies" value={filteredStats.totalCompanies} icon={Building2} variant="primary" subtitle="Companies in system" />
-        <EnhancedDashboardCard title="Total Employees" value={filteredStats.totalEmployees} icon={Users} variant="info" subtitle="Employees with OT this month" />
-        <EnhancedDashboardCard title="Total OT Hours" value={formatHours(filteredStats.totalHours)} icon={Clock} variant="info" subtitle="Total approved hours this month" />
-        <EnhancedDashboardCard title="Total OT Cost" value={formatCurrency(filteredStats.totalCost)} icon={DollarSign} variant="success" subtitle="Total RM paid for overtime this month" />
+        <EnhancedDashboardCard title="Total Employees" value={filteredStats.totalEmployees} icon={Users} variant="info" subtitle={`Employees with OT (${periodLabel})`} />
+        <EnhancedDashboardCard title="Total OT Hours" value={formatHours(filteredStats.totalHours)} icon={Clock} variant="info" subtitle={`Total approved hours (${periodLabel})`} />
+        <EnhancedDashboardCard title="Total OT Cost" value={formatCurrency(filteredStats.totalCost)} icon={DollarSign} variant="success" subtitle={`Total RM paid for overtime (${periodLabel})`} />
       </div>
 
       <Card className="p-6">
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
-              <h2 className="text-lg font-semibold">Monthly OT Report</h2>
+              <h2 className="text-lg font-semibold">OT Report</h2>
               <div className="flex rounded-lg border border-border bg-background p-1 text-sm">
                 <button type="button" onClick={() => setReportView('summary')} className={`rounded-md px-3 py-1.5 transition ${reportView === 'summary' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
                   Approved Summary
@@ -270,14 +290,23 @@ export function MonthlyOTReport() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <Select value={selectedPeriodMode} onValueChange={(value) => setSelectedPeriodMode(value as PeriodMode)}>
+                <SelectTrigger className="w-[160px] border-input bg-background focus:border-ring focus:ring-ring"><SelectValue placeholder="Select Period" /></SelectTrigger>
+                <SelectContent className="bg-popover z-50 border shadow-lg">
+                  <SelectItem value="all">All Period</SelectItem>
+                  <SelectItem value="year">By Year</SelectItem>
+                  <SelectItem value="month">By Month and Year</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={selectedPeriodMode === 'all' || selectedPeriodMode === 'year'}>
                 <SelectTrigger className="w-[140px] border-input bg-background focus:border-ring focus:ring-ring"><SelectValue placeholder="Select Month" /></SelectTrigger>
                 <SelectContent className="bg-popover z-50 border shadow-lg">
                   {MONTHS.map((month) => <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>)}
                 </SelectContent>
               </Select>
 
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <Select value={selectedYear} onValueChange={setSelectedYear} disabled={selectedPeriodMode === 'all'}>
                 <SelectTrigger className="w-[100px] border-input bg-background focus:border-ring focus:ring-ring"><SelectValue placeholder="Select Year" /></SelectTrigger>
                 <SelectContent className="bg-popover z-50 border shadow-lg">
                   {Array.from({ length: 5 }, (_, i) => {
@@ -287,7 +316,7 @@ export function MonthlyOTReport() {
                 </SelectContent>
               </Select>
 
-              <Button onClick={() => { setAppliedMonth(selectedMonth); setAppliedYear(selectedYear); }} disabled={isLoading || isLoadingSubmissions} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 transition-all duration-200">
+              <Button onClick={() => { setAppliedPeriodMode(selectedPeriodMode); setAppliedMonth(selectedMonth); setAppliedYear(selectedYear); }} disabled={isLoading || isLoadingSubmissions} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 transition-all duration-200">
                 <Filter className="mr-2 h-4 w-4" />
                 Apply Filter
               </Button>
