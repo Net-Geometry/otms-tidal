@@ -306,16 +306,30 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
           {reportType === 'by_company' && (
             <div className="space-y-2">
               <Label className="text-sm font-medium">Company Period Scope</Label>
-              <Select value={companyPeriodMode} onValueChange={(value) => setCompanyPeriodMode(value as 'all' | 'year' | 'month')}>
-                <SelectTrigger className="border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white text-gray-900 z-[200] border shadow-lg" position="popper" sideOffset={4}>
-                  <SelectItem value="all">All OT so far</SelectItem>
-                  <SelectItem value="year">Filter by year</SelectItem>
-                  <SelectItem value="month">Filter by month and year</SelectItem>
-                </SelectContent>
-              </Select>
+              <RadioGroup
+                value={companyPeriodMode}
+                onValueChange={(value) => setCompanyPeriodMode(value as 'all' | 'year' | 'month')}
+                className="flex flex-col gap-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="all" id="company-period-all" />
+                  <Label htmlFor="company-period-all" className="font-normal cursor-pointer">
+                    All Period
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="year" id="company-period-year" />
+                  <Label htmlFor="company-period-year" className="font-normal cursor-pointer">
+                    By Year
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="month" id="company-period-month" />
+                  <Label htmlFor="company-period-month" className="font-normal cursor-pointer">
+                    By Month and Year
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
           )}
 
