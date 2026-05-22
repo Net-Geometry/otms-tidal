@@ -306,7 +306,7 @@ export function MonthlyOTReport() {
                   Export Excel
                 </Button>
               )}
-              <GenerateReportDialog defaultMonth={appliedMonth} defaultYear={appliedYear} />
+              {reportView === 'summary' && <GenerateReportDialog defaultMonth={appliedMonth} defaultYear={appliedYear} />}
             </div>
           </div>
 
