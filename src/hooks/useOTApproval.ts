@@ -265,15 +265,19 @@ export function useOTApproval(options: UseOTApprovalOptions) {
           employee_id,
           full_name,
           department_id,
+          company_id,
           basic_salary,
-          departments(name)
+          departments(name),
+          companies!profiles_company_id_fkey(name, code)
         `
         : `
           id,
           employee_id,
           full_name,
           department_id,
-          departments(name)
+          company_id,
+          departments(name),
+          companies!profiles_company_id_fkey(name, code)
         `;
 
       let query = supabase

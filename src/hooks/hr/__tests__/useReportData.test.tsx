@@ -57,6 +57,7 @@ describe('useReportData', () => {
           id: 'company-parent',
           name: 'Tidal Holdings Sdn Bhd',
           code: 'THSB',
+          logo_url: null,
           parent_company_id: null,
         },
       },
@@ -67,9 +68,9 @@ describe('useReportData', () => {
       if (table === 'ot_requests') {
         return {
           select: () => ({
-            gte: () => ({
-              lte: () => ({
-                in: () => ({
+            in: () => ({
+              gte: () => ({
+                lte: () => ({
                   order: () => ({ data: otRequests, error: null }),
                 }),
               }),
@@ -108,6 +109,139 @@ describe('useReportData', () => {
         total_ot_hours: 3,
         amount: 69.23,
       }),
+    ]);
+  });
+
+  it('does not apply month or year date filters for all-period reports', async () => {
+    const gte = vi.fn();
+    const lte = vi.fn();
+    const order = vi.fn(() => ({ data: [], error: null }));
+    const inFilter = vi.fn(() => ({ order }));
+
+    const { supabase } = await import('@/integrations/supabase/client');
+    (supabase.from as unknown as Mock).mockImplementation((table: string) => {
+      if (table === 'ot_requests') {
+        return {
+          select: () => ({
+            gte,
+            lte,
+            in: inFilter,
+          }),
+        };
+      }
+
+      if (table === 'profiles') {
+        return {
+          select: () => ({ data: [], error: null }),
+        };
+      }
+
+      return { select: () => ({ data: [], error: null }) };
+    });
+
+    const { result } = renderHook(
+      () => useReportData({
+        month: new Date(2026, 4, 1),
+        reportType: 'combined',
+        periodMode: 'all',
+        enabled: true,
+      }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(gte).not.toHaveBeenCalled();
+    expect(lte).not.toHaveBeenCalled();
+    expect(inFilter).toHaveBeenCalledWith('status', ['management_approved']);
+  });
+
+  it('supports all-period filtering for individual company reports', async () => {
+    const otRequests = [
+      {
+        id: 'ot-1',
+        employee_id: 'profile-1',
+        ot_date: '2026-02-10',
+        total_hours: 2,
+        ot_amount: 50,
+        status: 'management_approved',
+      },
+      {
+        id: 'ot-2',
+        employee_id: 'profile-2',
+        ot_date: '2026-04-10',
+        total_hours: 4,
+        ot_amount: 100,
+        status: 'management_approved',
+      },
+    ];
+    const profiles = [
+      {
+        id: 'profile-1',
+        employee_id: 'EMP-001',
+        full_name: 'Ali Ahmad',
+        company_id: 'company-1',
+        department_id: null,
+        position_id: null,
+        departments: null,
+        positions: null,
+        companies: { id: 'company-1', name: 'Company One', code: 'C1', logo_url: null, parent_company_id: null },
+      },
+      {
+        id: 'profile-2',
+        employee_id: 'EMP-002',
+        full_name: 'Siti Aminah',
+        company_id: 'company-2',
+        department_id: null,
+        position_id: null,
+        departments: null,
+        positions: null,
+        companies: { id: 'company-2', name: 'Company Two', code: 'C2', logo_url: null, parent_company_id: null },
+      },
+    ];
+    const gte = vi.fn();
+    const lte = vi.fn();
+
+    const { supabase } = await import('@/integrations/supabase/client');
+    (supabase.from as unknown as Mock).mockImplementation((table: string) => {
+      if (table === 'ot_requests') {
+        return {
+          select: () => ({
+            in: () => ({
+              gte,
+              lte,
+              order: () => ({ data: otRequests, error: null }),
+            }),
+          }),
+        };
+      }
+
+      if (table === 'profiles') {
+        return {
+          select: () => ({ data: profiles, error: null }),
+        };
+      }
+
+      return { select: () => ({ data: [], error: null }) };
+    });
+
+    const { result } = renderHook(
+      () => useReportData({
+        month: new Date(2026, 4, 1),
+        reportType: 'individual',
+        companyId: 'company-1',
+        periodMode: 'all',
+        enabled: true,
+      }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(gte).not.toHaveBeenCalled();
+    expect(lte).not.toHaveBeenCalled();
+    expect(result.current.data?.employees).toEqual([
+      expect.objectContaining({ employee_id: 'profile-1', amount: 50 }),
     ]);
   });
 });

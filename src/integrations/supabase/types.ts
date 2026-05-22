@@ -65,6 +65,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          logo_url: string | null
           name: string
           phone: string | null
           registration_no: string | null
@@ -76,6 +77,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          logo_url?: string | null
           name: string
           phone?: string | null
           registration_no?: string | null
@@ -87,6 +89,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          logo_url?: string | null
           name?: string
           phone?: string | null
           registration_no?: string | null

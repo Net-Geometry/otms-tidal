@@ -27,6 +27,8 @@ export default function OTReports() {
   const [appliedMonth, setAppliedMonth] = useState<string>((currentDate.getMonth() + 1).toString());
   const [appliedYear, setAppliedYear] = useState<string>(currentDate.getFullYear().toString());
   const [selectedCompany, setSelectedCompany] = useState<string>('all');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
+  const [selectedPosition, setSelectedPosition] = useState<string>('all');
 
   const filterDate = useMemo(() => {
     return new Date(parseInt(appliedYear), parseInt(appliedMonth) - 1, 1);
@@ -54,12 +56,30 @@ export default function OTReports() {
     }));
   }, [aggregatedData]);
 
+  const uniqueDepartments = useMemo(() => {
+    return Array.from(new Set(
+      aggregatedData
+        .map(item => item.department)
+        .filter(department => department && department !== 'N/A')
+    )).sort((a, b) => a.localeCompare(b));
+  }, [aggregatedData]);
+
+  const uniquePositions = useMemo(() => {
+    return Array.from(new Set(
+      aggregatedData
+        .map(item => item.position)
+        .filter(position => position && position !== 'N/A')
+    )).sort((a, b) => a.localeCompare(b));
+  }, [aggregatedData]);
+
   const filteredData = aggregatedData.filter(item => {
-    // Company filter
     const matchesCompany = selectedCompany === 'all' || item.company_id === selectedCompany;
+    const matchesDepartment = selectedDepartment === 'all' || item.department === selectedDepartment;
+    const matchesPosition = selectedPosition === 'all' || item.position === selectedPosition;
+    const matchesStructuredFilters = matchesCompany && matchesDepartment && matchesPosition;
 
     // Search filter
-    if (!searchQuery) return matchesCompany;
+    if (!searchQuery) return matchesStructuredFilters;
 
     const query = searchQuery.toLowerCase();
     const matchesSearch = (
@@ -71,7 +91,7 @@ export default function OTReports() {
       item.company_code.toLowerCase().includes(query)
     );
 
-    return matchesCompany && matchesSearch;
+    return matchesStructuredFilters && matchesSearch;
   });
 
   const filteredStats = useMemo(() => {
@@ -310,6 +330,59 @@ export default function OTReports() {
                   <FileText className="mr-2 h-4 w-4" />
                   Export PDF
                 </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Company</label>
+                <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                  <SelectTrigger className="border-input bg-background focus:border-ring focus:ring-ring">
+                    <SelectValue placeholder="All Companies" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50 border shadow-lg">
+                    <SelectItem value="all">All Companies</SelectItem>
+                    {uniqueCompanies.map(company => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name} ({company.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Department</label>
+                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+                  <SelectTrigger className="border-input bg-background focus:border-ring focus:ring-ring">
+                    <SelectValue placeholder="All Departments" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50 border shadow-lg">
+                    <SelectItem value="all">All Departments</SelectItem>
+                    {uniqueDepartments.map(department => (
+                      <SelectItem key={department} value={department}>
+                        {department}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Position</label>
+                <Select value={selectedPosition} onValueChange={setSelectedPosition}>
+                  <SelectTrigger className="border-input bg-background focus:border-ring focus:ring-ring">
+                    <SelectValue placeholder="All Positions" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50 border shadow-lg">
+                    <SelectItem value="all">All Positions</SelectItem>
+                    {uniquePositions.map(position => (
+                      <SelectItem key={position} value={position}>
+                        {position}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

@@ -35,6 +35,7 @@ interface ReportProfile {
     id: string;
     name: string | null;
     code: string | null;
+    logo_url: string | null;
     parent_company_id: string | null;
   } | null;
 }
@@ -43,19 +44,24 @@ interface UseReportDataParams {
   month: Date;
   reportType: 'combined' | 'individual';
   companyId?: string;
+  periodMode?: 'all' | 'month' | 'year';
   enabled?: boolean;
 }
 
-export function useReportData({ month, reportType, companyId, enabled = false }: UseReportDataParams) {
-  const startDate = format(startOfMonth(month), 'yyyy-MM-dd');
-  const endDate = format(endOfMonth(month), 'yyyy-MM-dd');
+export function useReportData({ month, reportType, companyId, periodMode = 'month', enabled = false }: UseReportDataParams) {
+  const startDate = periodMode === 'year'
+    ? format(new Date(month.getFullYear(), 0, 1), 'yyyy-MM-dd')
+    : format(startOfMonth(month), 'yyyy-MM-dd');
+  const endDate = periodMode === 'year'
+    ? format(new Date(month.getFullYear(), 11, 31), 'yyyy-MM-dd')
+    : format(endOfMonth(month), 'yyyy-MM-dd');
 
   return useQuery({
-    queryKey: ['report-data', startDate, endDate, reportType, companyId],
+    queryKey: ['report-data', startDate, endDate, reportType, companyId, periodMode],
     enabled,
     queryFn: async (): Promise<{ employees: ReportEmployee[]; stats: ReportStats }> => {
-      // Fetch approved OT requests for the date range
-      const { data: otRequests, error: otError } = await supabase
+      // Fetch approved OT requests. All-company reports can intentionally cover every period.
+      let otQuery = supabase
         .from('ot_requests')
         .select(`
           id,
@@ -65,10 +71,13 @@ export function useReportData({ month, reportType, companyId, enabled = false }:
           ot_amount,
           status
         `)
-        .gte('ot_date', startDate)
-        .lte('ot_date', endDate)
-        .in('status', ['management_approved'])
-        .order('ot_date', { ascending: false });
+        .in('status', ['management_approved']);
+
+      if (periodMode !== 'all') {
+        otQuery = otQuery.gte('ot_date', startDate).lte('ot_date', endDate);
+      }
+
+      const { data: otRequests, error: otError } = await otQuery.order('ot_date', { ascending: false });
 
       if (otError) throw otError;
 
@@ -84,7 +93,7 @@ export function useReportData({ month, reportType, companyId, enabled = false }:
           position_id,
           departments!profiles_department_id_fkey(name, code),
           positions!profiles_position_id_fkey(title),
-          companies!profiles_company_id_fkey(id, name, code, parent_company_id)
+          companies!profiles_company_id_fkey(id, name, code, logo_url, parent_company_id)
         `);
 
       if (profileError) throw profileError;
