@@ -46,6 +46,7 @@ const SHORT_MONTH_NAMES = [
 export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateReportDialogProps) {
   const [open, setOpen] = useState(false);
   const [reportType, setReportType] = useState<'all_companies' | 'by_company' | 'by_year' | 'by_month'>('all_companies');
+  const [companyPeriodMode, setCompanyPeriodMode] = useState<'all' | 'year' | 'month'>('all');
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
   const [selectedYear, setSelectedYear] = useState(defaultYear);
@@ -54,26 +55,33 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
   const { data: companiesGrouped } = useCompaniesGrouped();
 
   const monthDate = new Date(Number(selectedYear), Number(selectedMonth) - 1, 1);
+  const periodMode = reportType === 'all_companies'
+    ? 'all'
+    : reportType === 'by_company'
+    ? companyPeriodMode
+    : reportType === 'by_year'
+    ? 'year'
+    : 'month';
 
   const { refetch } = useReportData({
     month: monthDate,
     reportType: reportType === 'by_company' ? 'individual' : 'combined',
     companyId: reportType === 'by_company' ? selectedCompanyId : undefined,
-    periodMode: reportType === 'all_companies' || reportType === 'by_company' ? 'all' : reportType === 'by_year' ? 'year' : 'month',
+    periodMode,
     enabled: false,
   });
 
   const parentCompany = companiesGrouped?.parent;
   const reportCompanies = companiesGrouped?.all ?? [];
 
-  const periodLabel = reportType === 'all_companies' || reportType === 'by_company'
+  const periodLabel = periodMode === 'all'
     ? 'All Periods'
-    : reportType === 'by_year'
+    : periodMode === 'year'
     ? selectedYear
     : `${MONTH_NAMES[Number(selectedMonth) - 1]} ${selectedYear}`;
-  const shortPeriodLabel = reportType === 'all_companies' || reportType === 'by_company'
+  const shortPeriodLabel = periodMode === 'all'
     ? 'All_Periods'
-    : reportType === 'by_year'
+    : periodMode === 'year'
     ? selectedYear
     : `${SHORT_MONTH_NAMES[Number(selectedMonth) - 1]}_${selectedYear}`;
 
@@ -86,6 +94,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
   const handleReportTypeChange = useCallback((value: string) => {
     setReportType(value as 'all_companies' | 'by_company' | 'by_year' | 'by_month');
     setSelectedCompanyId('');
+    setCompanyPeriodMode('all');
   }, []);
 
   const handleDownloadPDF = useCallback(async () => {
@@ -294,11 +303,27 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
             </div>
           )}
 
+          {reportType === 'by_company' && (
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Company Period Scope</Label>
+              <Select value={companyPeriodMode} onValueChange={(value) => setCompanyPeriodMode(value as 'all' | 'year' | 'month')}>
+                <SelectTrigger className="border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white text-gray-900 z-[200] border shadow-lg" position="popper" sideOffset={4}>
+                  <SelectItem value="all">All OT so far</SelectItem>
+                  <SelectItem value="year">Filter by year</SelectItem>
+                  <SelectItem value="month">Filter by month and year</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Period */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Period</Label>
             <div className="flex gap-3">
-              <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={reportType === 'all_companies' || reportType === 'by_company' || reportType === 'by_year'}>
+              <Select value={selectedMonth} onValueChange={setSelectedMonth} disabled={periodMode === 'all' || periodMode === 'year'}>
                 <SelectTrigger className="flex-1 border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
                   <SelectValue />
                 </SelectTrigger>
@@ -310,7 +335,7 @@ export function GenerateReportDialog({ defaultMonth, defaultYear }: GenerateRepo
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={selectedYear} onValueChange={setSelectedYear} disabled={reportType === 'all_companies' || reportType === 'by_company'}>
+              <Select value={selectedYear} onValueChange={setSelectedYear} disabled={periodMode === 'all'}>
                 <SelectTrigger className="w-[100px] border-[#E5E7EB] focus:border-[#5F26B4] focus:ring-[#5F26B4]">
                   <SelectValue />
                 </SelectTrigger>
