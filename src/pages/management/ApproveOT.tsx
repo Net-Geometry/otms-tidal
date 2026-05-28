@@ -10,11 +10,8 @@ import { useOTApproval } from '@/hooks/useOTApproval';
 import { useManagementBulkApproval } from '@/hooks/useManagementBulkApproval';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download, Search, Check } from 'lucide-react';
+import { Search, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { exportToXLSX } from '@/lib/xlsxExport';
-import { buildOTManagementExportRows } from '@/lib/otManagementExport';
-import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +34,6 @@ export default function ApproveOT() {
   const [departmentFilter, setDepartmentFilter] = useState<string | null>(null);
   const [selectAll, setSelectAll] = useState(false);
   const [showBulkConfirmation, setShowBulkConfirmation] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
 
   const {
     requests,
@@ -87,149 +83,14 @@ export default function ApproveOT() {
 
   const requestsByTab = filterRequestsByTab(requests || [], activeTab);
   const filteredRequests = requestsByTab?.filter(request => {
-    const requestDate = request.ot_date;
-    if (dateRange?.start && requestDate < dateRange.start) return false;
-    if (dateRange?.end && requestDate > dateRange.end) return false;
-
-    const profile = (request as any).profiles;
-    if (departmentFilter && (profile?.departments as any)?.name !== departmentFilter) return false;
-
     if (!searchQuery) return true;
+    const profile = (request as any).profiles;
     const employeeName = profile?.full_name?.toLowerCase() || '';
     const employeeId = profile?.employee_id?.toLowerCase() || '';
     const department = (profile?.departments as any)?.name?.toLowerCase() || '';
     const query = searchQuery.toLowerCase();
     return employeeName.includes(query) || employeeId.includes(query) || department.includes(query);
   }) || [];
-
-  const handleExportVisibleExcel = async () => {
-    if (filteredRequests.length === 0) {
-      toast({
-        title: 'No data to export',
-        description: 'No OT submissions match the current tab and filters.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const headers = getOTSubmissionExportHeaders();
-    const rows = buildOTManagementExportRows(filteredRequests as any[]);
-    const rangeLabel = dateRange?.start || dateRange?.end
-      ? `${dateRange?.start || 'start'}_to_${dateRange?.end || 'end'}`
-      : activeTab;
-
-    await exportToXLSX(rows, `OT_Management_Submissions_${rangeLabel}`, headers, {
-      reportName: 'OT Management Submissions',
-      period: dateRange?.start || dateRange?.end
-        ? `${dateRange?.start || 'Start'} to ${dateRange?.end || 'End'}`
-        : `Tab: ${activeTab}`,
-      generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
-    });
-
-    toast({
-      title: 'Export generated',
-      description: 'OT submissions Excel file has been downloaded.',
-    });
-  };
-
-  const handleExportAllSubmissionsExcel = async () => {
-    setIsExporting(true);
-    try {
-      let query = supabase
-        .from('ot_requests')
-        .select(`
-          *,
-          profiles!ot_requests_employee_id_fkey(
-            employee_id,
-            full_name,
-            department_id,
-            company_id,
-            departments!profiles_department_id_fkey(name),
-            companies!profiles_company_id_fkey(name, code)
-          )
-        `)
-        .order('ot_date', { ascending: false });
-
-      if (dateRange?.start) {
-        query = query.gte('ot_date', dateRange.start);
-      }
-
-      if (dateRange?.end) {
-        query = query.lte('ot_date', dateRange.end);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const queryText = searchQuery.trim().toLowerCase();
-      const exportRequests = (data || [])
-        .map((request: any) => ({
-          ...request,
-          sessions: [{
-            start_time: request.start_time,
-            end_time: request.end_time,
-            total_hours: request.total_hours,
-          }],
-        }))
-        .filter((request: any) => {
-          const profile = request.profiles;
-          if (departmentFilter && profile?.departments?.name !== departmentFilter) return false;
-          if (!queryText) return true;
-
-          const employeeName = profile?.full_name?.toLowerCase() || '';
-          const employeeId = profile?.employee_id?.toLowerCase() || '';
-          const department = profile?.departments?.name?.toLowerCase() || '';
-          const company = profile?.companies?.name?.toLowerCase() || '';
-          const ticketNumber = request.ticket_number?.toLowerCase() || '';
-
-          return (
-            employeeName.includes(queryText) ||
-            employeeId.includes(queryText) ||
-            department.includes(queryText) ||
-            company.includes(queryText) ||
-            ticketNumber.includes(queryText)
-          );
-        });
-
-      if (exportRequests.length === 0) {
-        toast({
-          title: 'No data to export',
-          description: 'No OT submissions match the current filters.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const headers = getOTSubmissionExportHeaders();
-
-      const rows = buildOTManagementExportRows(exportRequests);
-      const rangeLabel = dateRange?.start || dateRange?.end
-        ? `${dateRange?.start || 'start'}_to_${dateRange?.end || 'end'}`
-        : 'all_periods';
-
-      await exportToXLSX(rows, `OT_All_Submissions_${rangeLabel}`, headers, {
-        reportName: 'All OT Submissions',
-        period: dateRange?.start || dateRange?.end
-          ? `${dateRange?.start || 'Start'} to ${dateRange?.end || 'End'}`
-          : 'All Periods',
-        generatedDate: format(new Date(), 'dd/MM/yyyy HH:mm'),
-      });
-
-      toast({
-        title: 'Export generated',
-        description: 'All OT submissions Excel file has been downloaded.',
-      });
-    } catch (error) {
-      console.error('OT submissions export failed:', error);
-      toast({
-        title: 'Export failed',
-        description: 'Unable to export OT submissions. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
 
   // Smart tab selection based on request status
   useEffect(() => {
@@ -354,26 +215,6 @@ export default function ApproveOT() {
                   </Select>
                 </div>
 
-                <div className="flex justify-end pb-4">
-                  <Button
-                    variant="outline"
-                    onClick={handleExportVisibleExcel}
-                    disabled={isLoading || filteredRequests.length === 0}
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Export Current View Excel
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleExportAllSubmissionsExcel}
-                    disabled={isExporting}
-                    className="ml-2"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    {isExporting ? 'Exporting...' : 'Export All Submissions Excel'}
-                  </Button>
-                </div>
-
                 {/* Select All + Bulk Approve */}
                 {activeTab === 'pending' && filteredRequests.length > 0 && (
                   <div className="flex items-center gap-4 pb-4 bg-blue-50 dark:bg-slate-900 p-4 rounded-lg border border-blue-200 dark:border-slate-700">
@@ -484,27 +325,4 @@ export default function ApproveOT() {
       </Dialog>
     </AppLayout>
   );
-}
-
-function getOTSubmissionExportHeaders() {
-  return [
-    { key: 'ticket_number', label: 'Ticket #' },
-    { key: 'employee_no', label: 'Employee No.' },
-    { key: 'employee_name', label: 'Employee Name' },
-    { key: 'company', label: 'Company' },
-    { key: 'department', label: 'Department' },
-    { key: 'ot_date', label: 'OT Date' },
-    { key: 'sessions', label: 'Submitted OT Sessions' },
-    { key: 'total_hours', label: 'Total OT Hours' },
-    { key: 'ot_amount', label: 'OT Amount (RM)' },
-    { key: 'current_status', label: 'Current Status' },
-    { key: 'included_in_claim', label: 'Included In Claim' },
-    { key: 'claim_amount', label: 'Claim Amount (RM)' },
-    { key: 'supervisor_date', label: 'Supervisor Date' },
-    { key: 'respective_supervisor_date', label: 'Respective Supervisor Date' },
-    { key: 'hr_certified_date', label: 'HR Certified Date' },
-    { key: 'management_approved_date', label: 'Management Approved Date' },
-    { key: 'rejection_stage', label: 'Rejection Stage' },
-    { key: 'remarks', label: 'Remarks' },
-  ];
 }
