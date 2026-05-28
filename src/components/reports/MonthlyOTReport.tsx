@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { endOfMonth, format, startOfMonth } from 'date-fns';
 import { Building2, Clock, DollarSign, Download, Filter, Search, Users } from 'lucide-react';
@@ -386,6 +386,10 @@ function AllSubmissionsTable({ rows, isLoading }: { rows: ReturnType<typeof buil
   const safePage = Math.min(currentPage, totalPages);
   const startIndex = (safePage - 1) * pageSize;
   const pageRows = rows.slice(startIndex, startIndex + pageSize);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [rows]);
 
   if (isLoading) return <div className="text-center py-8 text-muted-foreground">Loading submissions...</div>;
   if (rows.length === 0) return <div className="text-center py-12 text-muted-foreground">No OT submissions found for the selected filters.</div>;
