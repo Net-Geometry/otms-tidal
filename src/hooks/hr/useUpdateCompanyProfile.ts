@@ -10,6 +10,14 @@ interface UpdateCompanyProfileData {
   logo_url?: string;
 }
 
+export interface UpdateCompanyData {
+  name?: string;
+  registration_no?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  logo_url?: string | null;
+}
+
 export function useUpdateCompanyProfile() {
   const queryClient = useQueryClient();
 
@@ -67,6 +75,36 @@ export function useUpdateCompanyProfile() {
   });
 }
 
+export function useUpdateCompany() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ companyId, data }: { companyId: string; data: UpdateCompanyData }) => {
+      const { data: company, error } = await supabase
+        .from('companies')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', companyId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return company;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      toast.success('Company updated successfully');
+    },
+    onError: (error: Error) => {
+      toast.error('Failed to update company', {
+        description: error.message,
+      });
+    },
+  });
+}
+
 export async function uploadCompanyLogo(file: File): Promise<string> {
   const fileExt = file.name.split('.').pop();
   const fileName = `logo-${Date.now()}.${fileExt}`;
@@ -83,6 +121,27 @@ export async function uploadCompanyLogo(file: File): Promise<string> {
   if (uploadError) throw uploadError;
 
   // Get public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('company-assets')
+    .getPublicUrl(filePath);
+
+  return publicUrl;
+}
+
+export async function uploadCompanyLogoForCompany(companyId: string, file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `logo-${Date.now()}.${fileExt}`;
+  const filePath = `companies/${companyId}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('company-assets')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (uploadError) throw uploadError;
+
   const { data: { publicUrl } } = supabase.storage
     .from('company-assets')
     .getPublicUrl(filePath);

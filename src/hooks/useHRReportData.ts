@@ -16,16 +16,22 @@ interface EmployeeOTSummary {
   monthly_total: number;
 }
 
-export function useHRReportData(selectedMonth?: Date) {
+type ReportPeriodMode = 'all' | 'year' | 'month';
+
+export function useHRReportData(selectedMonth?: Date, periodMode: ReportPeriodMode = 'month') {
   const month = selectedMonth || new Date();
-  const startDate = format(startOfMonth(month), 'yyyy-MM-dd');
-  const endDate = format(endOfMonth(month), 'yyyy-MM-dd');
+  const startDate = periodMode === 'year'
+    ? format(new Date(month.getFullYear(), 0, 1), 'yyyy-MM-dd')
+    : format(startOfMonth(month), 'yyyy-MM-dd');
+  const endDate = periodMode === 'year'
+    ? format(new Date(month.getFullYear(), 11, 31), 'yyyy-MM-dd')
+    : format(endOfMonth(month), 'yyyy-MM-dd');
 
   return useQuery({
-    queryKey: ['hr-report', startDate, endDate],
+    queryKey: ['hr-report', startDate, endDate, periodMode],
     queryFn: async () => {
       // Fetch OT requests
-      const { data, error } = await supabase
+      let otQuery = supabase
         .from('ot_requests')
         .select(`
           id,
@@ -36,10 +42,13 @@ export function useHRReportData(selectedMonth?: Date) {
           status,
           threshold_violations
         `)
-        .gte('ot_date', startDate)
-        .lte('ot_date', endDate)
-        .in('status', ['management_approved'])
-        .order('ot_date', { ascending: false });
+        .in('status', ['management_approved']);
+
+      if (periodMode !== 'all') {
+        otQuery = otQuery.gte('ot_date', startDate).lte('ot_date', endDate);
+      }
+
+      const { data, error } = await otQuery.order('ot_date', { ascending: false });
 
       if (error) throw error;
 
